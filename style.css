@@ -1,0 +1,145 @@
+:root {
+  --bg: #121214;
+  --fg: #e6e4dc;
+  --muted: #8b8a82;
+  --accent: #c8b89c;
+  --rule: #2a2a2e;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Hiragino Mincho ProN", "游明朝", "YuMincho", "Noto Serif JP", serif;
+  line-height: 1.95;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 6rem;
+}
+
+header {
+  margin-bottom: 3.5rem;
+}
+
+h1 {
+  font-weight: 300;
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.6rem;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.poems {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.poems li {
+  border-top: 1px solid var(--rule);
+  padding: 1.1rem 0;
+}
+
+.poems li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.poems a {
+  color: var(--fg);
+  text-decoration: none;
+  display: block;
+}
+
+.poems a:hover .title { color: var(--accent); }
+
+.title {
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  transition: color 0.2s;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+  letter-spacing: 0.06em;
+}
+
+article h2 {
+  font-weight: 300;
+  font-size: 1.4rem;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.4rem;
+}
+
+article .when {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0 0 2.2rem;
+  letter-spacing: 0.08em;
+}
+
+article .stanza {
+  margin: 1.6rem 0;
+}
+
+article hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 1.8rem 0;
+}
+
+article p {
+  margin: 0.4rem 0;
+  white-space: pre-wrap;
+}
+
+article .section-num {
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  margin: 1.2rem 0 0.4rem;
+}
+
+article .note {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.88rem;
+  margin-top: 2rem;
+}
+
+nav.back {
+  margin-top: 4rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 1.5rem;
+}
+
+nav.back a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+}
+
+nav.back a:hover { color: var(--accent); }
+
+footer {
+  margin-top: 5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
