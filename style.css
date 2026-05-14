@@ -42,10 +42,23 @@ h1 {
   margin: 0;
 }
 
+h2.section {
+  font-weight: 300;
+  font-size: 0.82rem;
+  color: var(--muted);
+  letter-spacing: 0.28em;
+  margin: 2.4rem 0 0.6rem;
+  padding-left: 0.2em;
+}
+
+h2.section:first-of-type {
+  margin-top: 0.5rem;
+}
+
 .poems {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 1rem;
 }
 
 .poems li {

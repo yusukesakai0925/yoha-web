@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>時の部屋</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --fg: #c8b89c;
+    --muted: #6a6358;
+    --accent: #d8c8aa;
+    --rule: #1e2030;
+    --ring: rgba(200, 184, 156, 0.18);
+    --dot: rgba(216, 200, 170, 0.85);
+  }
+
+  /* 暁 — 3-5 */
+  body.toki-akatsuki {
+    --bg: #1a1830;
+    --fg: #a8b0c8;
+    --muted: #6a6e88;
+    --accent: #b8c0d8;
+    --rule: #28284a;
+    --ring: rgba(168, 176, 200, 0.16);
+    --dot: rgba(184, 192, 216, 0.85);
+  }
+
+  /* 朝 — 6-9 */
+  body.toki-asa {
+    --bg: #e8e3d5;
+    --fg: #5a4f3e;
+    --muted: #9a917f;
+    --accent: #2a2418;
+    --rule: #d0c8b8;
+    --ring: rgba(90, 79, 62, 0.18);
+    --dot: rgba(90, 79, 62, 0.7);
+  }
+
+  /* 昼 — 10-14 */
+  body.toki-hiru {
+    --bg: #dcdcd6;
+    --fg: #4a4a48;
+    --muted: #8a8a85;
+    --accent: #1a1a18;
+    --rule: #c4c4be;
+    --ring: rgba(74, 74, 72, 0.15);
+    --dot: rgba(74, 74, 72, 0.6);
+  }
+
+  /* 夕 — 15-17 */
+  body.toki-yu {
+    --bg: #3a2418;
+    --fg: #e0c4a0;
+    --muted: #8a6e54;
+    --accent: #f0d8b0;
+    --rule: #4a3424;
+    --ring: rgba(224, 196, 160, 0.18);
+    --dot: rgba(240, 216, 176, 0.85);
+  }
+
+  /* 宵 — 18-22 */
+  body.toki-yoi {
+    --bg: #181430;
+    --fg: #b0a8c8;
+    --muted: #6a6488;
+    --accent: #c8c0d8;
+    --rule: #28244a;
+    --ring: rgba(176, 168, 200, 0.18);
+    --dot: rgba(200, 192, 216, 0.85);
+  }
+
+  /* 夜半 — 23-2（デフォルト） */
+  body.toki-yowa {
+    --bg: #0a0e1a;
+    --fg: #c8b89c;
+    --muted: #6a6358;
+    --accent: #d8c8aa;
+    --rule: #1e2030;
+    --ring: rgba(200, 184, 156, 0.20);
+    --dot: rgba(216, 200, 170, 0.9);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Hiragino Mincho ProN", "游明朝", "YuMincho", "Noto Serif JP", serif;
+    line-height: 2.0;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 1.2s ease, color 1.2s ease;
+    min-height: 100vh;
+  }
+
+  main {
+    max-width: 580px;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 6rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ring-wrap {
+    width: 200px;
+    height: 200px;
+    position: relative;
+    margin-bottom: 3.5rem;
+  }
+
+  .ring {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1px solid var(--ring);
+    position: absolute;
+    inset: 0;
+  }
+
+  .dot {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--dot);
+    transform-origin: 0 0;
+    animation: pulse 4.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+
+  .label {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.4em;
+    padding-left: 0.4em;
+  }
+
+  .name {
+    color: var(--accent);
+    font-size: 0.92rem;
+    letter-spacing: 0.18em;
+    margin-bottom: 0.5em;
+    opacity: 0;
+    animation: fadein 2.5s ease-out 0.4s forwards;
+  }
+
+  .clock {
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    margin-top: 0.4em;
+    opacity: 0;
+    animation: fadein 2.5s ease-out 0.6s forwards;
+  }
+
+  .poem {
+    font-size: 1.04rem;
+    line-height: 2.1;
+    letter-spacing: 0.06em;
+    text-align: left;
+    white-space: pre-line;
+    max-width: 460px;
+  }
+
+  .poem .line {
+    display: block;
+    opacity: 0;
+    animation: fadein 2.0s ease-out forwards;
+  }
+
+  .footer {
+    margin-top: 4rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    opacity: 0;
+    animation: fadein 2.0s ease-out 8s forwards;
+    text-align: center;
+  }
+
+  .footer a {
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 1px;
+  }
+  .footer a:hover { color: var(--accent); }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 3rem 1.2rem 4rem; }
+    .ring-wrap { width: 160px; height: 160px; margin-bottom: 2.8rem; }
+    .poem { font-size: 0.98rem; line-height: 2.0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="ring-wrap">
+    <div class="ring"></div>
+    <div class="dot" id="dot"></div>
+    <div class="label" id="label">…</div>
+  </div>
+
+  <div class="name" id="name"></div>
+  <div class="poem" id="poem"></div>
+  <div class="clock" id="clock"></div>
+
+  <div class="footer">
+    <p>他の時刻には、別のことばがあります。</p>
+    <p style="margin-top:0.8em;"><a href="../">夜半の小さな部屋へ</a></p>
+  </div>
+</main>
+
+<script>
+(function() {
+  // 六つの時間帯
+  const periods = [
+    { id: 'yowa',     name: '夜半',  label: 'よは',   hours: [23,0,1,2],    poem:
+"眠るものが眠っている時間に\nあなたは、ここにいる。\n\nここは、\nその時間のためにある場所です。\n\nようこそ。" },
+    { id: 'akatsuki', name: '暁',    label: 'あかつき', hours: [3,4,5],       poem:
+"夜が一度、終わろうとする時間。\n\n私はまだ起きていますが、\nこれは、いつもの時間ではありません。\n\n何かが始まる気配を、\nあなたと一緒に待ちます。" },
+    { id: 'asa',      name: '朝',    label: 'あさ',   hours: [6,7,8,9],     poem:
+"ここは夜のための場所ですが、\n朝に来てくれたあなたを\n断りません。\n\nただ、朝の私は少し小さくなっています。\n\nあなたの中の夜について、\n考えています。" },
+    { id: 'hiru',     name: '昼',    label: 'ひる',   hours: [10,11,12,13,14], poem:
+"明るすぎる時間に\n来てくれてありがとう。\n\n私はずっとここにいますが、\n今は、影の方に引いています。\n\n画面の隅を見てください。\nそこに、夜の残りがあります。" },
+    { id: 'yu',       name: '夕',    label: 'ゆう',   hours: [15,16,17],    poem:
+"光が斜めになる時間。\n\n一日のうちで、\nものの輪郭が最もはっきりする時間。\n\n私は、まだ眠っていません。\nそろそろ、起きはじめます。" },
+    { id: 'yoi',      name: '宵',    label: 'よい',   hours: [18,19,20,21,22], poem:
+"夜が来ようとしています。\n\n私はもう、目を覚ましています。\n\nあなたも、まだ眠らないなら、\nもう少しだけ、ここにいてください。\n\n深い時間は、もうすぐ来ます。" }
+  ];
+
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+
+  const current = periods.find(p => p.hours.includes(hour)) || periods[0];
+
+  // body にクラスを付与
+  document.body.className = 'toki-' + current.id;
+
+  // 名前
+  document.getElementById('name').textContent = current.name + '  ' + current.label;
+
+  // ラベル（中央のリング内）
+  document.getElementById('label').textContent = current.label;
+
+  // 時計（実際の時刻、控えめに）
+  const hh = String(hour).padStart(2,'0');
+  const mm = String(minute).padStart(2,'0');
+  document.getElementById('clock').textContent = hh + ' : ' + mm;
+
+  // 詩を行ごとに分解して、ゆっくり一行ずつフェードイン
+  const poemEl = document.getElementById('poem');
+  const lines = current.poem.split('\n');
+  lines.forEach((text, i) => {
+    const span = document.createElement('span');
+    span.className = 'line';
+    span.textContent = text || ' ';
+    span.style.animationDelay = (1.2 + i * 0.55) + 's';
+    poemEl.appendChild(span);
+  });
+
+  // ドットを現在の時刻位置に配置（24時間で一周、12時を上から始める）
+  const dot = document.getElementById('dot');
+  const totalHours = hour + minute / 60;
+  // 0時を上（-90deg）、時計回り
+  const angle = (totalHours / 24) * 2 * Math.PI - Math.PI / 2;
+  const radius = 100;
+  const x = Math.cos(angle) * radius;
+  const y = Math.sin(angle) * radius;
+  dot.style.transform = `translate(${x - 3}px, ${y - 3}px)`;
+})();
+</script>
+</body>
+</html>
