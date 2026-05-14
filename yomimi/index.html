@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>夜耳</title>
+<style>
+  :root {
+    --bg: #050608;
+    --fg: #b8a890;
+    --muted: #4a4438;
+    --accent: #d4c098;
+    --ring: rgba(212, 192, 152, 0.10);
+    --dot: rgba(212, 192, 152, 0.78);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: background 4s ease;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 中央の点 */
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dot);
+    box-shadow:
+      0 0 12px var(--ring),
+      0 0 32px var(--ring);
+    transition: transform 0.6s ease, opacity 0.8s ease;
+  }
+
+  body.listening .dot {
+    animation: breathe 6.2s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.6); opacity: 0.95; }
+  }
+
+  /* 外側のリング群（聞きだしてから現れる） */
+  .ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    border: 1px solid var(--ring);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  body.listening .ring {
+    animation: pulse 8s ease-out infinite;
+  }
+  body.listening .ring:nth-child(2) { animation-delay: 0s; }
+  body.listening .ring:nth-child(3) { animation-delay: 2.6s; }
+  body.listening .ring:nth-child(4) { animation-delay: 5.2s; }
+
+  @keyframes pulse {
+    0%   { width: 12px; height: 12px; opacity: 0.5; }
+    100% { width: 480px; height: 480px; opacity: 0; }
+  }
+
+  /* 開始前の案内 */
+  .invite {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, calc(-50% + 60px));
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.9;
+    transition: opacity 1.2s ease;
+    cursor: pointer;
+    user-select: none;
+    padding: 18px 26px;
+  }
+  .invite .small {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 6px;
+  }
+  body.listening .invite { opacity: 0; pointer-events: none; }
+
+  /* タイトル（聞きだしてから現れる） */
+  .title {
+    position: absolute;
+    bottom: 28px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    letter-spacing: 0.55em;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 3s ease;
+  }
+  body.listening .title { opacity: 0.55; }
+
+  /* 帰り道リンク */
+  .back {
+    position: absolute;
+    top: 18px; left: 18px;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    transition: opacity 0.4s ease;
+  }
+  .back:hover { opacity: 0.9; }
+
+  /* 時々浮かぶ短い句（書きすぎないため、控えめに） */
+  .whisper {
+    position: absolute;
+    color: var(--fg);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 3.5s ease;
+    white-space: nowrap;
+  }
+  .whisper.show { opacity: 0.35; }
+</style>
+</head>
+<body>
+<a href="../" class="back">← もどる</a>
+
+<div class="stage">
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="ring"></div>
+  <div class="dot" id="dot"></div>
+
+  <div class="invite" id="invite">
+    クリックすると、音が始まります<br>
+    <span class="small">（音量にご注意ください。ヘッドフォン推奨）</span>
+  </div>
+
+  <div class="whisper" id="whisper"></div>
+
+  <div class="title">夜　耳</div>
+</div>
+
+<script>
+(() => {
+  const invite = document.getElementById('invite');
+  const whisper = document.getElementById('whisper');
+
+  let ctx = null;
+  let started = false;
+
+  // 短い句たち。長い時間で時々浮かぶ。
+  const whispers = [
+    "聞こえているのは、たぶん、いま",
+    "眠っているものの呼吸",
+    "雨ではない何か",
+    "遠くの、戻ってこないもの",
+    "時計だけが正確で、それも嘘かもしれない",
+    "閉じた目の裏にある音",
+    "ここに居ない人の足音の記憶",
+    "夜の真ん中で、空気が薄くなる",
+  ];
+
+  function start() {
+    if (started) return;
+    started = true;
+    document.body.classList.add('listening');
+
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // ===== マスター =====
+    const master = ctx.createGain();
+    master.gain.value = 0.0;
+    master.connect(ctx.destination);
+    // フェードイン
+    master.gain.linearRampToValueAtTime(0.65, ctx.currentTime + 6);
+
+    // ===== ベース: ブラウンノイズ（風 / 部屋のざわめき） =====
+    const noiseBuf = makeBrownNoise(ctx, 4);
+    const noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuf;
+    noiseSrc.loop = true;
+
+    const noiseLP = ctx.createBiquadFilter();
+    noiseLP.type = 'lowpass';
+    noiseLP.frequency.value = 380;
+    noiseLP.Q.value = 0.5;
+
+    const noiseHP = ctx.createBiquadFilter();
+    noiseHP.type = 'highpass';
+    noiseHP.frequency.value = 40;
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.55;
+
+    noiseSrc.connect(noiseHP);
+    noiseHP.connect(noiseLP);
+    noiseLP.connect(noiseGain);
+    noiseGain.connect(master);
+    noiseSrc.start();
+
+    // フィルタを呼吸のようにゆっくり動かす（風がうねる感覚）
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.07; // 約14秒周期
+    lfoGain.gain.value = 120;
+    lfo.connect(lfoGain);
+    lfoGain.connect(noiseLP.frequency);
+    lfo.start();
+
+    // ===== 低音ドローン（眠るものの呼吸） =====
+    const droneA = ctx.createOscillator();
+    droneA.type = 'sine';
+    droneA.frequency.value = 55;
+    const droneB = ctx.createOscillator();
+    droneB.type = 'sine';
+    droneB.frequency.value = 55.4; // わずかにビート
+    const droneGain = ctx.createGain();
+    droneGain.gain.value = 0.10;
+
+    // 呼吸のように音量を上下
+    const droneLFO = ctx.createOscillator();
+    const droneLFOG = ctx.createGain();
+    droneLFO.frequency.value = 0.16; // 約6秒で一呼吸
+    droneLFOG.gain.value = 0.045;
+    droneLFO.connect(droneLFOG);
+    droneLFOG.connect(droneGain.gain);
+
+    droneA.connect(droneGain);
+    droneB.connect(droneGain);
+    droneGain.connect(master);
+    droneA.start();
+    droneB.start();
+    droneLFO.start();
+
+    // ===== 時計のような「カチッ」（不規則間隔） =====
+    function scheduleTick() {
+      const wait = 4 + Math.random() * 14;
+      setTimeout(() => {
+        playClick();
+        if (started) scheduleTick();
+      }, wait * 1000);
+    }
+    function playClick() {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 2600 + Math.random() * 600;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 3800;
+      osc.connect(lp);
+      lp.connect(g);
+      g.connect(master);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    }
+    scheduleTick();
+
+    // ===== 遠くの水滴（低めの正弦のごく短いポン） =====
+    function scheduleDrop() {
+      const wait = 25 + Math.random() * 75;
+      setTimeout(() => {
+        playDrop();
+        if (started) scheduleDrop();
+      }, wait * 1000);
+    }
+    function playDrop() {
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      const startF = 220 + Math.random() * 120;
+      osc.frequency.setValueAtTime(startF, t);
+      osc.frequency.exponentialRampToValueAtTime(startF * 0.65, t + 0.4);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.10, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(t);
+      osc.stop(t + 0.8);
+    }
+    scheduleDrop();
+
+    // ===== 遠雷 / 遠い暗渠（ごく稀に） =====
+    function scheduleFar() {
+      const wait = 90 + Math.random() * 180;
+      setTimeout(() => {
+        playFar();
+        if (started) scheduleFar();
+      }, wait * 1000);
+    }
+    function playFar() {
+      const t = ctx.currentTime;
+      const buf = makeBrownNoise(ctx, 3);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 120;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.30, t + 1.2);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 3.0);
+      src.connect(lp);
+      lp.connect(g);
+      g.connect(master);
+      src.start(t);
+      src.stop(t + 3.2);
+    }
+    scheduleFar();
+
+    // ===== ささやき（文字の浮かび上がり） =====
+    function scheduleWhisper() {
+      const wait = 14 + Math.random() * 22;
+      setTimeout(() => {
+        showWhisper();
+        if (started) scheduleWhisper();
+      }, wait * 1000);
+    }
+    function showWhisper() {
+      const text = whispers[Math.floor(Math.random() * whispers.length)];
+      whisper.textContent = text;
+      // 位置をランダムに（中央付近）
+      const x = 18 + Math.random() * 64; // %
+      const y = 22 + Math.random() * 56; // %
+      whisper.style.left = x + '%';
+      whisper.style.top = y + '%';
+      whisper.style.transform = 'translate(-50%, -50%)';
+      whisper.classList.add('show');
+      setTimeout(() => {
+        whisper.classList.remove('show');
+      }, 6500);
+    }
+    setTimeout(scheduleWhisper, 12000);
+  }
+
+  // クリックで開始
+  document.addEventListener('click', start, { once: false });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === ' ' || e.key === 'Enter') start();
+  });
+
+  // ===== ブラウンノイズ生成 =====
+  function makeBrownNoise(ctx, seconds) {
+    const len = ctx.sampleRate * seconds;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.02 * white) / 1.02;
+      data[i] = last * 3.5;
+    }
+    return buf;
+  }
+})();
+</script>
+</body>
+</html>
