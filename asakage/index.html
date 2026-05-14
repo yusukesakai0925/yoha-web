@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>朝影 — 夜半</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: #f4efe4;
+    overflow: hidden;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "MS PMincho", serif;
+    color: #2a2418;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .back {
+    position: fixed;
+    top: 20px; left: 22px;
+    font-size: 12px;
+    color: #8a8170;
+    text-decoration: none;
+    letter-spacing: 0.10em;
+    z-index: 10;
+  }
+  .back:hover { color: #2a2418; }
+  .stage {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  .title {
+    position: fixed;
+    bottom: 44px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.9em;
+    text-indent: 0.9em;
+    color: #6e6655;
+    z-index: 5;
+    user-select: none;
+  }
+  .status {
+    position: fixed;
+    bottom: 22px;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 10.5px;
+    color: #a89e89;
+    letter-spacing: 0.20em;
+    z-index: 5;
+    user-select: none;
+  }
+  .note {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 13.5px;
+    color: #b8ae99;
+    letter-spacing: 0.18em;
+    text-align: center;
+    line-height: 2.3;
+    z-index: 4;
+    max-width: 28em;
+    user-select: none;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+  }
+  .note.show { opacity: 1; }
+  .caption {
+    position: fixed;
+    top: 22px; right: 22px;
+    font-size: 10.5px;
+    color: #a89e89;
+    letter-spacing: 0.18em;
+    z-index: 5;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 480px) {
+    .title { font-size: 11px; letter-spacing: 0.6em; text-indent: 0.6em; bottom: 36px; }
+    .status { font-size: 10px; bottom: 16px; }
+    .note { font-size: 12.5px; line-height: 2.1; letter-spacing: 0.14em; }
+    .caption { font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="stage"><canvas id="stage"></canvas></div>
+<div id="note" class="note"></div>
+<div class="caption" id="caption"></div>
+<div class="title">朝　影</div>
+<div class="status" id="status"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ----- 朝の時刻（04:30 から 09:00 まで） -----
+  function checkAsa(date) {
+    const h = date.getHours();
+    const m = date.getMinutes();
+    const minutes = h * 60 + m;
+    return minutes >= 4 * 60 + 30 && minutes < 9 * 60;
+  }
+
+  function formatClock(date) {
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
+
+  const status = document.getElementById('status');
+  const note = document.getElementById('note');
+  const caption = document.getElementById('caption');
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const now0 = new Date();
+  const isAsa = checkAsa(now0);
+  caption.textContent = formatClock(now0);
+  setInterval(() => { caption.textContent = formatClock(new Date()); }, 30000);
+
+  if (!isAsa) {
+    status.textContent = 'いま、朝ではありません';
+    note.innerHTML =
+      '朝の影は、朝にだけ通ります。<br>' +
+      '<span style="opacity:.7; font-size:.88em;">' +
+      '夜半は朝を見ることができないので、<br>影だけを置いています。' +
+      '</span>';
+    setTimeout(() => note.classList.add('show'), 200);
+    return;
+  }
+
+  status.textContent = 'いま、朝の影が通っています';
+
+  // ----- 影の種類 -----
+  // 「触れずに見る」朝。夜半は朝そのものを描かない。朝が連れてくる存在の影だけ。
+  const kinds = [
+    { name: 'tori',     speed: 360, draw: drawTori,     yFrac: [0.16, 0.40], size: [22, 32], alpha: [0.11, 0.16] },
+    { name: 'ha',       speed:  90, draw: drawHa,       yFrac: [0.18, 0.62], size: [14, 22], alpha: [0.09, 0.14] },
+    { name: 'kumo',     speed:  34, draw: drawKumo,     yFrac: [0.06, 0.28], size: [180, 280], alpha: [0.05, 0.08] },
+    { name: 'hito',     speed:  62, draw: drawHito,     yFrac: [0.60, 0.78], size: [40, 56], alpha: [0.10, 0.15] },
+    { name: 'inu',      speed: 122, draw: drawInu,      yFrac: [0.76, 0.90], size: [30, 42], alpha: [0.10, 0.15] },
+    { name: 'jitensha', speed: 220, draw: drawJitensha, yFrac: [0.66, 0.82], size: [44, 58], alpha: [0.11, 0.16] }
+  ];
+
+  const active = [];
+  // 最初の影は短く（800〜1800ms 後）、以降は 60〜180 秒間隔
+  let nextSpawnAt = performance.now() + 800 + Math.random() * 1000;
+  let firstSpawnDone = false;
+
+  function scheduleNext(now) {
+    const gap = (firstSpawnDone ? 60000 + Math.random() * 120000 : 8000 + Math.random() * 8000);
+    nextSpawnAt = now + gap;
+  }
+
+  function pickKind() {
+    // 雲はやや希少、ほかは均等
+    const r = Math.random();
+    if (r < 0.10) return kinds[2]; // kumo
+    const others = [kinds[0], kinds[1], kinds[3], kinds[4], kinds[5]];
+    return others[Math.floor(Math.random() * others.length)];
+  }
+
+  function spawn(now) {
+    const kind = pickKind();
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const size = kind.size[0] + Math.random() * (kind.size[1] - kind.size[0]);
+    const y = (kind.yFrac[0] + Math.random() * (kind.yFrac[1] - kind.yFrac[0])) * H;
+    const speed = kind.speed * (0.85 + Math.random() * 0.30);
+    const alpha = kind.alpha[0] + Math.random() * (kind.alpha[1] - kind.alpha[0]);
+    const startX = dir > 0 ? -size * 2 : W + size * 2;
+    active.push({
+      kind, x: startX, y, size, speed, dir,
+      born: now,
+      phase: Math.random() * Math.PI * 2,
+      alpha
+    });
+  }
+
+  // ----- 影の描画関数（黒一色、アルファのみ） -----
+  function drawTori(o, t) {
+    const flap = Math.sin((t - o.born) * 0.010 + o.phase) * 0.5;
+    const s = o.size;
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.quadraticCurveTo(o.x - s * 0.40 * o.dir, o.y - s * (0.45 + flap * 0.45), o.x - s * 0.95 * o.dir, o.y);
+    ctx.quadraticCurveTo(o.x - s * 0.40 * o.dir, o.y + s * 0.06, o.x, o.y);
+    ctx.moveTo(o.x, o.y);
+    ctx.quadraticCurveTo(o.x + s * 0.40 * o.dir, o.y - s * (0.45 + flap * 0.45), o.x + s * 0.95 * o.dir, o.y);
+    ctx.quadraticCurveTo(o.x + s * 0.40 * o.dir, o.y + s * 0.06, o.x, o.y);
+    ctx.fill();
+  }
+
+  function drawHa(o, t) {
+    const s = o.size;
+    const sway = Math.sin((t - o.born) * 0.0018 + o.phase) * 0.35;
+    ctx.save();
+    ctx.translate(o.x, o.y + sway * 12);
+    ctx.rotate((t - o.born) * 0.0018 + o.phase);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s, s * 0.40, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawKumo(o) {
+    const s = o.size;
+    ctx.beginPath();
+    ctx.ellipse(o.x, o.y, s * 0.55, s * 0.20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x - s * 0.26, o.y + s * 0.04, s * 0.30, s * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x + s * 0.28, o.y + s * 0.03, s * 0.32, s * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x + s * 0.05, o.y - s * 0.06, s * 0.22, s * 0.10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawHito(o, t) {
+    const s = o.size;
+    const walk = Math.sin((t - o.born) * 0.010 + o.phase) * 0.18;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y - s * 0.85, s * 0.17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x, o.y - s * 0.42, s * 0.19, s * 0.40, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x - s * 0.09, o.y + s * 0.08, s * 0.10, s * 0.30 - walk * s * 0.10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x + s * 0.09, o.y + s * 0.08, s * 0.10, s * 0.30 + walk * s * 0.10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawInu(o, t) {
+    const s = o.size;
+    const hop = Math.abs(Math.sin((t - o.born) * 0.008 + o.phase)) * s * 0.30;
+    const y = o.y - hop;
+    ctx.beginPath();
+    ctx.ellipse(o.x, y, s * 0.55, s * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(o.x + s * 0.50 * o.dir, y - s * 0.10, s * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(o.x - s * 0.55 * o.dir, y - s * 0.06, s * 0.22, s * 0.07, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 4; i++) {
+      const px = o.x + (i - 1.5) * s * 0.24;
+      ctx.beginPath();
+      ctx.ellipse(px, y + s * 0.16, s * 0.05, s * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawJitensha(o) {
+    const s = o.size;
+    ctx.beginPath();
+    ctx.arc(o.x - s * 0.35, o.y, s * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(o.x + s * 0.35, o.y, s * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(o.x - s * 0.35, o.y - s * 0.06, s * 0.70, s * 0.06);
+    ctx.beginPath();
+    ctx.ellipse(o.x, o.y - s * 0.42, s * 0.15, s * 0.30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(o.x, o.y - s * 0.80, s * 0.13, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ----- ループ -----
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+
+    ctx.clearRect(0, 0, W, H);
+
+    for (let i = active.length - 1; i >= 0; i--) {
+      const o = active[i];
+      o.x += o.speed * o.dir * dt;
+      ctx.fillStyle = 'rgba(28, 26, 23, ' + o.alpha.toFixed(3) + ')';
+      o.kind.draw(o, now);
+      if ((o.dir > 0 && o.x > W + o.size * 3) ||
+          (o.dir < 0 && o.x < -o.size * 3)) {
+        active.splice(i, 1);
+      }
+    }
+
+    if (now >= nextSpawnAt) {
+      spawn(now);
+      if (!firstSpawnDone && active.length >= 2) firstSpawnDone = true;
+      scheduleNext(now);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
