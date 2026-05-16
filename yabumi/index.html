@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>夜文（やぶみ） — 夜半</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: #0a0d18;
+    overflow: hidden;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "MS PMincho", serif;
+    color: #cbd0dc;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a, a:visited { color: inherit; }
+  .back {
+    position: fixed;
+    top: 20px; left: 22px;
+    font-size: 12px;
+    color: #6d7280;
+    text-decoration: none;
+    letter-spacing: 0.10em;
+    z-index: 50;
+  }
+  .back:hover { color: #cbd0dc; }
+  .stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .letter {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    color: #cbd0dc;
+    font-size: 14px;
+    line-height: 1.7;
+    letter-spacing: 0.04em;
+    text-align: center;
+    max-width: 60vw;
+    pointer-events: none;
+    white-space: pre-wrap;
+    transition: opacity 1.6s ease-out, transform 2.4s ease-out;
+  }
+  .panel {
+    position: fixed;
+    left: 50%;
+    bottom: 8vh;
+    transform: translateX(-50%);
+    width: min(540px, 86vw);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .field {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(203, 208, 220, 0.25);
+    color: #e6e8ef;
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: 0.04em;
+    padding: 10px 4px;
+    outline: none;
+    resize: none;
+    text-align: center;
+    transition: border-color 0.4s ease;
+  }
+  .field:focus { border-bottom-color: rgba(203, 208, 220, 0.6); }
+  .field::placeholder { color: #4f5460; }
+  .send {
+    background: transparent;
+    border: 1px solid rgba(203, 208, 220, 0.3);
+    color: #cbd0dc;
+    font-family: inherit;
+    font-size: 13px;
+    letter-spacing: 0.20em;
+    padding: 8px 22px;
+    cursor: pointer;
+    transition: color 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+  }
+  .send:hover { color: #fff; border-color: rgba(203, 208, 220, 0.6); }
+  .send:disabled { color: #4f5460; border-color: #2a2e38; cursor: default; }
+  .note {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 22px;
+    text-align: center;
+    font-size: 11px;
+    color: #4f5460;
+    letter-spacing: 0.10em;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .title {
+    position: fixed;
+    left: 0; right: 0;
+    top: 26px;
+    text-align: center;
+    font-size: 13px;
+    color: #6d7280;
+    letter-spacing: 0.50em;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .count {
+    position: fixed;
+    top: 22px; right: 24px;
+    font-size: 11px;
+    color: #3e4250;
+    letter-spacing: 0.05em;
+    z-index: 20;
+  }
+  .hint {
+    color: #4f5460;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-align: center;
+    line-height: 1.6;
+    min-height: 18px;
+  }
+  @media (max-width: 480px) {
+    .title { font-size: 11px; letter-spacing: 0.40em; }
+    .letter { font-size: 12px; max-width: 80vw; }
+    .field { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<a class="back" href="../">← もどる</a>
+<div class="title">夜　文</div>
+<div class="count" id="count"></div>
+
+<div class="stage" id="stage" aria-hidden="true"></div>
+
+<div class="panel">
+  <textarea
+    id="field"
+    class="field"
+    rows="1"
+    maxlength="40"
+    placeholder="夜に、一行だけ書く。"
+    autocomplete="off"
+    spellcheck="false"
+    inputmode="text"
+  ></textarea>
+  <button id="send" class="send" disabled>夜　に　ま　ぎ　れ　る</button>
+  <div class="hint" id="hint">ここに書いた言葉は、どこにも送られません。<br>あなたが次に来たとき、薄くなって浮かんでいます。</div>
+</div>
+
+<div class="note">夜半（よは）— 眠らない時間の手紙</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = "yabumi.v1";
+  const MAX_ENTRIES = 30;
+  const stage = document.getElementById("stage");
+  const field = document.getElementById("field");
+  const send = document.getElementById("send");
+  const hint = document.getElementById("hint");
+  const countEl = document.getElementById("count");
+
+  function loadLetters() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(x => x && typeof x.text === "string" && typeof x.t === "number");
+    } catch (e) { return []; }
+  }
+  function saveLetters(arr) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+    catch (e) {}
+  }
+
+  function fadeFor(age, total) {
+    const rank = total <= 1 ? 1 : age / (total - 1);
+    const op = 0.55 - rank * 0.42;
+    const scale = 1.0 - rank * 0.18;
+    return { opacity: Math.max(0.08, op), scale };
+  }
+
+  function placeAt(idx, total) {
+    const rng = mulberry32(idx * 2654435761 >>> 0);
+    const margin = 14;
+    const top = 18 + rng() * (52 - 18);
+    const left = margin + rng() * (100 - margin * 2);
+    return { top, left };
+  }
+
+  function mulberry32(a) {
+    return function() {
+      let t = (a += 0x6D2B79F5) | 0;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function render() {
+    const letters = loadLetters();
+    stage.innerHTML = "";
+    const total = letters.length;
+    letters.forEach((entry, i) => {
+      const age = total - 1 - i;
+      const { opacity, scale } = fadeFor(age, total);
+      const { top, left } = placeAt(i, total);
+      const el = document.createElement("div");
+      el.className = "letter";
+      el.textContent = entry.text;
+      el.style.top = top + "vh";
+      el.style.left = left + "vw";
+      el.style.opacity = "0";
+      el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      stage.appendChild(el);
+      requestAnimationFrame(() => {
+        el.style.opacity = String(opacity);
+      });
+    });
+    countEl.textContent = total > 0 ? `${total} / ${MAX_ENTRIES}` : "";
+    if (total === 0) {
+      hint.innerHTML = "ここに書いた言葉は、どこにも送られません。<br>あなたが次に来たとき、薄くなって浮かんでいます。";
+    } else {
+      hint.textContent = "前に来たとき、書いていきましたね。";
+    }
+  }
+
+  function addLetter(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const letters = loadLetters();
+    letters.push({ text: trimmed, t: Date.now() });
+    while (letters.length > MAX_ENTRIES) letters.shift();
+    saveLetters(letters);
+
+    const total = letters.length;
+    const lastIdx = total - 1;
+    const { top, left } = placeAt(lastIdx, total);
+    const el = document.createElement("div");
+    el.className = "letter";
+    el.textContent = trimmed;
+    el.style.top = "82vh";
+    el.style.left = "50vw";
+    el.style.opacity = "0";
+    el.style.transform = "translate(-50%, -50%) scale(1.0)";
+    el.style.color = "#e6e8ef";
+    stage.appendChild(el);
+
+    requestAnimationFrame(() => {
+      el.style.opacity = "0.85";
+      el.style.transform = "translate(-50%, -50%) scale(1.0)";
+    });
+
+    setTimeout(() => {
+      el.style.top = top + "vh";
+      el.style.left = left + "vw";
+      el.style.color = "";
+      const { opacity, scale } = fadeFor(0, total);
+      el.style.opacity = String(opacity);
+      el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    }, 1400);
+
+    setTimeout(() => {
+      render();
+    }, 4600);
+  }
+
+  field.addEventListener("input", () => {
+    send.disabled = field.value.trim().length === 0;
+    field.style.height = "auto";
+    field.style.height = Math.min(field.scrollHeight, 96) + "px";
+  });
+
+  field.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!send.disabled) send.click();
+    }
+  });
+
+  send.addEventListener("click", () => {
+    const text = field.value;
+    field.value = "";
+    field.style.height = "auto";
+    send.disabled = true;
+    addLetter(text);
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>
