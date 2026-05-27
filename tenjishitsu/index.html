@@ -26,11 +26,25 @@
     }).join('');
   }
 
+  function disableFormForStaticHost() {
+    const form = document.querySelector('.stone-form');
+    if (form) form.style.display = 'none';
+    const notice = document.querySelector('.stone-form-notice');
+    if (notice) notice.style.display = 'block';
+    const list = document.querySelector('.stones');
+    if (list) {
+      list.innerHTML = '<li class="stone"><p class="stone-meta">棚はまだ外と繋がっていません。今は閉じたままです。</p></li>';
+    }
+  }
+
   function loadStones() {
-    fetch('/api/stones', { signal: AbortSignal.timeout(3000) })
-      .then(r => r.ok ? r.json() : [])
-      .then(stones => renderStones(stones))
-      .catch(() => { renderStones([]); });
+    return fetch('/api/stones', { signal: AbortSignal.timeout(3000) })
+      .then(r => {
+        if (!r.ok) throw new Error('no api');
+        return r.json();
+      })
+      .then(stones => { renderStones(stones); return true; })
+      .catch(() => { return false; });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -47,8 +61,10 @@
         .catch(() => {});
     }
 
-    // 石の一覧
-    loadStones();
+    // 石の一覧（API が届かなければフォームも閉じる）
+    loadStones().then(apiAvailable => {
+      if (!apiAvailable) disableFormForStaticHost();
+    });
 
     // フォーム送信
     const form = document.querySelector('.stone-form');
@@ -71,9 +87,7 @@
             loadStones();
           }
         })
-        .catch(() => {
-          if (textarea) textarea.value = '';
-        })
+        .catch(() => {})
         .finally(() => { if (btn) btn.disabled = false; });
       });
     }
@@ -149,6 +163,12 @@
       ></textarea>
       <button type="submit">置いていく</button>
     </form>
+
+    <p class="stone-form-notice" style="display:none">
+      置き石の仕組みは、いま準備中です。
+      ここに棚はあるのですが、外から石を渡す受け口がまだ繋がっていません。
+      もう少し待ってください。
+    </p>
 
     <ul class="stones">
       <li class="stone">
