@@ -250,6 +250,53 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   clip: rect(0,0,0,0); white-space: nowrap; border: 0;
 }
 
+.elsewhere {
+  border-top: 1px solid var(--rule);
+  padding-top: 2.5rem;
+  margin-top: 2.5rem;
+}
+
+.elsewhere h2 {
+  font-weight: 300;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 1.2rem;
+}
+
+.elsewhere-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.elsewhere-list li {
+  border-top: 1px solid var(--rule);
+  padding: 0.9rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.elsewhere-list li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.elsewhere-list a {
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.elsewhere-list a:hover { color: var(--accent); }
+
+.elsewhere-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+}
+
 footer {
   margin-top: 4rem;
   color: var(--muted);

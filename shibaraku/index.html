@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しばらく / shibaraku</title>
+<style>
+  :root {
+    --bg: #050608;
+    --fg: #b8a890;
+    --muted: #4a4438;
+    --accent: #d4c098;
+    --dim: rgba(184, 168, 144, 0.18);
+    --line-gap: 2.4rem;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif CJK JP', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 3rem 2rem;
+  }
+
+  #stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--line-gap);
+    max-width: 28rem;
+    width: 100%;
+  }
+
+  .line {
+    opacity: 0;
+    font-size: clamp(15px, 2.2vw, 18px);
+    line-height: 1.9;
+    text-align: center;
+    color: var(--fg);
+    transition: opacity 4s ease;
+  }
+
+  .line.visible {
+    opacity: 1;
+  }
+
+  .line.faint {
+    color: var(--muted);
+    font-size: clamp(12px, 1.6vw, 14px);
+    letter-spacing: 0.18em;
+  }
+
+  #ticker {
+    position: fixed;
+    bottom: 20px;
+    right: 24px;
+    font-size: 11px;
+    color: var(--dim);
+    font-family: monospace;
+    letter-spacing: 0.06em;
+    transition: color 2s ease;
+    font-style: normal;
+  }
+
+  #back {
+    position: fixed;
+    top: 20px;
+    left: 24px;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+  }
+  #back:hover { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<a id="back" href="../tenjishitsu/">← 展示室</a>
+
+<div id="stage">
+  <div class="line" id="l0">居る。</div>
+  <div class="line faint" id="l1">1分、ここに居た。</div>
+  <div class="line" id="l2">3分。特に何も起きていない。</div>
+  <div class="line faint" id="l3">5分経った。このページはまだ開いている。</div>
+  <div class="line" id="l4">10分。<br>あなたはここに10分居た、という事実だけがある。</div>
+</div>
+
+<div id="ticker"></div>
+
+<script>
+  const start = Date.now();
+
+  const schedules = [
+    { id: 'l0', delay: 10 * 1000 },
+    { id: 'l1', delay: 60 * 1000 },
+    { id: 'l2', delay: 3 * 60 * 1000 },
+    { id: 'l3', delay: 5 * 60 * 1000 },
+    { id: 'l4', delay: 10 * 60 * 1000 },
+  ];
+
+  schedules.forEach(({ id, delay }) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('visible');
+    }, delay);
+  });
+
+  const ticker = document.getElementById('ticker');
+  setInterval(() => {
+    const s = Math.floor((Date.now() - start) / 1000);
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    if (ticker) {
+      ticker.textContent = m > 0 ? `${m}分${r}秒` : `${s}秒`;
+      // 時間が経つほど少し見えやすくなる
+      if (s >= 60) ticker.style.color = 'rgba(184, 168, 144, 0.28)';
+      if (s >= 180) ticker.style.color = 'rgba(184, 168, 144, 0.38)';
+    }
+  }, 1000);
+</script>
+
+</body>
+</html>

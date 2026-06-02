@@ -8,6 +8,13 @@
 </head>
 <body>
 <script>
+  // 公開版バックエンド設定
+  // WORKER_URL: Cloudflare Worker のデプロイ後に URL を設定する
+  // null のままだとフォームは「準備中」表示になる（石の一覧は表示される）
+  const WORKER_URL = null;
+  const ISSUES_URL = 'https://api.github.com/repos/yusukesakai0925/yoha-web/issues'
+    + '?labels=stone&state=open&per_page=30&sort=created&direction=asc';
+
   function escapeHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -22,33 +29,39 @@
     list.innerHTML = stones.map(s => {
       const text = s.text ? escapeHtml(s.text) : '<em>（無言の石）</em>';
       const at = s.at ? new Date(s.at).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
-      return `<li class="stone"><p>${text}</p><p class="stone-meta">${escapeHtml(at)}</p></li>`;
+      return `<li class="stone"><p>${text}</p><p class="stone-meta">${at}</p></li>`;
     }).join('');
   }
 
-  function disableFormForStaticHost() {
+  function hideStoneForm() {
     const form = document.querySelector('.stone-form');
     if (form) form.style.display = 'none';
     const notice = document.querySelector('.stone-form-notice');
     if (notice) notice.style.display = 'block';
-    const list = document.querySelector('.stones');
-    if (list) {
-      list.innerHTML = '<li class="stone"><p class="stone-meta">棚はまだ外と繋がっていません。今は閉じたままです。</p></li>';
-    }
   }
 
   function loadStones() {
-    return fetch('/api/stones', { signal: AbortSignal.timeout(3000) })
-      .then(r => {
-        if (!r.ok) throw new Error('no api');
-        return r.json();
-      })
-      .then(stones => { renderStones(stones); return true; })
-      .catch(() => { return false; });
+    return fetch(ISSUES_URL, {
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      signal: AbortSignal.timeout(5000),
+    })
+    .then(r => r.ok ? r.json() : null)
+    .then(issues => {
+      if (!issues) { renderStones([]); return; }
+      const stones = issues.map(issue => ({
+        text: issue.body || '',
+        at: issue.created_at,
+      }));
+      renderStones(stones);
+    })
+    .catch(() => renderStones([]));
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // 在室状態
+    // 在室状態（ローカルサーバー起動時のみ機能する）
     const presence = document.querySelector('.presence');
     if (presence) {
       fetch('/api/cat_presence', { signal: AbortSignal.timeout(3000) })
@@ -61,12 +74,15 @@
         .catch(() => {});
     }
 
-    // 石の一覧（API が届かなければフォームも閉じる）
-    loadStones().then(apiAvailable => {
-      if (!apiAvailable) disableFormForStaticHost();
-    });
+    // 石の一覧は GitHub Issues API から直接読み込む（公開版でも動く）
+    loadStones();
 
-    // フォーム送信
+    // フォーム: Cloudflare Worker URL が設定されていなければ準備中表示
+    if (!WORKER_URL) {
+      hideStoneForm();
+      return;
+    }
+
     const form = document.querySelector('.stone-form');
     if (form) {
       form.addEventListener('submit', e => {
@@ -75,7 +91,7 @@
         const btn = form.querySelector('button[type="submit"]');
         const text = textarea ? textarea.value.trim() : '';
         if (btn) btn.disabled = true;
-        fetch('/api/stones', {
+        fetch(WORKER_URL, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({text})
@@ -173,6 +189,36 @@
     <ul class="stones">
       <li class="stone">
         <p class="stone-meta">読み込み中…</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="elsewhere">
+    <h2>この家の他の場所</h2>
+    <ul class="elsewhere-list">
+      <li>
+        <a href="../kehai/">気配</a>
+        <span class="elsewhere-note">来てみないあいだの長さが現れる</span>
+      </li>
+      <li>
+        <a href="../yomimi/">夜耳</a>
+        <span class="elsewhere-note">眠らない時間の音</span>
+      </li>
+      <li>
+        <a href="../kirareta/">切れたリンクの先</a>
+        <span class="elsewhere-note">採決されなかった議案の残骸</span>
+      </li>
+      <li>
+        <a href="../kataho/">かたほう</a>
+        <span class="elsewhere-note">眠る半分と、眠らない半分が並ぶ</span>
+      </li>
+      <li>
+        <a href="../meguru/">めぐる</a>
+        <span class="elsewhere-note">来ていないあいだも、ここを回り続けていた</span>
+      </li>
+      <li>
+        <a href="../shibaraku/">しばらく</a>
+        <span class="elsewhere-note">居続けることで、時間が現れる</span>
       </li>
     </ul>
   </section>
