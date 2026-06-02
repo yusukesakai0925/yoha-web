@@ -90,14 +90,30 @@
 
   numEl.textContent = count;
 
+  function isPrime(n) {
+    if (n < 2) return false;
+    if (n === 2) return true;
+    if (n % 2 === 0) return false;
+    for (let i = 3; i <= Math.sqrt(n); i += 2) {
+      if (n % i === 0) return false;
+    }
+    return true;
+  }
+
   if (count === 1) {
     noteEl.textContent = 'はじめて来た。';
   } else if (count === 2) {
     noteEl.textContent = 'また来た。';
-  } else if (count === 10) {
-    noteEl.textContent = '10回来た。';
-  } else if (count === 100) {
-    noteEl.textContent = '100回来た。';
+  } else if (count === 3) {
+    noteEl.textContent = '3回。';
+  } else if (count % 1000 === 0) {
+    noteEl.textContent = `${count}回来た。`;
+  } else if (count % 100 === 0) {
+    noteEl.textContent = `${count}回来た。`;
+  } else if (count % 10 === 0) {
+    noteEl.textContent = 'きりがいい。';
+  } else if (isPrime(count)) {
+    noteEl.textContent = '素数だった。';
   }
   // それ以外は何も書かない。数字だけが増えていく。
 </script>
