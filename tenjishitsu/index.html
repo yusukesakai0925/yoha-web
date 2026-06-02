@@ -77,6 +77,15 @@
     // 石の一覧は GitHub Issues API から直接読み込む（公開版でも動く）
     loadStones();
 
+    // 黒猫をクリックすると隠れた場所へ
+    const yohaSvg = document.querySelector('.yoha-svg');
+    if (yohaSvg) {
+      yohaSvg.style.cursor = 'pointer';
+      yohaSvg.addEventListener('click', () => {
+        window.location.href = '../kakure/';
+      });
+    }
+
     // フォーム: Cloudflare Worker URL が設定されていなければ準備中表示
     if (!WORKER_URL) {
       hideStoneForm();
