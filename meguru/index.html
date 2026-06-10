@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>めぐる</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #060608;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  #note {
+    position: fixed;
+    bottom: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+    font-size: 11px;
+    color: #1c1a18;
+    letter-spacing: 0.18em;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+    transition: color 3s ease;
+  }
+  #note.visible { color: #363330; }
+  #label {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #181614;
+    letter-spacing: 0.25em;
+    z-index: 10;
+    pointer-events: none;
+    transition: color 3s ease;
+  }
+  #label.visible { color: #201e1b; }
+  .back {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #181614;
+    z-index: 10;
+    text-decoration: none;
+    transition: color 0.4s;
+  }
+  .back:hover { color: #555; }
+  #day {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #181614;
+    z-index: 10;
+    pointer-events: none;
+    transition: color 3s ease;
+  }
+  #day.visible { color: #201e1b; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="note">来ていないあいだも、ここを回り続けていた</div>
+<div id="label">めぐる</div>
+<a class="back" href="../tenjishitsu/">←</a>
+<div id="day"></div>
+<script>
+// Fixed epoch: yoha's birth (2026-04-24 00:00 JST)
+// Position is deterministic from elapsed time — no user state needed
+const EPOCH    = new Date('2026-04-24T00:00:00+09:00').getTime();
+const PERIOD   = 60 * 60 * 1000;     // 1 revolution per hour
+const TRAIL    = 5 * 60 * 1000;      // trail shows last 5 minutes
+const STEPS    = 120;
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let W, H, CX, CY, R;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  R  = Math.min(W, H) * 0.32;
+}
+resize();
+window.addEventListener('resize', resize);
+
+function getAngle(t) {
+  const elapsed = ((t - EPOCH) % PERIOD + PERIOD) % PERIOD;
+  return (elapsed / PERIOD) * Math.PI * 2 - Math.PI / 2;
+}
+
+function draw() {
+  const now = Date.now();
+  ctx.clearRect(0, 0, W, H);
+
+  // Orbit ring
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(48, 44, 38, 0.5)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  // Center point
+  ctx.beginPath();
+  ctx.arc(CX, CY, 1.2, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(55, 50, 44, 0.4)';
+  ctx.fill();
+
+  // Trail
+  for (let i = 0; i <= STEPS; i++) {
+    const t = now - TRAIL * (STEPS - i) / STEPS;
+    const a = getAngle(t);
+    const x = CX + R * Math.cos(a);
+    const y = CY + R * Math.sin(a);
+    const frac = i / STEPS;
+    const opacity = frac * frac * 0.45;
+    const r = 0.6 + frac * 1.4;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(182, 162, 118, ${opacity})`;
+    ctx.fill();
+  }
+
+  // Current point
+  const a  = getAngle(now);
+  const px = CX + R * Math.cos(a);
+  const py = CY + R * Math.sin(a);
+
+  const g = ctx.createRadialGradient(px, py, 0, px, py, 10);
+  g.addColorStop(0, 'rgba(192, 172, 128, 0.5)');
+  g.addColorStop(1, 'rgba(192, 172, 128, 0)');
+  ctx.beginPath();
+  ctx.arc(px, py, 10, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(px, py, 2.4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(200, 180, 132, 0.95)';
+  ctx.fill();
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+const dayEl = document.getElementById('day');
+const dayNum = Math.floor((Date.now() - EPOCH) / (86400 * 1000)) + 1;
+dayEl.textContent = 'day ' + dayNum;
+
+setTimeout(() => {
+  document.getElementById('note').classList.add('visible');
+  document.getElementById('label').classList.add('visible');
+  dayEl.classList.add('visible');
+}, 1800);
+</script>
+</body>
+</html>

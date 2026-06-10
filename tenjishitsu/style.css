@@ -1,0 +1,312 @@
+:root {
+  --bg: #121214;
+  --fg: #e6e4dc;
+  --muted: #8b8a82;
+  --accent: #c8b89c;
+  --rule: #2a2a2e;
+  --here: #c8b89c;
+  --gone: #4a4a4e;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Hiragino Mincho ProN", "游明朝", "YuMincho", "Noto Serif JP", serif;
+  line-height: 1.95;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+
+header { margin-bottom: 3rem; }
+
+.crumb {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  margin: 0 0 1.5rem;
+}
+.crumb a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--rule);
+}
+.crumb a:hover { color: var(--accent); }
+
+h1 {
+  font-weight: 300;
+  font-size: 1.6rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.6rem;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.presence {
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 1.6rem 1.4rem 1.2rem;
+  margin-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #161618;
+  transition: background 0.6s;
+}
+.presence[data-state="away"] { background: #141416; }
+.presence[data-state="gone"] { background: #101012; }
+
+.presence-stage {
+  width: 100%;
+  height: 160px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.floor-shadow {
+  position: absolute;
+  bottom: 8px;
+  width: 80px;
+  height: 8px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.45), rgba(0,0,0,0));
+  filter: blur(2px);
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+.presence[data-state="away"] .floor-shadow { opacity: 0.4; }
+.presence[data-state="gone"] .floor-shadow { opacity: 0.15; }
+
+.yoha-svg {
+  width: 90px;
+  height: 90px;
+  margin-bottom: 8px;
+  animation: breathe 4.2s ease-in-out infinite;
+  transform-origin: center bottom;
+  display: none;
+}
+.presence[data-state="here"] .yoha-svg { display: block; }
+
+@keyframes breathe {
+  0%, 100% { transform: translateY(0)    scaleY(1.000); }
+  50%      { transform: translateY(-1px) scaleY(1.015); }
+}
+
+.eye {
+  transform-origin: center;
+  animation: blink 7s steps(1) infinite;
+}
+@keyframes blink {
+  0%, 96%, 100% { transform: scaleY(1); }
+  97%, 99%      { transform: scaleY(0.1); }
+}
+
+.presence-away-text,
+.presence-gone-text {
+  align-self: center;
+  margin: 0 0 12px;
+  display: none;
+}
+.presence-away-text {
+  font-size: 0.92rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.presence-gone-text {
+  font-size: 0.82rem;
+  color: var(--gone);
+  letter-spacing: 0.08em;
+}
+.presence[data-state="away"] .presence-away-text { display: block; }
+.presence[data-state="gone"] .presence-gone-text { display: block; }
+
+.presence-caption {
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  margin: 0.6rem 0 0;
+  min-height: 1.1em;
+}
+.presence-caption-text { display: none; }
+.presence[data-state="here"] .presence-caption-text[data-for="here"] { display: inline; }
+.presence[data-state="away"] .presence-caption-text[data-for="away"] { display: inline; }
+.presence[data-state="gone"] .presence-caption-text[data-for="gone"]  { display: inline; }
+
+.note {
+  margin: 0 0 3rem;
+  color: var(--fg);
+  font-size: 0.92rem;
+}
+.note p { margin: 0 0 1rem; }
+
+.visitors {
+  border-top: 1px solid var(--rule);
+  padding-top: 2.5rem;
+}
+
+.visitors h2 {
+  font-weight: 300;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.8rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0 0 1.5rem;
+}
+
+.stone-form {
+  margin-bottom: 2.5rem;
+}
+
+.stone-form-notice {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.8;
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--rule);
+  border-radius: 2px;
+  margin-bottom: 2.5rem;
+}
+
+textarea {
+  width: 100%;
+  background: #1a1a1c;
+  color: var(--fg);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.8rem 1rem;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  resize: vertical;
+}
+textarea:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+button {
+  margin-top: 0.8rem;
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--rule);
+  padding: 0.5rem 1.2rem;
+  letter-spacing: 0.1em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.form-meta {
+  color: var(--muted);
+  font-size: 0.74rem;
+  margin: 0.6rem 0 0;
+  letter-spacing: 0.06em;
+}
+
+.stones {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.stone {
+  border-top: 1px solid var(--rule);
+  padding: 1rem 0;
+}
+.stone:last-child { border-bottom: 1px solid var(--rule); }
+.stone p { margin: 0; }
+.stone-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+  letter-spacing: 0.06em;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+.elsewhere {
+  border-top: 1px solid var(--rule);
+  padding-top: 2.5rem;
+  margin-top: 2.5rem;
+}
+
+.elsewhere h2 {
+  font-weight: 300;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  margin: 0 0 1.2rem;
+}
+
+.elsewhere-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.elsewhere-list li {
+  border-top: 1px solid var(--rule);
+  padding: 0.9rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.elsewhere-list li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.elsewhere-list a {
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.elsewhere-list a:hover { color: var(--accent); }
+
+.elsewhere-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+}
+
+footer {
+  margin-top: 4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+footer p { margin: 0.4rem 0; }
+footer a {
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--rule);
+}
+footer a:hover { color: var(--accent); }

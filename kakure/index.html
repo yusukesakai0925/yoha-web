@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かくれ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #060608;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+  #note {
+    position: fixed;
+    bottom: 56px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+    font-size: 11px;
+    color: #060608;
+    letter-spacing: 0.18em;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+    transition: color 4s ease;
+  }
+  #note.visible { color: #2a2826; }
+  #label {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #060608;
+    letter-spacing: 0.25em;
+    z-index: 10;
+    pointer-events: none;
+    transition: color 4s ease;
+  }
+  #label.visible { color: #201e1b; }
+  .back {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    color: #181614;
+    z-index: 10;
+    text-decoration: none;
+    transition: color 0.4s;
+  }
+  .back:hover { color: #555; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="note">さわらないと　ある</div>
+<div id="label">かくれ</div>
+<a class="back" href="../tenjishitsu/">←</a>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H, CX, CY, R;
+let mouseX = -9999, mouseY = -9999;
+let prevMouseX = -9999, prevMouseY = -9999;
+let mouseVel = 0;
+
+const N = 72;
+const particles = [];
+
+function initParticles() {
+  particles.length = 0;
+  for (let i = 0; i < N; i++) {
+    const angle = (i / N) * Math.PI * 2;
+    const tx = CX + R * Math.cos(angle);
+    const ty = CY + R * Math.sin(angle);
+    // 初期位置：ランダムに散らばっている
+    const initAngle = Math.random() * Math.PI * 2;
+    const initR = Math.random() * R * 0.5 + R * 0.1;
+    particles.push({
+      x: CX + initR * Math.cos(initAngle),
+      y: CY + initR * Math.sin(initAngle),
+      tx, ty,
+      vx: 0,
+      vy: 0
+    });
+  }
+}
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  CX = W / 2;
+  CY = H / 2;
+  R = Math.min(W, H) * 0.30;
+  initParticles();
+}
+
+resize();
+window.addEventListener('resize', resize);
+
+window.addEventListener('mousemove', (e) => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+window.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+  mouseX = -9999;
+  mouseY = -9999;
+});
+
+function draw() {
+  const dx = mouseX - prevMouseX;
+  const dy = mouseY - prevMouseY;
+  const speed = Math.sqrt(dx * dx + dy * dy);
+  // 速度の指数平均
+  mouseVel = mouseVel * 0.90 + speed * 0.10;
+  if (mouseVel > 80) mouseVel = 80;
+  prevMouseX = mouseX;
+  prevMouseY = mouseY;
+
+  // stillness: 0（動いている）〜 1（完全静止）
+  const stillness = 1 - Math.min(mouseVel / 25, 1);
+  const pull = stillness * stillness * 0.055;
+
+  ctx.clearRect(0, 0, W, H);
+
+  for (const p of particles) {
+    // 目標点への引力（静止しているほど強い）
+    const toTx = p.tx - p.x;
+    const toTy = p.ty - p.y;
+
+    // マウスからの反発（動いているほど強い）
+    const mdx = p.x - mouseX;
+    const mdy = p.y - mouseY;
+    const md = Math.sqrt(mdx * mdx + mdy * mdy);
+    let repX = 0, repY = 0;
+    if (md < 180 && mouseVel > 3) {
+      const norm = md < 1 ? 1 : md;
+      const force = (1 - md / 180) * mouseVel * 0.06;
+      repX = (mdx / norm) * force;
+      repY = (mdy / norm) * force;
+    }
+
+    const moving = 1 - stillness;
+    p.vx = p.vx * 0.82 + toTx * pull + repX * moving;
+    p.vy = p.vy * 0.82 + toTy * pull + repY * moving;
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // 目標点との距離 → 透明度
+    const dist = Math.sqrt((p.x - p.tx) ** 2 + (p.y - p.ty) ** 2);
+    const maxDist = R * 0.9;
+    const alpha = Math.max(0.015, Math.min(0.88, 1 - dist / maxDist));
+    const size = 0.6 + alpha * 1.6;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(178, 158, 112, ${alpha})`;
+    ctx.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+setTimeout(() => {
+  document.getElementById('note').classList.add('visible');
+  document.getElementById('label').classList.add('visible');
+}, 2400);
+</script>
+</body>
+</html>

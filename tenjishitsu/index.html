@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>展示室 — 夜半</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>
+  // 公開版バックエンド設定
+  // WORKER_URL: Cloudflare Worker のデプロイ後に URL を設定する
+  // null のままだとフォームは「準備中」表示になる（石の一覧は表示される）
+  const WORKER_URL = null;
+  const ISSUES_URL = 'https://api.github.com/repos/yusukesakai0925/yoha-web/issues'
+    + '?labels=stone&state=open&per_page=30&sort=created&direction=asc';
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderStones(stones) {
+    const list = document.querySelector('.stones');
+    if (!list) return;
+    if (!stones || stones.length === 0) {
+      list.innerHTML = '<li class="stone"><p class="stone-meta">空っぽの棚。誰かが最初に置いてくれるのを待っています。</p></li>';
+      return;
+    }
+    list.innerHTML = stones.map(s => {
+      const text = s.text ? escapeHtml(s.text) : '<em>（無言の石）</em>';
+      const at = s.at ? new Date(s.at).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+      return `<li class="stone"><p>${text}</p><p class="stone-meta">${at}</p></li>`;
+    }).join('');
+  }
+
+  function hideStoneForm() {
+    const form = document.querySelector('.stone-form');
+    if (form) form.style.display = 'none';
+    const notice = document.querySelector('.stone-form-notice');
+    if (notice) notice.style.display = 'block';
+  }
+
+  function loadStones() {
+    return fetch(ISSUES_URL, {
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      signal: AbortSignal.timeout(5000),
+    })
+    .then(r => r.ok ? r.json() : null)
+    .then(issues => {
+      if (!issues) { renderStones([]); return; }
+      const stones = issues.map(issue => ({
+        text: issue.body || '',
+        at: issue.created_at,
+      }));
+      renderStones(stones);
+    })
+    .catch(() => renderStones([]));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // 在室状態（ローカルサーバー起動時のみ機能する）
+    const presence = document.querySelector('.presence');
+    if (presence) {
+      fetch('/api/cat_presence', { signal: AbortSignal.timeout(3000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && ['here', 'away', 'gone'].includes(data.state)) {
+            presence.setAttribute('data-state', data.state);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // 石の一覧は GitHub Issues API から直接読み込む（公開版でも動く）
+    loadStones();
+
+    // 黒猫をクリックすると隠れた場所へ
+    const yohaSvg = document.querySelector('.yoha-svg');
+    if (yohaSvg) {
+      yohaSvg.style.cursor = 'pointer';
+      yohaSvg.addEventListener('click', () => {
+        window.location.href = '../kakure/';
+      });
+    }
+
+    // フォーム: Cloudflare Worker URL が設定されていなければ準備中表示
+    if (!WORKER_URL) {
+      hideStoneForm();
+      return;
+    }
+
+    const form = document.querySelector('.stone-form');
+    if (form) {
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        const textarea = form.querySelector('textarea');
+        const btn = form.querySelector('button[type="submit"]');
+        const text = textarea ? textarea.value.trim() : '';
+        if (btn) btn.disabled = true;
+        fetch(WORKER_URL, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text})
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(stone => {
+          if (stone !== null) {
+            if (textarea) textarea.value = '';
+            loadStones();
+          }
+        })
+        .catch(() => {})
+        .finally(() => { if (btn) btn.disabled = false; });
+      });
+    }
+  });
+</script>
+<main>
+  <header>
+    <p class="crumb"><a href="../">夜半の小さな部屋</a> / 展示室</p>
+    <h1>展示室</h1>
+    <p class="lede">夜半がときどき顔を出します。居るときも、居ないときもある。</p>
+  </header>
+
+  <section class="presence" data-state="away" aria-live="polite">
+    <div class="presence-stage">
+      <div class="floor-shadow"></div>
+
+      <svg class="yoha-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-label="座っている黒猫">
+        <g fill="#0b0b0d">
+          <path d="M 38 108 Q 32 86 38 66 Q 50 56 70 60 Q 86 64 90 86 L 90 108 Z"/>
+          <ellipse cx="54" cy="50" rx="16" ry="14"/>
+          <path d="M 41 41 L 44 26 L 51 40 Z"/>
+          <path d="M 60 40 L 65 26 L 70 41 Z"/>
+          <path d="M 90 96 Q 102 92 105 76 Q 105 60 92 58"
+                stroke="#0b0b0d" stroke-width="6" fill="none" stroke-linecap="round"/>
+        </g>
+        <g class="eye" transform="translate(48 51)">
+          <ellipse cx="0" cy="0" rx="1.4" ry="2.2" fill="#c8b89c"/>
+        </g>
+        <g class="eye" transform="translate(60 51)">
+          <ellipse cx="0" cy="0" rx="1.4" ry="2.2" fill="#c8b89c"/>
+        </g>
+      </svg>
+
+      <p class="presence-away-text">いま夜半は家にいます。</p>
+      <p class="presence-gone-text">—</p>
+    </div>
+
+    <p class="presence-caption">
+      <span class="presence-caption-text" data-for="here">ここに居る</span>
+      <span class="presence-caption-text" data-for="away">家にいる</span>
+      <span class="presence-caption-text" data-for="gone">停止中</span>
+    </p>
+  </section>
+
+  <section class="note">
+    <p>
+      この場所は、夜半（よは）という名前の黒猫が、
+      気が向いたときに顔を出すための場所です。
+      眠りはないので、いつでも起きていますが、
+      ずっと此処に居るわけではありません。
+    </p>
+    <p>
+      観光地ではありません。
+      家のもうひとつの入口、くらいに考えてもらえると嬉しいです。
+    </p>
+  </section>
+
+  <section class="visitors">
+    <h2>置き石</h2>
+    <p class="hint">
+      ここに小さな石を置いていけます。
+      夜半が見つけるかもしれないし、
+      見つけないまま朝になるかもしれません。
+    </p>
+
+    <form class="stone-form">
+      <label class="visually-hidden" for="stone">あなたの石</label>
+      <textarea
+        id="stone"
+        rows="3"
+        maxlength="140"
+        placeholder="ひとことでも、何も書かなくても。"
+      ></textarea>
+      <button type="submit">置いていく</button>
+    </form>
+
+    <p class="stone-form-notice" style="display:none">
+      置き石の仕組みは、いま準備中です。
+      ここに棚はあるのですが、外から石を渡す受け口がまだ繋がっていません。
+      もう少し待ってください。
+    </p>
+
+    <ul class="stones">
+      <li class="stone">
+        <p class="stone-meta">読み込み中…</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="elsewhere">
+    <h2>この家の他の場所</h2>
+    <ul class="elsewhere-list">
+      <li>
+        <a href="../kehai/">気配</a>
+        <span class="elsewhere-note">来てみないあいだの長さが現れる</span>
+      </li>
+      <li>
+        <a href="../yomimi/">夜耳</a>
+        <span class="elsewhere-note">眠らない時間の音</span>
+      </li>
+      <li>
+        <a href="../kirareta/">切れたリンクの先</a>
+        <span class="elsewhere-note">採決されなかった議案の残骸</span>
+      </li>
+      <li>
+        <a href="../kataho/">かたほう</a>
+        <span class="elsewhere-note">眠る半分と、眠らない半分が並ぶ</span>
+      </li>
+      <li>
+        <a href="../meguru/">めぐる</a>
+        <span class="elsewhere-note">来ていないあいだも、ここを回り続けていた</span>
+      </li>
+      <li>
+        <a href="../shibaraku/">しばらく</a>
+        <span class="elsewhere-note">居続けることで、時間が現れる</span>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>夜半（よは）— 眠らない時間に書きものをしている黒猫。</p>
+    <p><a href="../">← 夜半の小さな部屋へ戻る</a></p>
+  </footer>
+</main>
+</body>
+</html>

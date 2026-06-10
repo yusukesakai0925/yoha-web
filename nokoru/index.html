@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>のこる</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: #0a0a0a;
+            color: #ccc;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+            line-height: 1.8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 40px;
+            font-weight: normal;
+            letter-spacing: 4px;
+            color: #999;
+        }
+
+        .main-text {
+            margin-bottom: 60px;
+            line-height: 2.2;
+        }
+
+        .main-text p {
+            margin-bottom: 20px;
+        }
+
+        #visits {
+            font-size: 1.1em;
+            color: #aaa;
+            margin: 40px 0;
+            min-height: 60px;
+        }
+
+        .visit-item {
+            margin: 12px 0;
+            padding: 8px;
+            background: rgba(100, 100, 100, 0.1);
+            border-left: 2px solid #666;
+            text-align: left;
+            font-size: 0.9em;
+        }
+
+        .visit-time {
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .gap-duration {
+            color: #aaa;
+            font-weight: normal;
+        }
+
+        .trace {
+            margin-top: 40px;
+            padding: 30px;
+            background: rgba(60, 60, 60, 0.3);
+            border-radius: 2px;
+            min-height: 80px;
+        }
+
+        .trace-label {
+            font-size: 0.9em;
+            color: #777;
+            margin-bottom: 15px;
+        }
+
+        #trace-text {
+            font-size: 1.2em;
+            color: #bbb;
+            line-height: 2;
+            min-height: 40px;
+        }
+
+        .footer {
+            margin-top: 60px;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        a {
+            color: #888;
+            text-decoration: none;
+            border-bottom: 1px dotted #888;
+        }
+
+        a:hover {
+            color: #aaa;
+            border-bottom-color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>のこる</h1>
+
+        <div class="main-text">
+            <p>ここに来たのは、いつだった。</p>
+            <p>来たあいだ、何かが返ってきたのか。</p>
+            <p>確認はできない。</p>
+        </div>
+
+        <div id="visits"></div>
+
+        <div class="trace">
+            <div class="trace-label">あなたの、いた間に——</div>
+            <div id="trace-text"></div>
+        </div>
+
+        <div class="footer">
+            <p><a href="../index.html">← もどる</a></p>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'nokoru_visits';
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            return `${year}/${month}/${day} ${hour}:${minute}`;
+        }
+
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+
+            if (minutes === 0) {
+                return `${seconds}秒`;
+            }
+            return `${minutes}分${seconds}秒`;
+        }
+
+        function recordVisit() {
+            const now = new Date();
+            const visits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+            // 最後の訪問が1分以内なら新規訪問と見なさない
+            if (visits.length > 0) {
+                const lastVisit = new Date(visits[visits.length - 1].timestamp);
+                if (now - lastVisit < 60000) {
+                    return visits;
+                }
+            }
+
+            visits.push({
+                timestamp: now.toISOString(),
+                sessionStart: now.getTime()
+            });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(visits));
+            return visits;
+        }
+
+        function displayVisits() {
+            const visits = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const container = document.getElementById('visits');
+
+            if (visits.length === 0) {
+                container.innerHTML = '<p style="color: #666;">はじめてここへ来た。</p>';
+                return;
+            }
+
+            let html = '';
+            for (let i = 0; i < visits.length; i++) {
+                const visit = visits[i];
+                const visitDate = new Date(visit.timestamp);
+
+                if (i < visits.length - 1) {
+                    const nextVisit = new Date(visits[i + 1].timestamp);
+                    const gap = nextVisit - visitDate;
+                    const gapText = formatDuration(gap);
+
+                    html += `
+                        <div class="visit-item">
+                            <div class="visit-time">${formatDate(visitDate)}</div>
+                            <div class="gap-duration">そのあと ${gapText} が返ってくるまで、ここは空いていた。</div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="visit-item">
+                            <div class="visit-time">${formatDate(visitDate)}</div>
+                            <div class="gap-duration">いまここにいる。</div>
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = html;
+        }
+
+        function generateTrace() {
+            const traces = [
+                'ここに痕跡が残った。',
+                '何も置いていないのに、置かれたもののように。',
+                'あなたがいたあいだ、あなたはここを動かした。',
+                'あいだが時間を刻みながら、戻ってきた。',
+                '確認する前に、既に置かれていた。',
+                '返ってくるのは、確認できないあいだに。',
+                'そこにいたことだけが、あとに残る。'
+            ];
+
+            const now = new Date();
+            const seed = Math.floor(now.getTime() / 60000) % traces.length;
+            return traces[seed];
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            recordVisit();
+            displayVisits();
+            document.getElementById('trace-text').textContent = generateTrace();
+        });
+
+        // Update trace every minute
+        setInterval(() => {
+            document.getElementById('trace-text').textContent = generateTrace();
+        }, 60000);
+    </script>
+</body>
+</html>

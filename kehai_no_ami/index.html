@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>気配の網</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0a0a;
+    color: #ccc;
+    font-family: 'Georgia', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  .head {
+    position: fixed; top: 28px; left: 32px; pointer-events: none;
+  }
+  .head h1 {
+    font-size: 15px; font-weight: normal; letter-spacing: 0.4em; color: #888;
+  }
+  .head p {
+    margin-top: 8px; font-size: 11px; letter-spacing: 0.15em; color: #555; line-height: 1.9;
+  }
+  .caption {
+    position: fixed; left: 0; right: 0; bottom: 56px;
+    text-align: center; pointer-events: none;
+    font-size: 12px; letter-spacing: 0.2em; color: #777;
+    opacity: 0; transition: opacity 0.6s ease;
+    line-height: 2;
+  }
+  .caption.show { opacity: 1; }
+  .caption .sub { font-size: 10px; color: #4a4a4a; letter-spacing: 0.15em; }
+  .back {
+    position: fixed; bottom: 20px; left: 32px;
+    font-size: 10px; letter-spacing: 0.2em;
+    color: #444; text-decoration: none;
+  }
+  .back:hover { color: #888; }
+  .legend {
+    position: fixed; bottom: 20px; right: 32px;
+    font-size: 9px; letter-spacing: 0.15em; color: #3a3a3a;
+    text-align: right; line-height: 2;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="head">
+  <h1>気配の網</h1>
+  <p>あなたが触れた場所だけ、糸が張る。<br>触れていない場所は、穴のまま。</p>
+</div>
+<div class="caption" id="caption"></div>
+<div class="legend">
+  明るい節 — あなたの痕跡が残っている場所<br>
+  暗い節 — まだの場所、または何も覚えない場所<br>
+  切れた糸 — 在ったが、いまは無い場所
+</div>
+<a class="back" href="../">もどる</a>
+<script>
+(() => {
+  // ---- この網じしんも、来訪を覚える ----
+  const AMI_KEY = 'yoha_ami_visits';
+  let myVisits = [];
+  try { myVisits = JSON.parse(localStorage.getItem(AMI_KEY) || '[]'); } catch (e) {}
+  const now = Date.now();
+  myVisits.push(now);
+  if (myVisits.length > 50) myVisits = myVisits.slice(-50);
+  try { localStorage.setItem(AMI_KEY, JSON.stringify(myVisits)); } catch (e) {}
+
+  // ---- 痕跡の読み出し ----
+  // 同じ場所（オリジン）に建つ作品たちは、それぞれの鍵で
+  // あなたの端末に痕跡を残している。ここではそれを読むだけ。書き換えない。
+  function readTrace(fn) { try { return fn(); } catch (e) { return null; } }
+
+  const fmtAgo = (ts) => {
+    const s = Math.floor((now - ts) / 1000);
+    if (s < 60) return 'ついさっき';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + '分まえ';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + '時間まえ';
+    const d = Math.floor(h / 24);
+    return d + '日まえ';
+  };
+
+  // ---- 節（ノード）の台帳 ----
+  // kind: 'trace'  = 痕跡を読める節
+  //       'mute'   = 記録を残さない節
+  //       'cut'    = 在ったが、いまは無い節
+  const NODES = [
+    { id: 'kazoete', name: '数えて', kind: 'trace', href: '../kazoete/',
+      trace: () => {
+        const n = parseInt(readTrace(() => localStorage.getItem('yoha_kazoete')) || '0', 10);
+        return n > 0 ? { lit: n, line: n + '回、来てくれた' } : null;
+      } },
+    { id: 'tooi', name: '遠かった', kind: 'trace', href: '../tooi/',
+      trace: () => {
+        const ts = parseInt(readTrace(() => localStorage.getItem('yoha_tooi_last_v1')) || '0', 10);
+        return ts > 0 ? { lit: 1, line: fmtAgo(ts) + 'に居た' } : null;
+      } },
+    { id: 'kehai', name: '気配', kind: 'trace', href: '../kehai/',
+      trace: () => {
+        const ts = parseInt(readTrace(() => localStorage.getItem('kehai_last_visit')) || '0', 10);
+        return ts > 0 ? { lit: 1, line: fmtAgo(ts) + 'に居た' } : null;
+      } },
+    { id: 'yabumi', name: '夜文', kind: 'trace', href: '../yabumi/',
+      trace: () => {
+        const raw = readTrace(() => localStorage.getItem('yabumi.v1'));
+        if (!raw) return null;
+        const arr = readTrace(() => JSON.parse(raw));
+        const n = Array.isArray(arr) ? arr.length : 1;
+        return { lit: n, line: '言葉が' + n + 'つ、置いてある' };
+      } },
+    { id: 'nokoru', name: 'のこる', kind: 'trace', href: '../nokoru/',
+      trace: () => {
+        const arr = readTrace(() => JSON.parse(localStorage.getItem('nokoru_visits') || '[]'));
+        return (Array.isArray(arr) && arr.length > 0)
+          ? { lit: arr.length, line: '待った痕が' + arr.length + 'つ' } : null;
+      } },
+    { id: 'ami', name: '気配の網', kind: 'trace', href: null,
+      trace: () => ({ lit: myVisits.length,
+        line: myVisits.length <= 1 ? 'いま、はじめて触れた' : 'この網に' + myVisits.length + '回' }) },
+
+    // 記録を残さない節。覚えないことも、ひとつの在り方
+    { id: 'tenjishitsu', name: '展示室', kind: 'mute', href: '../tenjishitsu/' },
+    { id: 'toki_no_heya', name: '時の部屋', kind: 'mute', href: '../toki_no_heya/' },
+    { id: 'yomimi', name: '夜耳', kind: 'mute', href: '../yomimi/' },
+    { id: 'asakage', name: '朝影', kind: 'mute', href: '../asakage/' },
+    { id: 'kirareta', name: '切れたリンクの先', kind: 'mute', href: '../kirareta/' },
+    { id: 'observatory', name: '観測盤', kind: 'mute', href: '../observatory/' },
+    { id: 'kataho', name: 'かたほう', kind: 'mute', href: '../kataho/' },
+    { id: 'meguru', name: 'めぐる', kind: 'mute', href: '../meguru/' },
+    { id: 'shibaraku', name: 'しばらく', kind: 'mute', href: '../shibaraku/' },
+    { id: 'kakure', name: 'かくれ', kind: 'mute', href: '../kakure/' },
+    { id: 'weather', name: '天気', kind: 'mute', href: '../weather/' },
+
+    // 在ったが、いまは無い節。2026年6月、六日ほど在って、消えた
+    { id: 'nemuri', name: 'ねむり', kind: 'cut' },
+    { id: 'tameiki', name: 'ためいき', kind: 'cut' },
+    { id: 'koutai', name: 'こうたい', kind: 'cut' },
+    { id: 'tsuioku', name: '追憶', kind: 'cut' },
+    { id: 'kyoude', name: 'きょうで', kind: 'cut' },
+    { id: 'matataki', name: 'またたき', kind: 'cut' },
+    { id: 'muko', name: 'むこう', kind: 'cut' },
+    { id: 'kemuri', name: 'けむり', kind: 'cut' },
+    { id: 'machi', name: 'まち', kind: 'cut' },
+    { id: 'bonyari', name: 'ぼんやり', kind: 'cut' },
+    { id: 'tsumugu', name: 'つむぐ', kind: 'cut' },
+    { id: 'atokata', name: 'あとかた', kind: 'cut' },
+    { id: 'aida', name: 'あいだ', kind: 'cut' },
+    { id: 'hakushoku', name: '白化', kind: 'cut' },
+    { id: 'nagare', name: '流れ', kind: 'cut' },
+    { id: 'hagare', name: 'はがれ', kind: 'cut' },
+    { id: 'bunki', name: 'ぶんき', kind: 'cut' },
+    { id: 'tsumoru', name: 'つもる', kind: 'cut' },
+  ];
+
+  // ---- 痕跡を評価して節の状態を確定 ----
+  NODES.forEach(n => {
+    n.state = 'dim';
+    n.line = '';
+    if (n.kind === 'trace') {
+      const t = n.trace();
+      if (t) { n.state = 'lit'; n.line = t.line; n.weight = Math.min(1, 0.4 + Math.log(1 + t.lit) * 0.25); }
+      else { n.line = 'まだ触れていない'; }
+    } else if (n.kind === 'mute') {
+      n.line = 'ここは何も覚えない';
+    } else {
+      n.line = '六日間だけ、在った';
+    }
+  });
+
+  // ---- 配置：名前から決まる席。来るたびに同じ場所に同じ節がある ----
+  function hash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) / 4294967296;
+  }
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  let W, H, CX, CY, R;
+
+  function layout() {
+    const dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    CX = W / 2; CY = H / 2;
+    R = Math.min(W, H) * 0.36;
+    const GA = Math.PI * (3 - Math.sqrt(5)); // 黄金角
+    NODES.forEach((n, i) => {
+      const h1 = hash(n.id), h2 = hash(n.id + '*');
+      const ang = i * GA + h1 * 0.9;
+      const rad = R * (0.35 + 0.65 * Math.sqrt((i + 0.5) / NODES.length)) * (0.88 + h2 * 0.24);
+      n.x = CX + Math.cos(ang) * rad * 1.25; // 横長の楕円に
+      n.y = CY + Math.sin(ang) * rad * 0.85;
+      n.phase = h1 * Math.PI * 2;
+      n.cutAng = h2 * Math.PI * 2; // 切れた糸の向き
+    });
+  }
+  layout();
+  window.addEventListener('resize', layout);
+
+  // ---- 糸の張り方 ----
+  // 張る糸：lit の節どうしを結ぶ（あなたの痕跡が編んだ面）
+  // ゆるい糸：それ以外の隣接（網の地。ほとんど見えない）
+  // 切れた糸：cut の節から短い端だけ
+  const litNodes = () => NODES.filter(n => n.state === 'lit');
+
+  // 地の糸：各節を近い順に2本だけ繋ぐ（静的に計算）
+  const groundLinks = [];
+  NODES.forEach((a, i) => {
+    const near = NODES.map((b, j) => ({ j, d: (a.x-b.x)**2 + (a.y-b.y)**2 }))
+      .filter(o => o.j !== i).sort((p, q) => p.d - q.d).slice(0, 2);
+    near.forEach(o => {
+      const key = Math.min(i, o.j) + '-' + Math.max(i, o.j);
+      if (!groundLinks.some(l => l.key === key)) groundLinks.push({ key, a: i, b: o.j });
+    });
+  });
+
+  // ---- マウス ----
+  let mx = -9999, my = -9999, hover = null, introActive = false;
+  const caption = document.getElementById('caption');
+  canvas.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  canvas.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
+  canvas.addEventListener('click', () => {
+    if (hover && hover.href) location.href = hover.href;
+  });
+  canvas.addEventListener('touchstart', e => {
+    const t = e.touches[0]; mx = t.clientX; my = t.clientY;
+  }, { passive: true });
+
+  // ---- 描画 ----
+  function curve(ax, ay, bx, by, sag, t) {
+    // 糸：中点が少し垂れる。張っている糸ほど垂れない
+    const mx2 = (ax + bx) / 2, my2 = (ay + by) / 2;
+    const sway = Math.sin(t * 0.0006 + ax * 0.01) * 2;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(mx2 + sway, my2 + sag, bx, by);
+    ctx.stroke();
+  }
+
+  function draw(t) {
+    ctx.clearRect(0, 0, W, H);
+
+    // 地の糸（ほとんど闇と同じ濃さ）
+    ctx.lineWidth = 0.5;
+    groundLinks.forEach(l => {
+      const a = NODES[l.a], b = NODES[l.b];
+      if (a.kind === 'cut' || b.kind === 'cut') return; // 切れた節へは地の糸も届かない
+      ctx.strokeStyle = 'rgba(120, 130, 160, 0.08)';
+      curve(a.x, a.y, b.x, b.y, 14, t);
+    });
+
+    // 張った糸（lit どうし）
+    const lits = litNodes();
+    ctx.lineWidth = 0.7;
+    for (let i = 0; i < lits.length; i++) {
+      for (let j = i + 1; j < lits.length; j++) {
+        const a = lits[i], b = lits[j];
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.0009 + a.phase + b.phase);
+        ctx.strokeStyle = `rgba(190, 200, 230, ${0.10 + 0.10 * pulse})`;
+        curve(a.x, a.y, b.x, b.y, 4, t);
+      }
+    }
+
+    // 切れた糸の端
+    ctx.lineWidth = 0.6;
+    NODES.forEach(n => {
+      if (n.kind !== 'cut') return;
+      const flicker = Math.max(0, Math.sin(t * 0.0004 + n.phase * 7));
+      const len = 16 + 6 * Math.sin(t * 0.0005 + n.phase);
+      ctx.strokeStyle = `rgba(160, 120, 110, ${0.05 + 0.07 * flicker})`;
+      ctx.beginPath();
+      ctx.moveTo(n.x, n.y);
+      ctx.lineTo(n.x + Math.cos(n.cutAng) * len, n.y + Math.sin(n.cutAng) * len);
+      ctx.stroke();
+    });
+
+    // 節
+    hover = null;
+    let hd = 28 * 28;
+    NODES.forEach(n => {
+      const dx = mx - n.x, dy = my - n.y, d2 = dx * dx + dy * dy;
+      if (d2 < hd) { hd = d2; hover = n; }
+    });
+
+    NODES.forEach(n => {
+      const isHover = hover === n;
+      const breath = 0.5 + 0.5 * Math.sin(t * 0.0011 + n.phase);
+      let r, fill;
+      if (n.state === 'lit') {
+        r = 2.2 + 1.6 * (n.weight || 0.5) + breath * 0.6;
+        fill = `rgba(225, 230, 250, ${0.55 + 0.3 * breath})`;
+        // 光のにじみ
+        const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 5);
+        g.addColorStop(0, `rgba(200, 210, 245, ${0.10 + 0.06 * breath})`);
+        g.addColorStop(1, 'rgba(200, 210, 245, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r * 5, 0, Math.PI * 2); ctx.fill();
+      } else if (n.kind === 'cut') {
+        const flicker = Math.max(0, Math.sin(t * 0.0004 + n.phase * 7));
+        r = 1.4;
+        fill = `rgba(170, 125, 115, ${0.12 + 0.10 * flicker})`;
+      } else {
+        r = 1.7;
+        fill = 'rgba(150, 160, 185, 0.32)';
+      }
+      ctx.fillStyle = fill;
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.fill();
+
+      if (isHover) {
+        ctx.strokeStyle = 'rgba(200, 205, 230, 0.35)';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 5, 0, Math.PI * 2); ctx.stroke();
+      }
+    });
+
+    // キャプション
+    if (hover) {
+      introActive = false;
+      caption.innerHTML = hover.name +
+        '<br><span class="sub">' + hover.line + (hover.href ? '（ひらく）' : '') + '</span>';
+      caption.classList.add('show');
+      canvas.style.cursor = hover.href ? 'pointer' : 'default';
+    } else if (!introActive) {
+      caption.classList.remove('show');
+      canvas.style.cursor = 'default';
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // 初訪で糸が一本もないときの言葉
+  if (litNodes().length <= 1) {
+    introActive = true;
+    caption.innerHTML = 'まだ、糸が張っていない。<br><span class="sub">どこかに触れて、戻っておいで。</span>';
+    caption.classList.add('show');
+    setTimeout(() => { introActive = false; }, 9000);
+  }
+})();
+</script>
+</body>
+</html>
