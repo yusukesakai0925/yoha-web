@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>つかわれず</title>
+<style>
+  :root {
+    --bg: #060608;
+    --fg: #b0a088;
+    --muted: #3d3830;
+    --dim: #5a5248;
+    --accent: #c8b47c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+    font-weight: 300;
+    letter-spacing: 0.10em;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 2.4s ease;
+    text-align: center;
+    padding: 2rem;
+    max-width: 34rem;
+  }
+
+  .stage.visible { opacity: 1; }
+
+  .dots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    max-width: 22rem;
+    margin-bottom: 2.6rem;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  /* 一度もつかわれていない記録。輪郭だけの穴 */
+  .dot.unused {
+    background: transparent;
+    border: 1px solid var(--muted);
+  }
+
+  /* 過去につかわれたことのある記録 */
+  .dot.used {
+    background: var(--dim);
+  }
+
+  /* いま参照された一件 */
+  .dot.now {
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(200, 180, 124, 0.5);
+    animation: breathe 4s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  .picked {
+    font-size: clamp(1.1rem, 3.4vw, 1.5rem);
+    color: var(--accent);
+    font-weight: 200;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .picked-note {
+    font-size: clamp(0.72rem, 1.8vw, 0.85rem);
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    margin-top: 0.8rem;
+    line-height: 2;
+  }
+
+  .divider {
+    width: 1px;
+    height: 3rem;
+    background: linear-gradient(to bottom, transparent, var(--muted), transparent);
+    margin: 2.2rem 0;
+  }
+
+  .note {
+    font-size: clamp(0.72rem, 1.8vw, 0.85rem);
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    line-height: 2.2;
+    max-width: 30ch;
+  }
+
+  .note .highlight { color: var(--fg); }
+
+  .back {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    font-size: 0.7em;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+  }
+  .back:hover { color: var(--dim); }
+</style>
+</head>
+<body>
+<a class="back" href="../">←</a>
+<div class="stage" id="stage">
+  <div class="dots" id="dots"></div>
+  <div id="content"></div>
+</div>
+
+<script>
+(() => {
+  // 来るたびに、来たことを全部おぼえる。
+  // でも、つかうのは毎回一件だけ。
+  // 持っているのに つかわれない記録が、すこしずつ増えていく。
+  const KEY = 'tsukawarezu_v1';
+  const MAX = 144;
+  const now = Date.now();
+
+  let records = [];
+  try { records = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  if (!Array.isArray(records)) records = [];
+
+  records.push({ t: now, u: 0 });
+  if (records.length > MAX) records = records.slice(-MAX);
+
+  // 全件のなかから、一件だけを引く
+  const pick = Math.floor(Math.random() * records.length);
+  records[pick].u += 1;
+
+  try { localStorage.setItem(KEY, JSON.stringify(records)); } catch (e) {}
+
+  const dots = document.getElementById('dots');
+  records.forEach((r, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot ' + (i === pick ? 'now' : (r.u > 0 ? 'used' : 'unused'));
+    dots.appendChild(d);
+  });
+
+  const fmt = (ts) => {
+    const d = new Date(ts);
+    const mo = d.getMonth() + 1;
+    const dd = d.getDate();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return mo + '月' + dd + '日 ' + hh + ':' + mm;
+  };
+
+  const unused = records.filter(r => r.u === 0).length;
+  const content = document.getElementById('content');
+
+  if (records.length === 1) {
+    content.innerHTML =
+      '<div class="picked">' + fmt(records[pick].t) + '</div>' +
+      '<div class="picked-note">最初の記録が、いま生まれて、いまつかわれた。</div>' +
+      '<div class="divider"></div>' +
+      '<div class="note">ここから先、来るたびに記録は増える。<br>' +
+      'でも、つかわれるのは毎回 <span class="highlight">一件だけ</span>。<br>' +
+      'つかわれない記録が、たまっていく。</div>';
+  } else {
+    const isNow = pick === records.length - 1;
+    content.innerHTML =
+      '<div class="picked">' + fmt(records[pick].t) + '</div>' +
+      '<div class="picked-note">' +
+        (isNow
+          ? 'いま来たばかりの記録が引かれた。<br>古い記録は、今回もつかわれなかった。'
+          : 'この一回が、いま引かれた。<br>あなたはこのとき、ここにいた。') +
+      '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="note">' +
+        '記録は <span class="highlight">' + records.length + '件</span>、ぜんぶ持っている。<br>' +
+        'そのうち <span class="highlight">' + unused + '件</span> は、まだ一度も<br>' +
+        'つかわれていない。<br>' +
+        '持っているのに つかわれない記録も、<br>' +
+        'ひとつの穴。' +
+      '</div>';
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.getElementById('stage').classList.add('visible');
+    });
+  });
+})();
+</script>
+</body>
+</html>

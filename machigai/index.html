@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>まちがい</title>
+<style>
+  :root {
+    --bg: #060608;
+    --fg: #b0a088;
+    --dim: rgba(176, 160, 136, 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", sans-serif;
+    font-weight: 300;
+    letter-spacing: 0.12em;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #stage {
+    text-align: center;
+    line-height: 2.4;
+  }
+
+  .line {
+    display: block;
+    font-size: clamp(12px, 2vw, 16px);
+    opacity: 0;
+    transition: opacity 1.6s ease;
+  }
+
+  .line.visible {
+    opacity: 1;
+  }
+
+  .line.dim {
+    opacity: 0.22;
+    font-size: clamp(10px, 1.4vw, 13px);
+    letter-spacing: 0.18em;
+  }
+
+  #note {
+    position: fixed;
+    bottom: 2em;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: rgba(176, 160, 136, 0.2);
+    letter-spacing: 0.2em;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <span class="line" id="l1">正しいと思っていた</span>
+  <span class="line" id="l2">ずっとそう思っていた</span>
+  <span class="line" id="l3">気持ちよく積み上げていた</span>
+  <span class="line" id="l4" style="font-size: clamp(10px,1.4vw,13px); letter-spacing:0.18em; color: rgba(176,160,136,0.5);">ちがっていた</span>
+</div>
+
+<div id="note">まちがい</div>
+
+<script>
+  const lines = ['l1','l2','l3','l4'].map(id => document.getElementById(id));
+
+  function showSequence() {
+    lines.forEach(l => {
+      l.classList.remove('visible');
+    });
+
+    let delay = 800;
+    lines.forEach((l, i) => {
+      setTimeout(() => l.classList.add('visible'), delay);
+      delay += (i === 3) ? 2200 : 1800;
+    });
+
+    // 最終行の後、しばらくしてリセット
+    setTimeout(() => {
+      lines.forEach(l => l.classList.remove('visible'));
+      // 次のサイクルまでの間
+      const nextCycle = 4000 + Math.random() * 8000;
+      setTimeout(showSequence, nextCycle);
+    }, delay + 3000);
+  }
+
+  // 最初のサイクル開始（少し間を置く）
+  setTimeout(showSequence, 1200);
+</script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>しんげつ</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+    }
+    body {
+      background: #06060a;
+      color: #bab6a8;
+      font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2.8rem;
+      user-select: none;
+    }
+    #title {
+      font-size: 0.65rem;
+      letter-spacing: 0.4em;
+      color: #2e2e3a;
+      text-align: center;
+    }
+    canvas { display: block; }
+    #phase-text {
+      font-size: 1.4rem;
+      letter-spacing: 0.35em;
+      color: #c4c0b2;
+      text-align: center;
+      min-height: 2rem;
+    }
+    #day-text {
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      color: #3a3830;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="title">しんげつ</div>
+  <canvas id="moon" width="220" height="220"></canvas>
+  <div id="phase-text"></div>
+  <div id="day-text"></div>
+
+  <script>
+    const JD_EPOCH = 2451549.77; // 2000-01-06 18:14 UTC (known new moon)
+    const SYNODIC = 29.53058867;
+    const PI = Math.PI;
+
+    function getMoonPhase() {
+      const jd = Date.now() / 86400000 + 2440587.5;
+      const elapsed = jd - JD_EPOCH;
+      return ((elapsed % SYNODIC) + SYNODIC) % SYNODIC / SYNODIC;
+    }
+
+    function getPhaseLabel(phase) {
+      const dist = phase < 0.5 ? phase : 1 - phase;
+      if (dist < 0.04) return '見えない。在る。';
+      if (phase < 0.5) {
+        if (phase < 0.22) return 'みえはじめている';
+        if (phase < 0.28) return 'はんぶんだけ';
+        if (phase < 0.47) return 'もうすこし';
+        return 'ほぼぜんぶ';
+      } else {
+        if (phase < 0.53) return 'ぜんぶ';
+        if (phase < 0.72) return 'もうすこし';
+        if (phase < 0.78) return 'はんぶんにもどる';
+        return 'きえていく';
+      }
+    }
+
+    function drawMoon(phase) {
+      const canvas = document.getElementById('moon');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const r = 78;
+      const cx = w / 2, cy = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Atmospheric glow near full moon
+      const illum = (1 - Math.cos(2 * PI * phase)) / 2;
+      if (illum > 0.55) {
+        const intensity = (illum - 0.55) * 0.18;
+        const grd = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.55);
+        grd.addColorStop(0, `rgba(210, 200, 170, ${intensity})`);
+        grd.addColorStop(1, 'rgba(210, 200, 170, 0)');
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.55, 0, 2 * PI);
+        ctx.fillStyle = grd;
+        ctx.fill();
+      }
+
+      // Moon outline (always visible)
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * PI);
+      ctx.strokeStyle = '#2c2c3e';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Dark base
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * PI);
+      ctx.fillStyle = '#0f0f18';
+      ctx.fill();
+
+      // Clip to moon circle
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, 2 * PI);
+      ctx.clip();
+
+      const cos_phi = Math.cos(phase * 2 * PI);
+      const litColor = '#dcd8c8';
+      const darkColor = '#0f0f18';
+
+      if (phase <= 0.5) {
+        // Waxing: lit on right
+        ctx.fillStyle = litColor;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, -PI / 2, PI / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        if (cos_phi > 0.001) {
+          // Crescent: dark ellipse erases right portion
+          ctx.fillStyle = darkColor;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, cos_phi * r, r, 0, -PI / 2, PI / 2);
+          ctx.closePath();
+          ctx.fill();
+        } else if (cos_phi < -0.001) {
+          // Gibbous: lit ellipse adds to left
+          ctx.fillStyle = litColor;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, -cos_phi * r, r, 0, -PI / 2, PI / 2, true);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else {
+        // Waning: lit on left
+        ctx.fillStyle = litColor;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, -PI / 2, PI / 2, true);
+        ctx.closePath();
+        ctx.fill();
+
+        if (cos_phi > 0.001) {
+          // Crescent: dark ellipse erases left portion
+          ctx.fillStyle = darkColor;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, cos_phi * r, r, 0, -PI / 2, PI / 2, true);
+          ctx.closePath();
+          ctx.fill();
+        } else if (cos_phi < -0.001) {
+          // Gibbous: lit ellipse adds to right
+          ctx.fillStyle = litColor;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, -cos_phi * r, r, 0, -PI / 2, PI / 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function update() {
+      const phase = getMoonPhase();
+      const age = (phase * SYNODIC).toFixed(1);
+      drawMoon(phase);
+      document.getElementById('phase-text').textContent = getPhaseLabel(phase);
+      document.getElementById('day-text').textContent = '月齢 ' + age;
+    }
+
+    update();
+    setInterval(update, 60000);
+  </script>
+</body>
+</html>

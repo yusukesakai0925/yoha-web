@@ -119,6 +119,14 @@
         return (Array.isArray(arr) && arr.length > 0)
           ? { lit: arr.length, line: '待った痕が' + arr.length + 'つ' } : null;
       } },
+    { id: 'tsukawarezu', name: 'つかわれず', kind: 'trace', href: '../tsukawarezu/',
+      trace: () => {
+        const arr = readTrace(() => JSON.parse(localStorage.getItem('tsukawarezu_v1') || '[]'));
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        const unused = arr.filter(r => r && r.u === 0).length;
+        return { lit: arr.length,
+          line: unused > 0 ? '記録' + arr.length + '件、うち' + unused + '件はつかわれず' : '記録が' + arr.length + '件' };
+      } },
     { id: 'ami', name: '気配の網', kind: 'trace', href: null,
       trace: () => ({ lit: myVisits.length,
         line: myVisits.length <= 1 ? 'いま、はじめて触れた' : 'この網に' + myVisits.length + '回' }) },
