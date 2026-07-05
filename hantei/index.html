@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>はんてい — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .1em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<canvas id="c"></canvas>
+<div class="sub">壁のヤモリは、濃淡を返さない。<b>真</b>か<b>偽</b>か、それだけを、しかも黙って。<br>触れているあいだだけ判定が灯り、放せば消える——近い、は無い。</div>
+<script>
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  place();
+}
+window.addEventListener('resize', resize);
+
+// ヤモリ——壁に張りついた一点。捕える範囲は目に見えない（見えるのは判定だけ）。
+let gx, gy, reach;
+function place(){
+  gx = W * 0.5;
+  gy = H * 0.44;
+  // 捕獲半径。画面サイズに追随するが、決して描かない。境界は判定でしか分からない。
+  reach = Math.max(70, Math.min(W, H) * 0.16);
+}
+
+// 触れているか／判定は真か。二値。灰色を経由しない。
+let touching = false, px = -1e4, py = -1e4;
+let verdict = false;        // true=真, false=偽。中間は存在しない
+function setPointer(x, y){ px = x; py = y; }
+
+cv.addEventListener('pointermove', e => { setPointer(e.clientX, e.clientY); if(!('ontouchstart' in window)) touching = true; });
+cv.addEventListener('pointerdown', e => { touching = true; setPointer(e.clientX, e.clientY); });
+cv.addEventListener('pointerup',   () => { touching = false; });
+cv.addEventListener('pointerleave',() => { touching = false; });
+cv.addEventListener('pointercancel',()=> { touching = false; });
+
+// 判定は連続量を持たない。触れた瞬間、範囲の内か外かで真偽が決まる。
+// 距離による濃淡は無い——一歩ずれれば札が丸ごと裏返る。
+function judge(){
+  if(!touching) return null;          // 放せば判定そのものが消える（偽ですらない＝暗）
+  const dx = px - gx, dy = py - gy;
+  return (dx*dx + dy*dy) <= reach*reach;   // 真 or 偽。ハード閾値
+}
+
+function draw(){
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#06070b';
+  g.fillRect(0, 0, W, H);
+
+  const j = judge();
+
+  // 壁——ほぼ無地。濃淡を足す誘惑をあらかじめ消してある。
+  // ヤモリ本体。判定に応じて二値で灯る。フェードしない（スナップ）。
+  let bodyCol, ringCol, ringA, showRing;
+  if(j === null){        // 触れていない：暗。静止。ただ張りついている
+    bodyCol = '#161a22'; ringCol = null; showRing = false;
+  } else if(j === true){ // 真：冷たく灯る。脈打たない（脈＝濃淡）。ぴたりと据わる
+    bodyCol = '#cfe4ee'; ringCol = '#9fc4d6'; ringA = 0.9; showRing = true;
+  } else {               // 偽：灯らない。だが「触れている」ことだけは沈んだ赤で返す
+    bodyCol = '#3a1f22'; ringCol = '#5a2a2e'; ringA = 0.55; showRing = true;
+  }
+
+  // 判定の輪（灯るときだけ）。半径は固定——距離で膨らませない。
+  if(showRing){
+    g.beginPath();
+    g.arc(gx, gy, 34, 0, Math.PI*2);
+    g.strokeStyle = ringCol; g.globalAlpha = ringA; g.lineWidth = 1;
+    g.stroke();
+    g.globalAlpha = 1;
+  }
+
+  // ヤモリの体——小さな四つ肢の影。輪郭だけ、丸くしすぎない。
+  g.save();
+  g.translate(gx, gy);
+  g.fillStyle = bodyCol;
+  // 胴
+  g.beginPath();
+  g.ellipse(0, 0, 9, 15, 0, 0, Math.PI*2);
+  g.fill();
+  // 頭
+  g.beginPath();
+  g.ellipse(0, -17, 6, 7, 0, 0, Math.PI*2);
+  g.fill();
+  // 四肢（張りついた指）
+  g.strokeStyle = bodyCol; g.lineWidth = 2.4; g.lineCap = 'round';
+  const legs = [[-9,-6,-22,-13],[9,-6,22,-13],[-9,6,-22,13],[9,6,22,13]];
+  for(const [x1,y1,x2,y2] of legs){
+    g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+  }
+  // 尾
+  g.lineWidth = 2.4;
+  g.beginPath(); g.moveTo(0,15); g.quadraticCurveTo(6,30,2,40); g.stroke();
+  // 目——真のときだけ、二つの点が開く。偽・暗では閉じている
+  if(j === true){
+    g.fillStyle = '#06070b';
+    g.beginPath(); g.arc(-2.4,-18,1.1,0,Math.PI*2); g.fill();
+    g.beginPath(); g.arc( 2.4,-18,1.1,0,Math.PI*2); g.fill();
+  }
+  g.restore();
+
+  // 判定の文字——真／偽の一字だけ。数値も濃淡も添えない。放せば何も出ない。
+  if(j !== null){
+    g.font = '600 15px -apple-system, "Hiragino Kaku Gothic ProN", sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = (j ? '#cfe4ee' : '#7a4147');
+    g.globalAlpha = 0.92;
+    g.fillText(j ? '真' : '偽', gx, gy + 62);
+    g.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(draw);
+}
+
+resize();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
