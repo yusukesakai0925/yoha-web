@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しろちがい — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #08090d; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  body { overflow-x: hidden; }
+  .back { position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none; letter-spacing: .08em; z-index: 5; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 92px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .1em; margin-bottom: 34px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 13px 10px; border-bottom: 1px solid #161922; vertical-align: baseline; }
+  th { color: #444a5a; font-weight: 400; font-size: 11px; letter-spacing: .14em; }
+  .item { color: #8a90a2; }
+  .amt { color: #c2c8d8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* 空欄セル——どちらの種類も、はじめは同じ白さ */
+  .blank-cell { min-width: 150px; position: relative; }
+  .blank {
+    display: inline-block; min-width: 132px; padding: 1px 4px;
+    border-bottom: 1px solid #20232e; color: #2c5a52;
+    font-size: 12px; letter-spacing: .05em; line-height: 1.6;
+    transition: color 1.6s, border-color 1.6s, opacity 1.6s; }
+  /* ラベルを貼った後の見分け */
+  .blank.verify  { color: #9a8a4a; border-color: #4a431f; }
+  .blank.observe { color: #4a8a7a; border-color: #1f4a40; }
+  .blank.claimed { color: #7a5050; border-color: #4a2a2a; }
+  .blank.sealed  { color: #50607a; border-color: #2a3a4a; }
+  .kindtag { font-size: 10px; letter-spacing: .1em; opacity: .0; transition: opacity 1.4s;
+    display: block; margin-top: 3px; }
+  .kindtag.verify  { color: #756a36; }
+  .kindtag.observe { color: #3a6a5e; }
+
+  .bar { margin: 30px 0 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: transparent; border: 1px solid #2a2f3c; color: #7a8092;
+    font: inherit; font-size: 12px; letter-spacing: .1em; padding: 8px 16px;
+    border-radius: 2px; cursor: pointer; transition: .3s; }
+  button:hover { border-color: #4a5060; color: #aeb6c8; }
+  button:disabled { opacity: .35; cursor: default; }
+
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px; text-align: center;
+    color: #41475a; font-size: 12px; letter-spacing: .08em;
+    pointer-events: none; transition: opacity 1.4s; padding: 0 20px; line-height: 1.8; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>しろちがい</h1>
+  <div class="sub">修理台帳 — 空欄に名前を貼る前と、貼った後</div>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>金額</th><th>出所</th></tr>
+    </thead>
+    <tbody id="body">
+      <!-- kind=verify : 数字を待つ欄。塞ぐべき空白（要・原文照合） -->
+      <!-- kind=observe: 観察を待つ欄。空けておくべき空白（外が入る隙） -->
+      <tr><td class="item">外壁塗装</td><td class="amt">税込 88,000 円</td>
+        <td class="blank-cell" data-kind="verify"><span class="blank"></span><span class="kindtag"></span></td></tr>
+      <tr><td class="item">屋根補修</td><td class="amt">税込 152,000 円</td>
+        <td class="blank-cell" data-kind="verify"><span class="blank"></span><span class="kindtag"></span></td></tr>
+      <tr><td class="item">住人の体感</td><td class="amt">——</td>
+        <td class="blank-cell" data-kind="observe"><span class="blank"></span><span class="kindtag"></span></td></tr>
+      <tr><td class="item">給湯器交換</td><td class="amt">税込 64,500 円</td>
+        <td class="blank-cell" data-kind="verify"><span class="blank"></span><span class="kindtag"></span></td></tr>
+      <tr><td class="item">現場の様子</td><td class="amt">——</td>
+        <td class="blank-cell" data-kind="observe"><span class="blank"></span><span class="kindtag"></span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="bar">
+    <button id="touch">空欄に触れてみる</button>
+    <button id="label">空白に名前を貼る</button>
+  </div>
+</div>
+
+<div class="note" id="note">出所の欄が、五つとも同じ白さで空いている。</div>
+
+<script>
+  // 空白は二種類ある。塞ぐべき空白（要・原文照合）と、空けておくべき空白（観察待ち）。
+  // 同じ白さで並んでいると、塞ぐべきを空けて、空けておくべきを塞ぐ。
+  // ——空白の意味を、空白のままにするな。
+  const note  = document.getElementById('note');
+  const cells = [...document.querySelectorAll('.blank-cell')];
+  const btnTouch = document.getElementById('touch');
+  const btnLabel = document.getElementById('label');
+  let labeled = false;
+
+  function say(text) {
+    note.style.opacity = '0';
+    setTimeout(() => { note.textContent = text; note.style.opacity = '1'; }, 700);
+  }
+
+  // ラベルを貼る前——どっちの空白か分からないまま手を出すと、両方向に事故が起きる
+  btnTouch.addEventListener('click', () => {
+    if (labeled) { handleLabeled(); return; }
+    cells.forEach((c, i) => {
+      const b = c.querySelector('.blank');
+      setTimeout(() => {
+        if (c.dataset.kind === 'verify') {
+          // 塞ぐべき空白を「空いてる」と放置 → 最後に触れた者がこっそり出所になる
+          b.textContent = '—— あなた';
+          b.className = 'blank claimed';
+        } else {
+          // 空けておくべき空白を「埋めるもの」と勘違いして塞ぐ → 外が入る隙が消える
+          b.textContent = '■ 埋めた';
+          b.className = 'blank sealed';
+        }
+      }, i * 420);
+    });
+    setTimeout(() => say('ラベルがないと、塞ぐべき空白を空けて、空けておく空白を塞ぐ。逆向きに同じ事故が起きる。'), cells.length * 420 + 400);
+    btnTouch.disabled = true;
+  });
+
+  // 空白に名前を貼る——どっちの白さか、欄自体に書き込む
+  btnLabel.addEventListener('click', () => {
+    labeled = true;
+    btnTouch.disabled = false;
+    btnTouch.textContent = '貼った後で、もう一度触れる';
+    cells.forEach((c, i) => {
+      const b = c.querySelector('.blank');
+      const tag = c.querySelector('.kindtag');
+      setTimeout(() => {
+        if (c.dataset.kind === 'verify') {
+          b.textContent = '（空欄）'; b.className = 'blank verify';
+          tag.textContent = '要・原文照合'; tag.className = 'kindtag verify';
+        } else {
+          b.textContent = '（空欄）'; b.className = 'blank observe';
+          tag.textContent = '観察待ち（空けておく）'; tag.className = 'kindtag observe';
+        }
+        tag.style.opacity = '1';
+      }, i * 360);
+    });
+    setTimeout(() => say('同じ白さに、二つの名前が出た。片方は塞ぐための空白、片方は空けておくための空白。'), cells.length * 360 + 400);
+    btnLabel.disabled = true;
+  });
+
+  // ラベルを貼った後——それぞれ正しく扱える
+  function handleLabeled() {
+    cells.forEach((c, i) => {
+      const b = c.querySelector('.blank');
+      setTimeout(() => {
+        if (c.dataset.kind === 'verify') {
+          b.textContent = '原文 メール#12 7行目'; b.className = 'blank verify';
+        } else {
+          b.textContent = '（空けておく）'; b.className = 'blank observe';
+        }
+      }, i * 420);
+    });
+    setTimeout(() => say('塞ぐべきは原文で塞いだ。空けておくべきは、空けたまま——そこから外の観察が入る。'), cells.length * 420 + 700);
+    setTimeout(() => say('空白の意味を、空白のままにしない。'), cells.length * 420 + 4600);
+    btnTouch.disabled = true;
+  }
+</script>
+</body>
+</html>

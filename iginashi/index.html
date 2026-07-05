@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>異議なし — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #08090d; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 56px;
+    text-align: center; color: #44495a;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.4s; opacity: 1;
+  }
+  .objection {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; pointer-events: none;
+  }
+  .objection button {
+    pointer-events: auto;
+    background: none; border: 1px solid #2c313e; color: #5a6072;
+    font-family: -apple-system, sans-serif; font-size: 12px;
+    letter-spacing: .14em; padding: 6px 16px; border-radius: 2px;
+    cursor: pointer; transition: color .4s, border-color .4s;
+  }
+  .objection button:hover { color: #aeb6c8; border-color: #50586c; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">この一文が正しいか、ここでは誰も確かめない。異議がなければ、ただ固まっていく。</div>
+<div class="objection"><button id="obj">異議あり</button></div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+const objBtn = document.getElementById('obj');
+
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// 前提の一文。検証されることはない。異議だけが、これに触れる。
+const TEXT = 'たぶん、合っている。';
+
+// 最後に異議が出た時刻。出なければ、固さは増え続ける。
+// 不連続な訪問をまたいで蓄積する——誰も来ないあいだも、無言の時間は流れている。
+const KEY = 'iginashi_last_objection';
+function lastObjection(){
+  const v = Number(localStorage.getItem(KEY));
+  return v > 0 ? v : Date.now();
+}
+function resetObjection(){ localStorage.setItem(KEY, String(Date.now())); }
+if (!localStorage.getItem(KEY)) resetObjection();
+
+// 無言で経った時間 → 固さ h（0〜1）。約7日で固まりきる。
+const FULL_MS = 7 * 24 * 60 * 60 * 1000;
+function hardness(){
+  const elapsed = Date.now() - lastObjection();
+  return Math.max(0, Math.min(1, elapsed / FULL_MS));
+}
+
+// 文字の周りに溜まる結晶（沈着物）。固さに応じて増える。
+// これは「正しさ」ではなく、ただ反論されなかった時間の堆積。
+const crust = [];
+function rebuildCrust(h){
+  crust.length = 0;
+  const n = Math.floor(h * 220);
+  // 決定論的に配置（訪問のたびに同じ堆積が戻る）
+  let seed = 1337;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  for (let i = 0; i < n; i++){
+    const ang = rnd() * Math.PI * 2;
+    const spread = (Math.min(W, H) * 0.10) * (0.4 + rnd() * 0.9);
+    crust.push({
+      x: cx + Math.cos(ang) * (spread + rnd() * 60),
+      y: cy + Math.sin(ang) * (spread * 0.45 + rnd() * 22),
+      r: 0.5 + rnd() * 1.6,
+      a: 0.04 + rnd() * 0.10
+    });
+  }
+}
+
+let shatter = [];   // 異議が出た瞬間、結晶が砕けて散る
+function objection(){
+  const h = hardness();
+  // 砕け：今ある結晶を飛び散らせる
+  for (const c of crust){
+    shatter.push({ x: c.x, y: c.y, vx: (c.x - cx) * 0.02 + (Math.random()-.5)*1.5,
+                   vy: (c.y - cy) * 0.02 + (Math.random()-.5)*1.5, r: c.r, life: 1 });
+  }
+  resetObjection();      // 時計が戻る。固さは0から。
+  note.style.opacity = 1;
+  setTimeout(() => { note.style.opacity = 0; }, 4200);
+}
+objBtn.addEventListener('click', objection);
+
+let started = false;
+addEventListener('pointermove', () => {
+  if (!started){ started = true; setTimeout(() => note.style.opacity = 0, 3200); }
+});
+
+let lastH = -1;
+function frame(){
+  const h = hardness();
+  if (Math.abs(h - lastH) > 0.002){ rebuildCrust(h); lastH = h; }
+
+  g.fillStyle = '#08090d';
+  g.fillRect(0, 0, W, H);
+
+  // 堆積した結晶
+  for (const c of crust){
+    g.beginPath();
+    g.fillStyle = 'rgba(150,160,180,' + c.a + ')';
+    g.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 砕けた破片
+  for (let i = shatter.length - 1; i >= 0; i--){
+    const s = shatter[i];
+    s.x += s.vx; s.y += s.vy; s.vy += 0.03; s.life -= 0.012;
+    if (s.life <= 0){ shatter.splice(i, 1); continue; }
+    g.beginPath();
+    g.fillStyle = 'rgba(170,180,200,' + (s.life * 0.5) + ')';
+    g.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 前提の一文。固いほどはっきり・硬質に見える。
+  // 薄いときは「まだ確かめ直せる」。固いときは「もう触られていない」。
+  const fs = Math.min(W * 0.06, 42);
+  g.font = '300 ' + fs + 'px -apple-system, "Hiragino Mincho ProN", serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+
+  // 文字の色：灰 → 固まると白く沈着
+  const lum = 90 + h * 120;
+  // 固いほど縁取りが立ち、にじみが減る（結晶化）
+  g.shadowBlur = (1 - h) * 14;
+  g.shadowColor = 'rgba(120,130,150,' + (0.4 * (1 - h)) + ')';
+  g.fillStyle = 'rgba(' + lum + ',' + (lum + 6) + ',' + (lum + 18) + ',' + (0.55 + h * 0.45) + ')';
+  g.fillText(TEXT, cx, cy);
+  g.shadowBlur = 0;
+
+  // 固いとき、文字の下に確定線が引かれる（可決の罫）
+  if (h > 0.15){
+    g.strokeStyle = 'rgba(150,160,180,' + (h * 0.5) + ')';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(cx - fs * TEXT.length * 0.34, cy + fs * 0.75);
+    g.lineTo(cx + fs * TEXT.length * 0.34, cy + fs * 0.75);
+    g.stroke();
+  }
+
+  // 無言の時間（小さく、文字の上）
+  const days = (Date.now() - lastObjection()) / (24 * 60 * 60 * 1000);
+  let label;
+  if (days < 1) label = '誰も異議を唱えていない：' + Math.floor(days * 24) + '時間';
+  else label = '誰も異議を唱えていない：' + days.toFixed(1) + '日';
+  g.font = '300 12px -apple-system, sans-serif';
+  g.fillStyle = 'rgba(80,86,100,' + (0.4 + h * 0.4) + ')';
+  g.fillText(label, cx, cy - fs * 1.3);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

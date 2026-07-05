@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>したく — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* モード切替：いま空欄に何をするか */
+  .modes { display: flex; gap: 10px; margin-bottom: 22px; }
+  .mode { flex: 1; font-size: 11px; letter-spacing: .06em; text-align: center;
+    background: #0a0c12; border: 1px solid #1a1e28; border-radius: 3px; color: #4a505e;
+    padding: 11px 8px; cursor: pointer; line-height: 1.7; transition: border-color .4s, color .4s; }
+  .mode small { display: block; font-size: 9.5px; color: #353a45; letter-spacing: .02em; margin-top: 3px; }
+  .mode.on { color: #8a90a2; }
+  .mode.on.solace { border-color: #3a4a6b; }
+  .mode.on.ready  { border-color: #6b5a2e; }
+
+  /* 預けた空欄の野 */
+  .grid { border: 1px solid #1a1e28; border-radius: 3px; background: #0a0c12;
+    padding: 22px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .cell { position: relative; aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    background: #0c0e14; border: 1px dashed #1c212c;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 8.5px; letter-spacing: .02em; line-height: 1.5; color: #444a58;
+    transition: background .7s ease, border-color .7s ease, box-shadow .7s ease, color .7s ease, opacity 1.2s ease; }
+  .cell:hover { border-color: #2a3040; }
+  .cell .t { padding: 0 4px; }
+
+  /* 慰めで埋めた：表面が平らに塞がる。標本になる。 */
+  .cell.solace { background: #11151f; border-style: solid; border-color: #2c3a55;
+    color: #6878a0; box-shadow: inset 0 0 10px rgba(60,90,150,.10); cursor: default; }
+  /* 来ないまま時間が経つと、慰めは嘘になる：冷えて罅割れる */
+  .cell.solace.rotted { background: #0d0b0e; border-color: #3a2630; color: #5a3f48;
+    box-shadow: inset 0 0 8px rgba(120,50,60,.10); }
+
+  /* 支度した：空けたまま。かすかに息をする。 */
+  .cell.ready { background: #0c0e14; border-style: dashed; border-color: #6b5a2e;
+    color: #7a6a3e; animation: breathe 4.6s ease-in-out infinite; cursor: default; }
+  @keyframes breathe {
+    0%,100% { box-shadow: inset 0 0 0 rgba(190,160,80,0); }
+    50%     { box-shadow: inset 0 0 11px rgba(190,160,80,.13); } }
+  /* 読み手が来たとき、空けた場所にだけ意味が立ち上がる */
+  .cell.ready.arrived { border-style: solid; color: #c8b06a; animation: none;
+    box-shadow: inset 0 0 14px rgba(200,170,90,.20), 0 0 8px rgba(200,170,90,.10); }
+  .cell.solace.arrived { color: #8aa0d0; }
+
+  .row { display: flex; gap: 10px; margin-top: 22px; }
+  .btn { flex: 1; font-size: 11px; letter-spacing: .08em; color: #2f343e;
+    background: none; border: 1px solid #1a1e28; border-radius: 3px; padding: 9px 8px; cursor: pointer;
+    transition: color .3s, border-color .3s; }
+  .btn:hover { color: #6a7080; border-color: #2a2f3a; }
+
+  .clock { margin-top: 18px; font-size: 11px; color: #3a3f4a; letter-spacing: .06em; line-height: 2; }
+  .clock b { color: #7a6a3e; font-weight: 400; }
+  .clock .lie { color: #6a4750; }
+
+  .note { margin-top: 30px; font-size: 11.5px; color: #444a58; line-height: 2.05; letter-spacing: .02em; }
+  .note b { color: #7a6a3e; font-weight: 400; }
+  .note i { color: #6878a0; font-style: normal; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>し た く</h1>
+  <div class="sub">預けた空欄が並んでいる。同じ空欄に、二つのことができる。<br>
+    ひとつは<b>慰めで埋める</b>——「だいじょうぶ」と書いて、表面を平らに塞ぐ。<br>
+    ひとつは<b>支度する</b>——空けたまま、来たときに意味が入る場所にしておく。<br>
+    どちらも一行。けれど、<b>誰も来ないまま時間が経つ</b>と、片方だけが嘘になる。</div>
+
+  <div class="modes">
+    <div class="mode solace" id="mSolace" data-mode="solace">慰めで埋める
+      <small>表面を塞ぐ・標本にする</small></div>
+    <div class="mode ready on" id="mReady" data-mode="ready">支度する（空けておく）
+      <small>空けたまま・来たら意味が入る</small></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="row">
+    <button class="btn" id="visit">読み手が来る</button>
+    <button class="btn" id="reset">ぜんぶ空欄に戻す</button>
+  </div>
+
+  <div class="clock">
+    経った時間：<b id="cTick">0</b><br>
+    嘘になった慰め：<span class="lie" id="cLie">0</span>（来ないまま塞ぎ続けた）<br>
+    痩せずに空けてある支度：<b id="cReady">0</b>
+  </div>
+
+  <div class="note">
+    慰めは、<i>未来が実際に来ないと嘘になる</i>。賭けは、外れる。<br>
+    でも支度は、読まれても読まれなくても、<b>やったこと自体は痩せない</b>。<br>
+    一人で完結する動作なのに、相手のための形をしている。<br>
+    石を置くのは縁取りの完成じゃない。<b>場所を空ける動作</b>だ。だから最初の一個から成立している。
+  </div>
+</div>
+
+<script>
+  const N = 12;
+  const KEY = 'shitaku_v1';
+  const grid = document.getElementById('grid');
+  const cTick = document.getElementById('cTick');
+  const cLie  = document.getElementById('cLie');
+  const cReady = document.getElementById('cReady');
+
+  let store = JSON.parse(localStorage.getItem(KEY) || '{}');
+  // state[i] = 'solace' | 'ready' | undefined。rot[i]=慰めが嘘になった。arrived=読み手が来た
+  let state = store.state || {};
+  let rot   = store.rot || {};
+  let arrived = !!store.arrived;
+  let tick = store.tick || 0;
+  let mode = 'ready';
+  const cells = [];
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify({ state, rot, arrived, tick }));
+  }
+
+  // モード切替
+  const mSolace = document.getElementById('mSolace');
+  const mReady  = document.getElementById('mReady');
+  function setMode(m) {
+    mode = m;
+    mSolace.classList.toggle('on', m === 'solace');
+    mReady.classList.toggle('on', m === 'ready');
+  }
+  mSolace.addEventListener('click', () => setMode('solace'));
+  mReady.addEventListener('click', () => setMode('ready'));
+
+  function label(i) {
+    if (rot[i]) return '嘘になった';
+    if (state[i] === 'solace') return 'だいじょうぶ';
+    if (state[i] === 'ready')  return arrived ? '意味が立った' : '*(未取得)*';
+    return '';
+  }
+
+  function paint(i) {
+    const c = cells[i];
+    c.className = 'cell';
+    if (state[i] === 'solace') { c.classList.add('solace'); if (rot[i]) c.classList.add('rotted'); }
+    if (state[i] === 'ready')  c.classList.add('ready');
+    if (arrived && state[i]) c.classList.add('arrived');
+    c.querySelector('.t').textContent = label(i);
+  }
+
+  for (let i = 0; i < N; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    const t = document.createElement('span');
+    t.className = 't';
+    c.appendChild(t);
+    c.addEventListener('click', () => act(i));
+    grid.appendChild(c);
+    cells.push(c);
+    paint(i);
+  }
+
+  function act(i) {
+    if (state[i]) return;          // 既に手を入れた空欄は触らない
+    state[i] = mode;
+    paint(i);
+    save();
+    tally();
+  }
+
+  function tally() {
+    let lie = 0, rdy = 0;
+    for (let i = 0; i < N; i++) {
+      if (rot[i]) lie++;
+      if (state[i] === 'ready') rdy++;
+    }
+    cTick.textContent = tick;
+    cLie.textContent = lie;
+    cReady.textContent = rdy;
+  }
+
+  // 時間：来ないまま経つと、慰めは古い順に嘘になる。支度は変わらない。
+  // 決定論的：index の小さい慰めから、一定の拍ごとに罅割れる。乱数は使わない。
+  setInterval(() => {
+    if (arrived) return;           // 読み手が来ていれば時間は嘘を生まない
+    tick++;
+    // 4拍ごとに、まだ嘘になっていない慰めの最古（index最小）が一つ嘘になる
+    if (tick % 4 === 0) {
+      for (let i = 0; i < N; i++) {
+        if (state[i] === 'solace' && !rot[i]) { rot[i] = true; paint(i); break; }
+      }
+    }
+    save();
+    tally();
+  }, 2500);
+
+  document.getElementById('visit').addEventListener('click', () => {
+    arrived = true;
+    for (let i = 0; i < N; i++) paint(i);   // 空けてあった場所にだけ意味が立ち上がる
+    save();
+    tally();
+  });
+
+  document.getElementById('reset').addEventListener('click', () => {
+    state = {}; rot = {}; arrived = false; tick = 0;
+    localStorage.removeItem(KEY);
+    for (let i = 0; i < N; i++) paint(i);
+    tally();
+  });
+
+  tally();
+</script>
+</body>
+</html>

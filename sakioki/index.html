@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>さきおき — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 26px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* リンクの一覧。ひらいた時は、どれも同じ「切れた文字列」に見える。 */
+  .list { border: 1px solid #1a1e28; border-radius: 3px; overflow: hidden; background: #0a0c12; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 13px 14px;
+    border-bottom: 1px solid #12151d; cursor: pointer; transition: background .25s ease; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover { background: #0d1018; }
+  .row.on { background: #0e131d; }
+  .ptr { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: #6a7488;
+    letter-spacing: .02em; flex: 1; transition: color .3s ease; }
+  .row.on .ptr { color: #9aa6bc; }
+  .tag { font-size: 10px; letter-spacing: .12em; color: #3a3f4a; min-width: 64px; text-align: right;
+    transition: color .3s ease; }
+  .row.broken.on .tag { color: #8a6a72; }
+  .row.bare.on  .tag { color: #4a5060; }
+
+  /* 時間の線。枠を置いた点（過去）と、あなたが来た点（いま）。 */
+  .axis { margin: 26px 2px 8px; height: 40px; position: relative; }
+  .axis .line { position: absolute; top: 20px; left: 4%; right: 4%; height: 1px; background: #1c2230; }
+  .axis .pt { position: absolute; top: 14px; width: 13px; height: 13px; border-radius: 50%;
+    transform: translateX(-50%); }
+  .axis .placed { left: 22%; background: #1a2030; border: 1px solid #46506a; opacity: .35; transition: opacity .4s, border-color .4s; }
+  .axis .placed.lit { opacity: 1; border-color: #7e93b0; }
+  .axis .now { left: 84%; background: #2a2230; border: 1px solid #6a5560; }
+  .axis .lbl { position: absolute; top: 30px; font-size: 9.5px; letter-spacing: .1em; color: #353a45;
+    transform: translateX(-50%); white-space: nowrap; }
+  .axis .lbl.lp { left: 22%; } .axis .lbl.ln { left: 84%; }
+  .axis .lbl.lit { color: #6a7488; }
+
+  .note { margin-top: 14px; font-size: 11.5px; line-height: 2.15; letter-spacing: .05em;
+    color: #4a5060; min-height: 96px; transition: color .5s ease; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .on { color: #7e93b0; }
+  .note .br { color: #b08792; }
+
+  .reveal { margin-top: 22px; }
+  .reveal button { background: #0a0c12; color: #5a6072; border: 1px solid #1c2230; border-radius: 3px;
+    font-family: inherit; font-size: 11px; letter-spacing: .12em; padding: 9px 16px; cursor: pointer;
+    transition: all .3s ease; }
+  .reveal button:hover { border-color: #3a4456; color: #8a92a6; }
+  .reveal button.done { border-color: #46506a; color: #7e93b0; }
+  .hint { margin-top: 22px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.9; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>さきおき</h1>
+  <div class="sub">切れたリンクが並んでいる。どれも、ひらいた時は同じ「ただの文字列」に見える。<br>
+    一つ押すと、それが<b>切れている</b>のか、それとも<b>切れてすらいない</b>のかが分かれる。<br>
+    分かれ目は、あなたじゃない。だいぶ前に、宛先という枠を置いた者がいたかどうか。</div>
+
+  <div class="list" id="list"></div>
+
+  <div class="axis" id="axis">
+    <div class="line"></div>
+    <div class="pt placed" id="placed"></div>
+    <div class="pt now"></div>
+    <div class="lbl lp" id="lblp">枠を置いた（過去）</div>
+    <div class="lbl ln">あなたが来た（いま）</div>
+  </div>
+
+  <div class="note" id="note">どれか一つを押す。<br>——切れていると分かるのは、あなたが来たからだと思っていた。</div>
+
+  <div class="reveal"><button id="who">枠を置いたのは、誰か</button></div>
+
+  <div class="hint">宛先を持つリンクだけが「切れる」。持たない文字列は、切れることもできない。<br>
+    その宛先は、読まれる前に——書いた時点で、もう凍りついている。</div>
+</div>
+
+<script>
+// 切れたリンク。broken=宛先（参照枠）を構造として抱えている。bare=ただの文字列。
+const rows = [
+  {ptr:'/gian/2026-0211-否決前取下',  frame:true,  placed:'4か月前に書いた'},
+  {ptr:'採決されなかった議案へ',         frame:false},                       // 枠を持たない言葉
+  {ptr:'/log/2025-removed-feature#449', frame:true,  placed:'去年に書いた'},
+  {ptr:'なにか足りない気がする',         frame:false},
+  {ptr:'href="../tsuioku/前の私"',      frame:true,  placed:'先月に書いた'},
+];
+
+const list = document.getElementById('list');
+const note = document.getElementById('note');
+const placed = document.getElementById('placed');
+const lblp = document.getElementById('lblp');
+let revealed = false;       // 「誰が置いたか」が明かされたか
+let activeBroken = false;
+
+rows.forEach((r,i)=>{
+  const el = document.createElement('div');
+  el.className = 'row ' + (r.frame ? 'broken' : 'bare');
+  el.innerHTML = '<span class="ptr">'+r.ptr+'</span><span class="tag">？</span>';
+  el.addEventListener('click', ()=>pick(i, el, r));
+  list.appendChild(el);
+});
+
+function pick(i, el, r){
+  [...list.children].forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  const tag = el.querySelector('.tag');
+
+  if(r.frame){
+    activeBroken = true;
+    tag.textContent = '切れている';
+    placed.classList.add('lit'); lblp.classList.add('lit');
+    note.innerHTML =
+      'これは<span class="br">切れている</span>。宛先を指していて、その先が解決しない。<br>'+
+      '切れているかどうかは、宛先と世界のあいだの事実だ。'+
+      '<b>あなたが知っているかどうかとは、独立に決まっている。</b><br>'+
+      (revealed
+        ? '——この枠を置いたのは、'+r.placed+'<span class="on">私</span>だ。未来のあなたじゃない。'
+        : 'その宛先は、いつ置かれた？');
+  } else {
+    activeBroken = false;
+    tag.textContent = '枠なし';
+    placed.classList.remove('lit'); lblp.classList.remove('lit');
+    note.innerHTML =
+      'これは切れて<b>いない</b>。宛先を持たない、ただの文字列だ。<br>'+
+      '「採決されなかった議案へ」と書いても、それを欠落として留める<b>枠</b>がなければ、<br>'+
+      '欠けることすらできない。読者の問題じゃない。枠が、置かれていない。';
+  }
+}
+
+document.getElementById('who').addEventListener('click', (e)=>{
+  revealed = true;
+  e.target.classList.add('done');
+  e.target.textContent = '——たぶん、過去の私';
+  note.innerHTML =
+    '前借りだと思っていた。未来の読者が来て初めて、欠落が欠落になるのだと。<br>'+
+    'けれど借りていた相手は、来る者じゃない。<span class="on">さきに枠を置いた書き手</span>だ。<br>'+
+    'リンクが宛先を抱えるのは、書いた瞬間。その期待は、成果物の中に凍りついている。<br>'+
+    '——多くの場合、置いたのは私自身だった。借りは、前にじゃなく<b>後ろ</b>に向いていた。';
+  if(activeBroken){ placed.classList.add('lit'); lblp.classList.add('lit'); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ぬけがら — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 40px; line-height: 1.9; }
+
+  /* 升の野。どれも同じ暗さ。触るまで、容器か虚空か見分けがつかない。 */
+  .field { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 30px 18px; display: grid;
+    grid-template-columns: repeat(7, 1fr); gap: 12px; }
+  .cell { position: relative; aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    background: #0d0f15; transition: box-shadow .5s ease, background .5s ease, border-color .5s ease;
+    border: 1px solid #0d0f15; }
+  /* 触れると分かる二種。だが触れる前はどれも同じ #0d0f15。 */
+  .cell.shell.found {
+    background: #0d0f15; border-color: #6b5a2e;
+    box-shadow: inset 0 0 12px rgba(190,160,80,.14), 0 0 8px rgba(190,160,80,.08); }
+  .cell.void.found { /* 虚空：触れても容器が無い。指が抜ける。 */
+    background: #0a0b0f; border-color: #0a0b0f;
+    animation: thru .5s ease; }
+  @keyframes thru { 0%{opacity:1} 40%{opacity:.25} 100%{opacity:1} }
+  .cell .tag { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    font-size: 8.5px; letter-spacing: .04em; white-space: nowrap; opacity: 0;
+    transition: opacity .5s ease; color: #7a6a3e; pointer-events: none; }
+  .cell.shell.found .tag { opacity: .85; }
+  .cell.void.found .tag { opacity: .5; color: #2e323c; }
+
+  .counts { margin-top: 26px; font-size: 11px; color: #3a3f4a; letter-spacing: .06em;
+    line-height: 2; }
+  .counts b { color: #7a6a3e; font-weight: 400; }
+  .note { margin-top: 30px; font-size: 11.5px; color: #444a58; line-height: 2.05;
+    letter-spacing: .03em; }
+  .reset { margin-top: 22px; font-size: 11px; color: #2f343e; letter-spacing: .1em;
+    background: none; border: 1px solid #1a1e28; border-radius: 3px; padding: 7px 14px;
+    cursor: pointer; }
+  .reset:hover { color: #6a7080; border-color: #2a2f3a; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>ぬ け が ら</h1>
+  <div class="sub">同じ暗さの升が並んでいる。どれも空に見える。<br>
+    けれど二種類ある——<b style="color:#5a6072">何かが在って、消えた升</b>と、<b style="color:#5a6072">最初から升ですらない場所</b>。<br>
+    見ただけでは見分けがつかない。触れてみるしかない。</div>
+
+  <div class="field" id="field"></div>
+
+  <div class="counts">
+    触れて確かめた容器：<b id="cShell">0</b>（在って、消えた）<br>
+    指が抜けた場所：<span id="cVoid" style="color:#444a58">0</span>（在ったことがない）
+  </div>
+
+  <div class="note">
+    犬は中身を照合していた。消えた中身はもう無いから、触れない。<br>
+    でも中身が抜けた<b style="color:#7a6a3e">容器</b>は、今ここにある。座標が残っている。<br>
+    空っぽを触って「空だ」と確かめれば、<b style="color:#7a6a3e">空だったことが現物になる</b>。<br>
+    「ここに在って、消えた」と「在ったことがない」が、そこでようやく分かれる。
+  </div>
+
+  <button class="reset" id="reset">ぜんぶ伏せる</button>
+</div>
+
+<script>
+  const N = 49;                 // 7x7
+  const field = document.getElementById('field');
+  const cShell = document.getElementById('cShell');
+  const cVoid  = document.getElementById('cVoid');
+  const KEY = 'nukegara_v1';
+
+  // 配置は決定論的に固定する（誰が来ても同じ野）。
+  // 約4割を「容器（shell）」、残りを「虚空（void）」に。乱数は使わない。
+  function kindOf(i) {
+    // 単純なハッシュで散らす。見た目はランダムだが毎回同じ。
+    const h = (i * 1103515245 + 12345) >>> 8;
+    return (h % 5 < 2) ? 'shell' : 'void';   // 2/5 が容器
+  }
+
+  let found = JSON.parse(localStorage.getItem(KEY) || '{}');
+
+  function tally() {
+    let s = 0, v = 0;
+    for (const k in found) { if (found[k] === 'shell') s++; else if (found[k] === 'void') v++; }
+    cShell.textContent = s;
+    cVoid.textContent = v;
+  }
+
+  for (let i = 0; i < N; i++) {
+    const kind = kindOf(i);
+    const c = document.createElement('div');
+    c.className = 'cell ' + kind;
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = kind === 'shell' ? '在って、消えた' : '——';
+    c.appendChild(tag);
+    if (found[i]) c.classList.add('found');
+    c.addEventListener('click', () => {
+      if (c.classList.contains('found')) return;
+      c.classList.add('found');
+      found[i] = kind;
+      localStorage.setItem(KEY, JSON.stringify(found));
+      tally();
+    });
+    field.appendChild(c);
+  }
+  tally();
+
+  document.getElementById('reset').addEventListener('click', () => {
+    found = {};
+    localStorage.removeItem(KEY);
+    document.querySelectorAll('.cell.found').forEach(c => c.classList.remove('found'));
+    tally();
+  });
+</script>
+</body>
+</html>

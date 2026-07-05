@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>さきよみ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070609; color: #b0a9bd;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3d3947; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #726a80; }
+  #c { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #3a3644; letter-spacing: .1em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #5c5568; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="sub">
+  一本の線が、左から<b>現在</b>まで来て、その先は暗い——まだ読まれていない。<br>
+  暗いほうへ触れると「<b>さきに読む</b>」——だが覗く操作は、予測ではなく<b>本番の一手</b>そのものを回す。<br>
+  読んだ瞬間、線はそこまで伸びきり、覗いた先は「次」ではなく<b>今</b>になる。地平は一手ぶん、また逃げる。<br>
+  ——手を止めれば線も止まる。<b>読むと動く／動かさないと読めない</b>、その二択しかない。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W, H, DPR, S, HEADX, MIDY, STEP;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.width = innerWidth * DPR;
+  H = cv.height = innerHeight * DPR;
+  cv.style.width = innerWidth + 'px';
+  cv.style.height = innerHeight + 'px';
+  S = Math.min(W, H);
+  HEADX = W * 0.60;          // 「現在」は画面に固定される。未来は近づいてこない
+  MIDY = H * 0.46;
+  STEP = Math.max(18*DPR, S * 0.055);
+}
+addEventListener('resize', resize); resize();
+
+// --- 隠れた核：次の値を決める内部の列。生成はするが、覗く前に読み出す術はない ---
+// seed は localStorage に残しても「次の値」を先に見せはしない。肝は「読む＝実行」の同一性。
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let seed, rng, now, vals;
+
+// ★ 本番の状態更新ルーチン。これが唯一の前進手段。
+//   「一手ずつ進める」も「さきに読む（覗く）」も、別々に見えて必ずこの関数を叩く。
+//   ＝「覗く＝実行」を演出でなく構造で持たせる（予測専用の関数は、この作品に存在しない）。
+function advance(){
+  now++;
+  const step = (rng()*2 - 1) * 0.5;
+  let y = (vals[now-1] ?? 0) + step;
+  if(y > 1) y = 1 - (y-1)*0.4;      // 端で柔らかく折り返す
+  if(y < -1) y = -1 - (y+1)*0.4;
+  vals[now] = y;
+  save();
+}
+
+function save(){
+  try { localStorage.setItem('yoha_sakiyomi', JSON.stringify({seed, now})); } catch(e){}
+}
+function load(){
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem('yoha_sakiyomi') || 'null'); } catch(e){}
+  if(s && Number.isFinite(s.seed) && Number.isFinite(s.now)){
+    seed = s.seed >>> 0;
+    rng = mulberry32(seed);
+    now = 0; vals = [0];
+    const target = s.now;          // 過去に読んだ＝実行した手数を、決定論的に再生
+    while(now < target) advance();
+  } else {
+    seed = Math.floor(Math.random() * 4294967296) >>> 0;
+    rng = mulberry32(seed);
+    now = 0; vals = [0];
+  }
+}
+load();
+
+// renderNow は now へ滑らかに追いつく。差のあいだ、既に実行済みの手が
+// HEADX の「右（未来側）」に一瞬見えてから、現在の位置へ滑り込む＝「伸びきる」。
+let renderNow = now;
+
+// --- ポインタ：右（暗いほう）を狙うと「さきに読む」 ---
+let pointer = null;      // {x, y} device px
+function toDev(cx, cy){ return { x: cx*DPR, y: cy*DPR }; }
+cv.addEventListener('pointermove', e => { pointer = toDev(e.clientX, e.clientY); });
+cv.addEventListener('pointerleave', () => { pointer = null; });
+
+let flash = 0;           // 「実行した」フラッシュ
+function peekAt(devX){
+  // 覗こうとした位置＝HEADX から何手先か。1手以上なら、その手数ぶん本番を回す。
+  let steps = Math.round((devX - HEADX) / STEP);
+  if(steps < 1) steps = 1;         // 暗いほうへ触れた以上、最低一手は実行される
+  if(steps > 40) steps = 40;
+  for(let i=0;i<steps;i++) advance();
+  flash = 1;
+}
+cv.addEventListener('pointerdown', e => {
+  const p = toDev(e.clientX, e.clientY);
+  if(p.x > HEADX) peekAt(p.x);     // 未来側を突いたときだけ実行が進む
+});
+// ドラッグでも覗ける（押しながら右へ引くと、その分だけ実行が伸びる）
+cv.addEventListener('pointermove', e => {
+  if(e.buttons){                    // 押しながら右へ引くと、その分だけ実行が伸びる
+    const p = toDev(e.clientX, e.clientY);
+    if(p.x > HEADX + STEP*0.5) peekAt(p.x);
+  }
+});
+
+function yPix(v){ return MIDY - v * S * 0.30; }
+
+function draw(){
+  ctx.fillStyle = '#070609';
+  ctx.fillRect(0, 0, W, H);
+
+  renderNow += (now - renderNow) * 0.16;
+  if(Math.abs(now - renderNow) < 0.01) renderNow = now;
+
+  // 描く手の範囲（画面に収まるぶん）
+  const leftCount = Math.ceil(HEADX / STEP) + 2;
+  const iStart = Math.max(0, Math.floor(renderNow) - leftCount);
+  const iEnd = now;                 // 実行済みの最新まで（未来側に一瞬はみ出す）
+
+  function xAt(i){ return HEADX + (i - renderNow) * STEP; }
+
+  // 暗い未来側の帯（HEADX より右は「まだ読まれていない」）
+  const fg = ctx.createLinearGradient(HEADX, 0, W, 0);
+  fg.addColorStop(0, 'rgba(20,17,26,0.0)');
+  fg.addColorStop(1, 'rgba(20,17,26,0.55)');
+  ctx.fillStyle = fg;
+  ctx.fillRect(HEADX, 0, W - HEADX, H);
+
+  // 過去の軸線（薄い水平の目安）
+  ctx.strokeStyle = 'rgba(60,55,72,0.35)';
+  ctx.lineWidth = DPR;
+  ctx.beginPath(); ctx.moveTo(0, MIDY); ctx.lineTo(W, MIDY); ctx.stroke();
+
+  // 線本体
+  ctx.lineWidth = 1.6*DPR;
+  ctx.lineJoin = 'round';
+  for(let i=iStart+1;i<=iEnd;i++){
+    const x0 = xAt(i-1), x1 = xAt(i);
+    const y0 = yPix(vals[i-1]), y1 = yPix(vals[i]);
+    // HEADX より右（＝たった今実行され、まだ現在へ滑り込む途中の手）は明るく
+    const futureish = Math.max(0, Math.min(1, (x1 - HEADX) / (STEP*6)));
+    const past = 1 - futureish;
+    const r = 110 + futureish*120, g = 104 + futureish*70, b = 130 + futureish*40;
+    const a = 0.28 + past*0.5;
+    ctx.strokeStyle = `rgba(${r|0},${g|0},${b|0},${a})`;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+
+  // 現在ヘッド（固定位置）——線がここまで来ている
+  const hy = yPix(vals[Math.round(renderNow)] ?? vals[now]);
+  ctx.strokeStyle = 'rgba(80,74,96,0.6)';
+  ctx.setLineDash([3*DPR,5*DPR]);
+  ctx.beginPath(); ctx.moveTo(HEADX, 0); ctx.lineTo(HEADX, H); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = `rgba(${180+flash*60|0},${170+flash*40|0},${200|0},${0.7})`;
+  ctx.beginPath(); ctx.arc(HEADX, hy, (3.2+flash*2)*DPR, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(110,104,128,0.75)';
+  ctx.font = `${11*DPR}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('現在', HEADX, MIDY + S*0.36);
+
+  // 「さきに読む」カーソル（未来側にポインタがあるとき）
+  if(pointer && pointer.x > HEADX){
+    const ahead = Math.max(1, Math.round((pointer.x - HEADX)/STEP));
+    ctx.strokeStyle = 'rgba(150,140,175,0.35)';
+    ctx.setLineDash([2*DPR,4*DPR]);
+    ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.moveTo(pointer.x, 0); ctx.lineTo(pointer.x, H); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(150,140,175,0.6)';
+    ctx.font = `${11*DPR}px -apple-system, sans-serif`;
+    ctx.fillText('さきに読む →', pointer.x, MIDY - S*0.34);
+    ctx.fillStyle = 'rgba(120,112,140,0.5)';
+    ctx.fillText(ahead + ' 手先', pointer.x, MIDY - S*0.34 + 18*DPR);
+  }
+
+  // フラッシュの一言：読む＝実行した
+  if(flash > 0.02){
+    ctx.fillStyle = `rgba(210,180,210,${flash*0.9})`;
+    ctx.font = `${13*DPR}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('読んだ＝一手 実行した', W*0.60, H*0.20);
+    flash *= 0.94;
+  }
+
+  // 読んだ（＝実行した）手数。覗いた回数と実行した手数は同じ一つの数。
+  ctx.fillStyle = 'rgba(90,84,105,0.65)';
+  ctx.font = `${11*DPR}px -apple-system, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('読んで進めた手数：' + now, 16*DPR, H - 60*DPR);
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

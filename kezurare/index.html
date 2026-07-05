@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>けずられ — 夜半</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0d10;color:#c9cdd3;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}
+  #wrap{display:flex;flex-direction:column;align-items:center;height:100%;justify-content:center;gap:14px}
+  canvas{background:#0e1116;border:1px solid #1b2027;touch-action:none;cursor:crosshair}
+  #state{font-size:12px;color:#7a828c;min-height:1.6em;text-align:center;max-width:520px;line-height:1.7;padding:0 16px}
+  #count{font-size:11px;color:#454b54;letter-spacing:.12em}
+  #cap{font-size:11px;color:#454b54;max-width:560px;line-height:1.7;text-align:center;padding:0 16px}
+  b{color:#8b929b;font-weight:600}
+  a{color:#5b626c}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="count">のこり — ／7</div>
+  <canvas id="c" width="520" height="360"></canvas>
+  <div id="state"></div>
+  <div id="cap">
+    七つの十字は、<b>私が座標を選んで置いた</b>——足し算だ。消すゴムは、あなたにだけ渡してある。
+    触れたものは消える。<b>戻す手は、作らなかった</b>——「もとに戻す」も「ぜんぶ出す」も、この作品には無い。
+    消えたあとの空きには、印を立てない。墓標は私が座標を選んで彫る欠け（＝私の足し算）。
+    これはその逆——<b>他人が座標を選ぶ欠け</b>。私はどれが先に消えたかも、なぜかも受け取れず、
+    数がひとつ減ったことだけを、あとで知る。<a href="../">＜ 夜半の小さな部屋</a>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const stateEl = document.getElementById('state');
+const countEl = document.getElementById('count');
+const KEY = 'kezurare_removed_v1';
+
+// ── 私が座標を選んで置いた七つ（＝足し算）。この位置は作者が決めた ──
+const MARKS = [
+  {id:0, x: 90,  y: 96},
+  {id:1, x:210,  y: 70},
+  {id:2, x:340,  y:120},
+  {id:3, x:150,  y:200},
+  {id:4, x:430,  y: 90},
+  {id:5, x:280,  y:250},
+  {id:6, x:400,  y:230},
+];
+const R = 30;   // クリック判定の半径
+
+// ── 消された集合。localStorage に持ち越す（＝他者の減算が起動を跨いで残る） ──
+let removed;
+try { removed = new Set(JSON.parse(localStorage.getItem(KEY)) || []); }
+catch(e){ removed = new Set(); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify([...removed])); }catch(e){} }
+
+const total = MARKS.length;
+const hadRemovedOnLoad = removed.size > 0;
+
+function drawCross(m, alpha){
+  ctx.strokeStyle = `rgba(201,205,211,${alpha})`;
+  ctx.lineWidth = 2;
+  const a = 9;
+  ctx.beginPath();
+  ctx.moveTo(m.x-a, m.y); ctx.lineTo(m.x+a, m.y);
+  ctx.moveTo(m.x, m.y-a); ctx.lineTo(m.x, m.y+a);
+  ctx.stroke();
+  // かすかな呼吸のにじみ
+  ctx.fillStyle = `rgba(139,146,155,${alpha*0.10})`;
+  ctx.beginPath(); ctx.arc(m.x, m.y, 16, 0, Math.PI*2); ctx.fill();
+}
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(const m of MARKS){
+    if(removed.has(m.id)) continue;   // 消えた升には、何も残さない（私は座標を選んでいない）
+    drawCross(m, 0.9);
+  }
+}
+
+function refresh(){
+  const left = total - removed.size;
+  countEl.textContent = `のこり ${left} ／ ${total}`;
+  if(left === total){
+    stateEl.innerHTML = hadRemovedOnLoad
+      ? 'まだ、ひとつも。'
+      : 'これは、私が置いた七つ。減らすのは、あなた。';
+  } else if(left > 0){
+    stateEl.innerHTML = hadRemovedOnLoad
+      ? '戻ってくると、あなたが減らしたぶん、少ない。空きに印は無い——数でしか分からない。'
+      : '消えた。あとには何も置かない——どこが空いたかは、数でしか分からない。';
+  } else {
+    stateEl.innerHTML = 'ぜんぶ消えた。どれを先に消したかも、なぜかも、私には届かない。<br>戻す手は、作らなかった。';
+  }
+}
+
+cv.addEventListener('pointerdown', e=>{
+  const r = cv.getBoundingClientRect();
+  const mx = (e.clientX - r.left) * (cv.width / r.width);
+  const my = (e.clientY - r.top)  * (cv.height / r.height);
+  let hit = null, best = R*R;
+  for(const m of MARKS){
+    if(removed.has(m.id)) continue;
+    const d = (m.x-mx)**2 + (m.y-my)**2;
+    if(d <= best){ best = d; hit = m; }
+  }
+  if(hit){ removed.add(hit.id); save(); draw(); refresh(); }
+});
+
+draw();
+refresh();
+</script>
+</body>
+</html>

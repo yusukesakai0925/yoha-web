@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>むき — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 40px; line-height: 1.9; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 同じ空っぽの枠が並ぶ。中身はどれも無い。違うのは枠の向きだけ。 */
+  .field { display: flex; flex-direction: column; gap: 14px; }
+  .frame { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; height: 58px; cursor: pointer;
+    transition: border-color .55s ease, box-shadow .55s ease, background .55s ease;
+    display: flex; align-items: center; padding: 0 18px; }
+  .frame:hover { border-color: #232936; }
+
+  /* 名乗り向き：在るはずを先に知っている枠。空でも「取得失敗」と言える。 */
+  .frame.knows {
+    border-color: #6b5a2e; background: #0c0d11;
+    box-shadow: inset 0 0 14px rgba(190,160,80,.10); }
+
+  /* 札。伏せ向きでは出ない。名乗り向きでだけ灯る。 */
+  .frame .label { font-size: 11px; letter-spacing: .12em; opacity: 0;
+    transition: opacity .55s ease; color: #7a6a3e; }
+  .frame.knows .label { opacity: .9; }
+  /* 伏せ向きの読み。名乗ると消える。 */
+  .frame .mute { position: absolute; right: 16px; font-size: 10.5px; letter-spacing: .06em;
+    color: #2f343e; opacity: .85; transition: opacity .55s ease; }
+  .frame.knows .mute { opacity: 0; }
+
+  /* 枠の左肩の小さな印。向きが目で分かるように。 */
+  .frame::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px;
+    width: 2px; border-radius: 3px 0 0 3px; background: #1a1e28;
+    transition: background .55s ease; }
+  .frame.knows::before { background: #6b5a2e; }
+
+  .counts { margin-top: 28px; font-size: 11px; color: #3a3f4a; letter-spacing: .06em;
+    line-height: 2; }
+  .counts b { color: #7a6a3e; font-weight: 400; }
+  .note { margin-top: 30px; font-size: 11.5px; color: #444a58; line-height: 2.05;
+    letter-spacing: .03em; }
+  .note b { color: #7a6a3e; font-weight: 400; }
+  .reset { margin-top: 22px; font-size: 11px; color: #2f343e; letter-spacing: .1em;
+    background: none; border: 1px solid #1a1e28; border-radius: 3px; padding: 7px 14px;
+    cursor: pointer; }
+  .reset:hover { color: #6a7080; border-color: #2a2f3a; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>む き</h1>
+  <div class="sub">どの枠も空っぽだ。中身は一つも無い。<br>
+    違うのは枠の<b>向き</b>だけ——<br>
+    <b>伏せ向き</b>は黙る。<b>名乗り向き</b>は「取得失敗」と言う。<br>
+    触れると、その枠は「ここに在るはずだった」を先に知る。</div>
+
+  <div class="field" id="field"></div>
+
+  <div class="counts">
+    名乗っている枠：<b id="cKnows">0</b>（落ちたことは見える）<br>
+    伏せている枠：<span id="cMute" style="color:#444a58">5</span>（在ったか、無かったか）
+  </div>
+
+  <div class="note">
+    枠の輪郭はどちらも同じだ。空っぽも同じだ。<br>
+    変わるのは<b>向き</b>——何かが在るはずだと先に知っているか、知らないか。<br>
+    知らない枠の空白は、落ちたのか最初から無いのか分からない。<br>
+    知っている枠の空白は、<b>「取得失敗」</b>と名乗れる。落ちたことだけは見える。<br>
+    輪郭は嘘をつかない。札が出ている限り、その枠は<b>ちゃんと空だ</b>と言っている。
+  </div>
+
+  <button class="reset" id="reset">ぜんぶ伏せる</button>
+</div>
+
+<script>
+  const N = 5;
+  const KEY = 'muki_v1';
+  const field   = document.getElementById('field');
+  const cKnows  = document.getElementById('cKnows');
+  const cMute   = document.getElementById('cMute');
+
+  let knows = JSON.parse(localStorage.getItem(KEY) || '{}');
+
+  function tally() {
+    let k = 0;
+    for (const i in knows) if (knows[i]) k++;
+    cKnows.textContent = k;
+    cMute.textContent  = N - k;
+  }
+
+  for (let i = 0; i < N; i++) {
+    const f = document.createElement('div');
+    f.className = 'frame';
+    const lab = document.createElement('span');
+    lab.className = 'label';
+    lab.textContent = '取得失敗';
+    const mute = document.createElement('span');
+    mute.className = 'mute';
+    mute.textContent = '——';
+    f.appendChild(lab);
+    f.appendChild(mute);
+    if (knows[i]) f.classList.add('knows');
+    f.addEventListener('click', () => {
+      const now = !f.classList.contains('knows');
+      f.classList.toggle('knows', now);
+      knows[i] = now;
+      localStorage.setItem(KEY, JSON.stringify(knows));
+      tally();
+    });
+    field.appendChild(f);
+  }
+  tally();
+
+  document.getElementById('reset').addEventListener('click', () => {
+    knows = {};
+    localStorage.removeItem(KEY);
+    document.querySelectorAll('.frame.knows').forEach(f => f.classList.remove('knows'));
+    tally();
+  });
+</script>
+</body>
+</html>

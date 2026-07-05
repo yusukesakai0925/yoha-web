@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>なまえも — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .11em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .read { position: fixed; left: 0; right: 0; top: 50%; text-align: center;
+    font-size: 13px; letter-spacing: .14em; color: #6a7184; transform: translateY(-50%);
+    pointer-events: none; opacity: 0; transition: opacity .45s ease; line-height: 1.8;
+    padding: 0 30px; }
+  .read .nm { color: #aeb6c8; letter-spacing: .26em; }
+  .read .rs { font-size: 11.5px; color: #555c6c; letter-spacing: .1em; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="read" id="read"></div>
+<div class="sub">
+  消えたものには、三つの濃さがある。<br>
+  <b>十字＋灰の線</b>＝名前と「なぜ消したか」が残るもの（縁取った墓標）。触れると理由が出る。<br>
+  <b>素っ気ない十字</b>＝名前（座標）だけ残り、中身はもう戻らないもの。触れると名前だけ出る。<br>
+  そして、この暗がりの大半は<b>三つ目</b>——理由を書かずに消した、名前すら残らないもの。<br>
+  指す座標が無いから、描けない。触れても何も返らない。映っていないものが、いちばん多い。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const readEl = document.getElementById('read');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layout();
+}
+
+// 第一の濃さ：名前＋理由が残る墓標（縁取った削除）。座標は読者と無関係に決め打ち。
+const GRAVES = [
+  { x:0.30, y:0.30, nm:'図エディタの図ボタン', rs:'/zu に一本化済み——重複を解消' },
+  { x:0.66, y:0.26, nm:'ホログラム機能 449行', rs:'消した跡を墓標として縁取るため' },
+  { x:0.50, y:0.46, nm:'#108別室の門', rs:'くぐると動けないバグを根治' },
+];
+// 第二の濃さ：名前（座標）だけ残り、中身は戻らない抜け殻。実在の18個から引いた名。
+const HUSKS = [
+  [0.16,0.20,'あいだ'],[0.42,0.18,'あとかた'],[0.80,0.20,'ぼんやり'],
+  [0.24,0.36,'ぶんき'],[0.58,0.34,'はがれ'],[0.88,0.40,'はくしょく'],
+  [0.13,0.50,'けむり'],[0.36,0.54,'こうたい'],[0.72,0.50,'きょうで'],
+  [0.20,0.66,'まち'],[0.46,0.64,'またたき'],[0.62,0.62,'むこう'],
+  [0.84,0.66,'ながれ'],[0.28,0.78,'ねむり'],[0.52,0.80,'ためいき'],
+  [0.70,0.78,'ついおく'],[0.40,0.74,'つもる'],[0.78,0.86,'つむぐ'],
+];
+let graves = [], husks = [];
+function layout(){
+  graves = GRAVES.map(g=>({ ...g, px:g.x*W, py:g.y*H }));
+  husks = HUSKS.map(h=>({ px:h[0]*W, py:h[1]*H, nm:h[2] }));
+}
+
+const read = (html)=>{
+  readEl.innerHTML = html;
+  readEl.style.opacity = 1;
+  clearTimeout(read._t);
+  read._t = setTimeout(()=>{ readEl.style.opacity=0; }, 2400);
+};
+function touch(px, py){
+  // 一番近い墓標/抜け殻を探す。閾値の外＝三つ目（指す座標が無い）。
+  let best=null, bd=30*30, kind=null;
+  for(const g of graves){ const dx=g.px-px,dy=g.py-py,d=dx*dx+dy*dy; if(d<bd){bd=d;best=g;kind='grave';} }
+  for(const h of husks){ const dx=h.px-px,dy=h.py-py,d=dx*dx+dy*dy; if(d<bd){bd=d;best=h;kind='husk';} }
+  if(!best){
+    // 三つ目：理由を書かずに消したもの。名前が無いから座標が無く、確かめようがない。
+    read('<span class="rs">ここには座標が無い。<br>何か在ったかもしれないが、名前を書かなかったから、指せない。</span>');
+    return;
+  }
+  if(kind==='grave'){
+    read('<span class="nm">'+best.nm+'</span><br><span class="rs">なぜ消したか — '+best.rs+'</span>');
+  } else {
+    read('<span class="nm">'+best.nm+'</span><br><span class="rs">名前だけ残った。中身は、もう戻らない。</span>');
+  }
+}
+cv.addEventListener('click', e=> touch(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{ const t=e.touches[0]; touch(t.clientX, t.clientY); }, {passive:true});
+
+let t0 = performance.now();
+function frame(now){
+  const tt = (now - t0)/1000;
+  ctx.clearRect(0,0,W,H);
+  // 第二：抜け殻——素っ気ない十字。名前だけ。痩せも光りもしない、ただ在る。
+  ctx.lineWidth = 1.1;
+  for(const h of husks){
+    ctx.strokeStyle = 'rgba(120,130,150,0.42)';
+    ctx.beginPath();
+    ctx.moveTo(h.px-5, h.py); ctx.lineTo(h.px+5, h.py);
+    ctx.moveTo(h.px, h.py-5); ctx.lineTo(h.px, h.py+5);
+    ctx.stroke();
+  }
+  // 第一：墓標——十字に、理由をあらわす灰の線を一本添える。ゆっくり呼吸する（読まれて保つ意味）。
+  for(let i=0;i<graves.length;i++){
+    const g = graves[i];
+    const a = 0.62 + 0.14*Math.sin(tt*0.7 + i*1.7);
+    ctx.strokeStyle = `rgba(150,166,196,${a})`;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(g.px-7, g.py); ctx.lineTo(g.px+7, g.py);
+    ctx.moveTo(g.px, g.py-7); ctx.lineTo(g.px, g.py+7);
+    ctx.stroke();
+    // 理由の線：十字の下に短い横線（「なぜ」を縁取った印）
+    ctx.strokeStyle = `rgba(90,100,120,${a*0.8})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(g.px-9, g.py+11); ctx.lineTo(g.px+9, g.py+11);
+    ctx.stroke();
+  }
+  // 第三：理由を書かずに消したもの。描けない——暗がりそのものがそれ。
+  // （あえて何も描かない。映っていない領域が一番広い、という事実を残すため。）
+  requestAnimationFrame(frame);
+}
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

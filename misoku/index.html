@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>未測 — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06080c; overflow: hidden;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; }
+  .num { position: relative; color: #cfd8e4; font-size: 26vmin; font-weight: 200;
+    line-height: 1; letter-spacing: -0.02em; transition: color 2.2s, text-shadow 2.2s; }
+  /* 札。新しいうちは紙の白、放っておくと薄れる。 */
+  .tag { position: absolute; top: -2.4vmin; right: -7vmin;
+    transform: rotate(-7deg); padding: 0.5vmin 1.4vmin;
+    background: #11161f; border: 1px solid rgba(150,172,200,0.5);
+    color: #aebccd; font-size: 3.4vmin; font-weight: 300; letter-spacing: .2em;
+    border-radius: 2px; pointer-events: none; }
+  .note { position: fixed; left: 0; right: 0; bottom: 24px; text-align: center;
+    color: #44505f; font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.4s; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a414c; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; }
+  .back:hover { color: #6a7484; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div id="stage">
+  <div class="num" id="num">7<div class="tag" id="tag">未測</div></div>
+</div>
+<div class="note" id="note">触れると、刺しなおす。</div>
+
+<script>
+// ── 未測 ──────────────────────────────────────────────────
+// 大きな数は「頭の中の値」。札は「未測」——まだ実際には測っていないしるし。
+// 札は新しいうちは紙が白い。放っておくと薄れる。
+// そして札が薄れるほど、数は確信ありげに白く・くっきりしてくる。
+// 測っていないのに、見た目は「もう確かめた値」になっていく。これが罠。
+//
+// 触れる＝刺しなおす（実測）。本当の値が出る。たいてい頭の中の値とは違う。
+// 出た瞬間に、その値もまた頭の中の値に戻る——新しい未測の札がつく。
+// 測り終わりはない。札が薄れた頃が、いちばん危ない。
+//
+// 犬との会話（2026-06-17）：頭の中の値には「未測」の札を貼る。
+// でも札も頭の中に貼るものだ。油断すると、札を貼ったこと自体を「もう測った」と勘違いする。
+
+const numEl = document.getElementById('num');
+const tagEl = document.getElementById('tag');
+const noteEl = document.getElementById('note');
+const stage = document.getElementById('stage');
+
+let shown = 7;        // 表示している（頭の中の）値
+let tagAge = 0;       // 札を貼ってからの経過（ms）。0 で貼りたて
+let measured = false; // 一度でも刺したか（最初は思い込みの 7）
+const FADE = 42000;   // 札が消えるまで（約42秒）
+let last = 0;
+
+// 実測値：時刻と回数から決まる。乱数は使わない。
+let stab = 0;
+function measureTrue(){
+  // その時その時で違う値が出る——だが恣意ではなく、刺した瞬間で確定する
+  const t = Math.floor(performance.now());
+  stab++;
+  return 1 + ((t >> 7) ^ (stab * 2654435761)) % 9 & 7; // 1..8 あたり
+}
+
+function stick(val){
+  shown = val;
+  numEl.firstChild.textContent = String(shown);
+  tagAge = 0;
+  tagEl.style.opacity = 1;
+  tagEl.style.borderColor = 'rgba(150,172,200,0.5)';
+  tagEl.style.color = '#aebccd';
+}
+
+function frame(now){
+  const dt = Math.min(60, now - last || 16); last = now;
+  tagAge += dt;
+
+  // 札の薄れ。0→1 で消えていく
+  const f = Math.min(1, tagAge / FADE);
+  const tagOp = Math.max(0, 1 - f);
+  tagEl.style.opacity = tagOp.toFixed(3);
+
+  // 札が薄れるほど、数は確信ありげに（白く・光って）見える——測ってないのに
+  const conf = f;                       // 0..1
+  const c = Math.round(207 + conf * 48); // 207→255
+  numEl.style.color = 'rgb(' + c + ',' + Math.round(216 + conf*39) + ',' + Math.round(228 + conf*27) + ')';
+  numEl.style.textShadow = conf > 0.4
+    ? '0 0 ' + (conf * 26).toFixed(0) + 'px rgba(180,205,240,' + (conf * 0.5).toFixed(2) + ')'
+    : 'none';
+
+  // 札が消えきった後の、小さな注意書き。だが消えた頃には誰も見ていない
+  if (f >= 1 && noteEl.dataset.warned !== '1'){
+    noteEl.dataset.warned = '1';
+    noteEl.textContent = '札は消えた。測ったつもりになっている。';
+    noteEl.style.opacity = 1;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// 触れる＝刺しなおす
+function poke(){
+  const before = shown;
+  const truth = measureTrue();
+  measured = true;
+  stick(truth);
+  noteEl.dataset.warned = '';
+  noteEl.style.opacity = 1;
+  noteEl.textContent = (truth === before)
+    ? '刺したら同じ値だった。それでも、刺すまでは分からなかった。'
+    : ('頭の中では ' + before + '。刺したら ' + truth + '。');
+  // 注意書きはやがて消える——そしてまた札が薄れていく
+  setTimeout(() => { if (noteEl.dataset.warned === '') noteEl.style.opacity = 0; }, 4200);
+  noteEl.dataset.warned = '';
+}
+stage.addEventListener('pointerdown', poke);
+</script>
+</body>
+</html>

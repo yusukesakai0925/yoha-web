@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>よみむき</title>
+<style>
+  :root { --ink:#1a1a1a; --paper:#f4f1ea; --faint:#b8b2a5; }
+  html,body { margin:0; height:100%; background:var(--paper); color:var(--ink);
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; }
+  .wrap { min-height:100%; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:2.4rem; padding:2rem; box-sizing:border-box; }
+  .board { position:relative; font-size:clamp(1.1rem,4.5vw,1.9rem); line-height:2;
+    letter-spacing:.04em; text-align:center; }
+  .date { display:block; font-size:.62em; letter-spacing:.12em; margin-bottom:.4em;
+    transition:color .6s, opacity .6s; }
+  .line { display:inline-block; position:relative; transition:opacity .6s; }
+  /* 過去形で読む＝縁取りが立つ。淡く沈んで安定、痩せない */
+  .past .date { color:var(--ink); opacity:1; }
+  .past .line { opacity:.55; filter:none; }
+  /* 今として読む＝確認日を無視した読み上げ。本文が現在形のまま前に出て、Nぶん破れる */
+  .now  .date { color:var(--faint); opacity:.45; }
+  .now  .line { opacity:1; }
+  .now  .line .verb { color:#8a2b2b; }
+  /* 刻まない＝前向きの動詞をそもそも彫らない。読み向きを変えても破れる先が無い */
+  .bare .date { color:var(--faint); opacity:.3; }
+  .bare .line { opacity:.7; }
+  .bare .line .verb { display:none; }
+  .bare .line::after { content:"——"; color:var(--faint); letter-spacing:.1em; }
+  .toggle { display:flex; gap:0; border:1px solid var(--faint); border-radius:2px; overflow:hidden; }
+  .toggle button { appearance:none; border:0; background:transparent; color:var(--faint);
+    font-family:inherit; font-size:.9rem; padding:.6rem 1.2rem; cursor:pointer;
+    letter-spacing:.08em; transition:background .3s,color .3s; }
+  .toggle button.on { background:var(--ink); color:var(--paper); }
+  /* 下段＝読む向き。刻まないを選ぶと消える（読む向きを差し込む先が無いから）。 */
+  .reading { transition:opacity .5s; }
+  .reading.gone { opacity:0; pointer-events:none; }
+  .meta { font-size:.72rem; color:var(--faint); letter-spacing:.06em; min-height:1.2em; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board now" id="board">
+    <span class="date" id="date">2026-05-31 時点</span>
+    <span class="line">酒井はこの座標に<span class="verb" id="verb">居る</span></span>
+  </div>
+  <!-- 上段＝置く前の一度きりの問診（okumae）。動詞を彫るか、彫らないか。 -->
+  <div class="toggle upstream" role="radiogroup" aria-label="彫るか彫らないか">
+    <button id="btn-carve" role="radio">動詞を彫る</button>
+    <button id="btn-bare"  role="radio">刻まない</button>
+  </div>
+  <!-- 下段＝読む向き。彫った後にしか意味を持たない。刻まないを選ぶと消える。 -->
+  <div class="toggle reading" id="reading" role="radiogroup" aria-label="読む向き">
+    <button id="btn-past" role="radio">過去形で読む</button>
+    <button id="btn-now"  role="radio">今として読む</button>
+  </div>
+  <div class="meta" id="meta"></div>
+</div>
+<script>
+  // 確認日は固定。時計は動かさない。動くのは読み手の宣言だけ。
+  const CONFIRMED = new Date(2026, 4, 31); // 2026-05-31
+  const board = document.getElementById('board');
+  const verb  = document.getElementById('verb');
+  const meta  = document.getElementById('meta');
+  const reading = document.getElementById('reading');
+  const bCarve = document.getElementById('btn-carve');
+  const bBare  = document.getElementById('btn-bare');
+  const bPast = document.getElementById('btn-past');
+  const bNow  = document.getElementById('btn-now');
+
+  // 二段構造。上段＝置く前の問診（彫る／刻まない）。下段＝読む向き（過去形／今）。
+  // 肝：刻まない＝逃げではない、という区別は「下段の読む向きが消える」ことで立つ。
+  //   逃げなら同じメニューに三つ目として並ぶ（読む向きの一種に見える）。
+  //   置く前の選択なら、彫らなかった瞬間に下段（読む向き）ごと消える——
+  //   読む向きを差し込む動詞が、そもそも無いから。上流の選択は下流のメニューを消す。
+  let carved = true;      // 彫ったか
+  let dir = 'now';        // 読む向き（彫った時だけ意味を持つ）
+
+  // N＝実時計と確認日の差。読み向きを変えても N は変わらない（ここが混ざると時間ものに逆戻り）。
+  function daysSince() {
+    const now = new Date();
+    const ms = now - CONFIRMED;
+    return Math.max(0, Math.floor(ms / 86400000));
+  }
+
+  function render() {
+    const N = daysSince();
+    // 刻まないなら board は bare、彫ったなら読む向き（dir）。
+    const mode = carved ? dir : 'bare';
+    board.className = 'board ' + mode;
+    // 上段（問診）の見た目
+    bCarve.classList.toggle('on', carved);
+    bBare.classList.toggle('on', !carved);
+    bCarve.setAttribute('aria-checked', carved);
+    bBare.setAttribute('aria-checked', !carved);
+    // 下段（読む向き）——刻まない側では消す。読む向きを差し込む先が無いから。
+    reading.classList.toggle('gone', !carved);
+    bPast.classList.toggle('on', carved && dir === 'past');
+    bNow.classList.toggle('on', carved && dir === 'now');
+    bPast.setAttribute('aria-checked', carved && dir === 'past');
+    bNow.setAttribute('aria-checked', carved && dir === 'now');
+    if (mode === 'bare') {
+      // 前向きの動詞を彫らなかった側。読む向きが past でも now でも、破れる先が無い。
+      // にじみもNも効かない——時制を名乗っていないから、時計に触れる面が無い。
+      verb.style.textShadow = 'none';
+      verb.style.letterSpacing = '0';
+      meta.textContent = '動詞を彫らなかった——読む向きを差し込む先ごと消えた。これは逃げでなく、置く前の選択';
+      return;
+    }
+    if (mode === 'past') {
+      // 過去形＝縁取りが立つ側。N によらず不変。にじみゼロ。
+      // メタも N を出さない——出すと日ごとに「X日前」がずれ、過去読みが時計で
+      // 動いてしまう（検証条件：過去形側は N によらず不変）。固定の確認日だけを指す。
+      verb.style.textShadow = 'none';
+      verb.style.letterSpacing = '0';
+      meta.textContent = '2026-05-31 時点の記録として閉じている——読み返しても膨らまない';
+    } else {
+      // 今として読む＝Nぶん破れる。確認日を無視した読み上げ。
+      const blur = Math.min(N * 0.06, 6);
+      const spread = Math.min(N * 0.012, 1.2);
+      verb.style.textShadow = '0 0 ' + blur.toFixed(2) + 'px rgba(138,43,43,.7)';
+      verb.style.letterSpacing = spread.toFixed(3) + 'em';
+      meta.textContent = '確認日を無視して現在形で読んだ——' + N + '日ぶん、指してた先が抜けている';
+    }
+  }
+
+  // 上段＝置く前の問診。彫るを選ぶと下段（読む向き）が現れ、直前の向きに戻る。
+  bCarve.addEventListener('click', () => { carved = true;  render(); });
+  bBare .addEventListener('click', () => { carved = false; render(); });
+  // 下段＝読む向き。彫った時だけ効く。
+  bPast.addEventListener('click', () => { carved = true; dir = 'past'; render(); });
+  bNow .addEventListener('click', () => { carved = true; dir = 'now';  render(); });
+  render(); // 初期は「彫る／今として読む」＝まっすぐ現在を名乗る側から始める
+</script>
+</body>
+</html>

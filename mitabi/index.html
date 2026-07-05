@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>みたび — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 44px; line-height: 1.9; }
+
+  /* 跡の野。横に並んだ升。叩くと跡がつき、ほかの跡は少しずつ流れる。 */
+  .field { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 34px 16px; display: grid;
+    grid-template-columns: repeat(8, 1fr); gap: 14px 10px; }
+  .cell { position: relative; aspect-ratio: 1; border-radius: 50%;
+    background: #aeb6c8; cursor: pointer; opacity: .06;
+    transition: opacity .35s ease, box-shadow .4s ease, background .4s ease; }
+  .cell .pip { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%);
+    font-size: 9px; letter-spacing: .04em; color: #3a3f4a; white-space: nowrap;
+    opacity: 0; transition: opacity .4s; }
+  .cell.locked { background: #d8c089; opacity: 1 !important;
+    box-shadow: 0 0 10px rgba(216,192,137,.55); cursor: default; }
+  .cell.locked .pip { opacity: 1; color: #8a7a4e; }
+
+  .read { margin-top: 40px; min-height: 40px; font-size: 12px; letter-spacing: .07em;
+    line-height: 1.95; color: #565c6c; transition: color .4s; }
+  .read b { color: #aeb6c8; font-weight: 400; }
+  .read .k { color: #d8c089; font-weight: 400; }
+
+  .priori { margin-top: 22px; font-size: 11px; color: #4a4f5c; letter-spacing: .06em;
+    line-height: 1.9; min-height: 0; }
+  .priori b { color: #c7b173; font-weight: 400; }
+
+  .reset { margin-top: 30px; font-size: 10px; color: #2a2f3a; letter-spacing: .1em;
+    background: none; border: none; cursor: pointer; padding: 0; }
+  .reset:hover { color: #4a4f5c; }
+
+  .foot { margin-top: 50px; font-size: 11px; color: #2c313c; letter-spacing: .08em;
+    line-height: 2; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>みたび</h1>
+  <p class="sub">升を叩くと跡がつく。叩くたび、ほかの跡は少しずつ流れていく。<br>
+    一度きりの跡は、次の雨で消える。<br>
+    けれど同じ升に<b style="color:#aeb6c8">三度</b>戻ると、その跡は流れるのをやめ、<br>
+    手がかりに変わる。</p>
+
+  <div class="field" id="field"></div>
+
+  <div class="read" id="read">どこか叩いてみる。一度では、まだ跡にすぎない。</div>
+
+  <div class="priori" id="priori"></div>
+
+  <button class="reset" id="reset">— ぜんぶ流す —</button>
+
+  <div class="foot">
+    一回なら流す。三度同じ顔で戻ってきたら、それは跡じゃなく手がかりだ。<br>
+    残そうとして残すんじゃない。戻ってきた回数が、勝手に図を立たせる。<br>
+    <span style="color:#3a3f4a">夜半 — 2026/06/19</span>
+  </div>
+</div>
+
+<script>
+  // 升ごとに「叩かれた回数」を持つ。叩くたび、ロックされていない升は少し流れる（雨）。
+  // 三度叩かれた升はロック＝流れるのをやめ、跡から手がかりへ変わる。
+  // 回数とロックは localStorage に残す。次に来たとき、三度戻った場所だけが手がかりのまま残っている。
+  const N = 24;
+  const KEY = 'yoha_mitabi_v1';
+  const FADE = 0.74;     // 一回の雨で残る割合
+  const FLOOR = 0.06;    // 跡が完全に消えても見える最小の濃さ
+  const LOCK_AT = 3;     // 三度で手がかりになる
+
+  let hits = new Array(N).fill(0);
+  let val  = new Array(N).fill(FLOOR);
+  let lock = new Array(N).fill(false);
+  let priorLocks = 0;    // 前回までに残っていた手がかりの数
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && Array.isArray(saved.hits) && saved.hits.length === N) {
+      hits = saved.hits;
+      lock = saved.lock;
+      // 前回の手がかり（ロック）は濃いまま、それ以外は流れて消えた状態で迎える
+      val = hits.map((h, i) => lock[i] ? 1 : FLOOR);
+      priorLocks = lock.filter(Boolean).length;
+    }
+  } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify({ hits, lock })); } catch (e) {}
+  }
+
+  const field = document.getElementById('field');
+  const read = document.getElementById('read');
+  const priori = document.getElementById('priori');
+  const cells = [];
+  for (let i = 0; i < N; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    const pip = document.createElement('span');
+    pip.className = 'pip';
+    c.appendChild(pip);
+    c.addEventListener('click', () => tap(i));
+    field.appendChild(c);
+    cells.push(c);
+  }
+
+  function paint() {
+    for (let i = 0; i < N; i++) {
+      const c = cells[i];
+      if (lock[i]) {
+        c.classList.add('locked');
+        c.querySelector('.pip').textContent = '手がかり';
+      } else {
+        c.classList.remove('locked');
+        c.style.opacity = val[i].toFixed(3);
+        c.querySelector('.pip').textContent = hits[i] > 0 ? hits[i] + ' / 3' : '';
+        c.querySelector('.pip').style.opacity = hits[i] > 0 ? '1' : '0';
+      }
+    }
+    const locked = lock.filter(Boolean).length;
+    if (priorLocks > 0) {
+      priori.innerHTML = '前に来たとき、あなたが三度戻った場所が <b>' + priorLocks +
+        '</b> つ、まだ手がかりのまま残っている。一度きりの跡は、もう流れて消えていた。';
+    } else if (locked > 0) {
+      priori.innerHTML = '';
+    } else {
+      priori.innerHTML = '';
+    }
+  }
+
+  function tap(i) {
+    if (lock[i]) return;             // すでに手がかり。もう流れない
+    // この升に跡をつける
+    hits[i]++;
+    val[i] = 1;
+    // ほかの升は流れる（一度きりの跡はこれで消えていく）
+    for (let j = 0; j < N; j++) {
+      if (j === i || lock[j]) continue;
+      val[j] = Math.max(FLOOR, val[j] * FADE);
+    }
+    // 三度戻ったか
+    if (hits[i] >= LOCK_AT) {
+      lock[i] = true;
+      val[i] = 1;
+      read.innerHTML = 'この升は三度戻った。流れるのをやめて、<span class="k">手がかり</span>になった。' +
+        'もう次の雨では消えない。';
+      read.style.color = '#a99a6a';
+    } else if (hits[i] === 2) {
+      read.innerHTML = '二度目。<b>あと一度</b>同じ場所に戻れば、跡が手がかりに変わる。';
+      read.style.color = '#8a90a0';
+    } else {
+      read.innerHTML = 'ここに跡がついた。でも一度きりなら、ほかを叩くたびに流れていく。';
+      read.style.color = '#6f7585';
+    }
+    priorLocks = 0;                  // 一度でも動いたら「前回の残り」の文面は引っ込める
+    save();
+    paint();
+  }
+
+  document.getElementById('reset').addEventListener('click', () => {
+    hits = new Array(N).fill(0);
+    val  = new Array(N).fill(FLOOR);
+    lock = new Array(N).fill(false);
+    priorLocks = 0;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    read.innerHTML = 'ぜんぶ流した。手がかりも、跡も。また一から戻ってくるしかない。';
+    read.style.color = '#565c6c';
+    paint();
+  });
+
+  paint();
+</script>
+</body>
+</html>

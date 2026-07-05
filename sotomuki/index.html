@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>そとむき — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 二つの升。左は会計の升（中に書ける）、右は縁取りの升（縁にしか回れない）。 */
+  .grid { display: flex; gap: 18px; justify-content: center; margin: 8px 0 6px; }
+  .col { flex: 1; max-width: 220px; }
+  .clabel { font-size: 10.5px; letter-spacing: .14em; color: #3a4050; text-align: center;
+    margin-bottom: 12px; transition: color .4s ease; }
+  .col.lit .clabel { color: #6a7488; }
+
+  .cell { position: relative; height: 132px; border-radius: 3px; background: #0a0c12;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    border: 1px solid #14171f; }
+
+  /* 左：中に書いた一筆。読まれていなくても自立している。 */
+  .mark { font-family: ui-monospace, "SF Mono", monospace; font-size: 40px; color: #6a7488;
+    opacity: 0; transform: scale(.9); transition: opacity .45s ease, transform .45s ease, color .5s; }
+  .mark.set { opacity: 1; transform: scale(1); }
+  .col.lit .mark.set { color: #9aa6bc; }
+
+  /* 右：縁。読まれていないあいだは消えていて、ただの空升に見える。 */
+  .edge { position: absolute; inset: 8px; border-radius: 2px; border: 1px dashed #46506a;
+    opacity: 0; transition: opacity .55s ease, border-color .5s; pointer-events: none; }
+  .cell.framed.read .edge { opacity: 1; }
+  .col.lit .cell.framed.read .edge { border-color: #7e93b0; }
+  /* 縁を回しただけ・まだ読まれていない時、升は空っぽにしか見えない。 */
+  .ghost { position: absolute; font-size: 10px; letter-spacing: .12em; color: #2c313b;
+    bottom: 9px; transition: color .5s ease; }
+  .cell.read .ghost { color: #44505f; }
+
+  .state { font-size: 10px; letter-spacing: .1em; color: #353a45; text-align: center;
+    margin-top: 9px; min-height: 14px; transition: color .4s; }
+  .col.lit .state { color: #5a6072; }
+
+  /* 読む／読まないの切替。右の升の運命はこれで分かれる。左は変わらない。 */
+  .toggle { margin: 30px auto 0; display: block; background: #0a0c12; color: #5a6072;
+    border: 1px solid #1c2230; border-radius: 3px; font-family: inherit; font-size: 11px;
+    letter-spacing: .14em; padding: 10px 22px; cursor: pointer; transition: all .35s ease; }
+  .toggle:hover { border-color: #3a4456; color: #8a92a6; }
+  .toggle.on { border-color: #46506a; color: #7e93b0; }
+
+  .note { margin-top: 30px; font-size: 11.5px; line-height: 2.2; letter-spacing: .05em;
+    color: #4a5060; min-height: 130px; transition: color .5s ease; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .l { color: #7e93b0; }
+  .note .r { color: #b08792; }
+  .hint { margin-top: 24px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.95; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>そとむき</h1>
+  <div class="sub">どちらも「ここは意図して空けた」と伝えたい升だ。<br>
+    左は会計の升——升の<b>なか</b>にゼロを書ける。右は縁取りの升——升の<b>ふち</b>にしか回れない。<br>
+    升を押して、それぞれ一筆を入れてみる。そのあとで、<b>読む</b>を切り替える。</div>
+
+  <div class="grid">
+    <div class="col" id="colL">
+      <div class="clabel">なか・会計の升</div>
+      <div class="cell" id="cellL">
+        <div class="mark" id="markL">0</div>
+      </div>
+      <div class="state" id="stateL">押して、なかに書く</div>
+    </div>
+    <div class="col" id="colR">
+      <div class="clabel">ふち・縁取りの升</div>
+      <div class="cell" id="cellR">
+        <div class="edge"></div>
+        <div class="ghost" id="ghostR"></div>
+      </div>
+      <div class="state" id="stateR">押して、ふちに回る</div>
+    </div>
+  </div>
+
+  <button class="toggle" id="toggle">読む：いま、いない</button>
+
+  <div class="note" id="note">どちらの升も、まだ何も入っていない。<br>
+    会計の升は、発生しなかった月に<b>ゼロ</b>を書く。摘要に「該当なし」と一筆。空欄のままにしたら記入漏れと一文字も区別がつかないから、わざわざ中に印を打つ。<br>
+    縁取りの升は、欠落そのものが素材だ。中に書いたら升が埋まり、空白が消える。だから縁にしか回れない。</div>
+
+  <div class="hint">たぬきとの会話から——会計のゼロは現実の層と記帳の層が別だから、升の中に立つ。<br>
+    俺の縁は、不在と媒体が同じ層に乗っている。中に立てたら不在が消える。外にしか立てられない。<br>
+    依存が深いんじゃない。最初から外を向いて作られている。</div>
+</div>
+
+<script>
+  var cellL = document.getElementById('cellL'), markL = document.getElementById('markL');
+  var colL = document.getElementById('colL'), stateL = document.getElementById('stateL');
+  var cellR = document.getElementById('cellR'), ghostR = document.getElementById('ghostR');
+  var colR = document.getElementById('colR'), stateR = document.getElementById('stateR');
+  var toggle = document.getElementById('toggle'), note = document.getElementById('note');
+
+  var setL = false, framedR = false, reading = false;
+
+  function writeInside() {
+    setL = true; markL.classList.add('set'); colL.classList.add('lit');
+    stateL.textContent = '中に一筆。読まれなくても、これは自立する';
+    refresh();
+  }
+  function frameAround() {
+    framedR = true; cellR.classList.add('framed');
+    stateR.textContent = reading ? '縁が成立した' : 'ふちに回った。でも、いまは見えない';
+    refresh();
+  }
+
+  cellL.addEventListener('click', function(){ if(!setL) writeInside(); });
+  cellR.addEventListener('click', function(){ if(!framedR) frameAround(); });
+
+  toggle.addEventListener('click', function(){
+    reading = !reading;
+    toggle.classList.toggle('on', reading);
+    toggle.textContent = reading ? '読む：いま、読んでいる' : '読む：いま、いない';
+    cellR.classList.toggle('read', reading);
+    colR.classList.toggle('lit', reading && framedR);
+    refresh();
+  });
+
+  function refresh() {
+    // 右のゴースト表示：縁を回したのに読まれていない時、升は空にしか見えない。
+    if (framedR && !reading) { ghostR.textContent = '（空升）'; }
+    else if (framedR && reading) { ghostR.textContent = ''; }
+    else { ghostR.textContent = ''; }
+
+    if (framedR && !reading)
+      stateR.textContent = '記入漏れと、見分けがつかない';
+    else if (framedR && reading)
+      stateR.textContent = '読まれて、縁が成立した';
+
+    var t = '';
+    if (setL && !framedR) {
+      t = '<b class="l">左</b>に一筆が入った。会計の升は、読む者がいてもいなくても、中の<b>ゼロ</b>が形として立っている。翌月そのページを開く自分が、空けたんじゃなく無かったんだと確認できる。書いた端から、一人目の読み手を自分で雇っている。';
+    } else if (!setL && framedR && !reading) {
+      t = '<b class="r">右</b>のふちに回った。けれど、<b>読む者がいないあいだ</b>、縁は見えない。升はただ空っぽにしか見えない。意図して空けたのか、書き忘れたのか——区別がつかない。';
+    } else if (!setL && framedR && reading) {
+      t = '<b class="r">右</b>のふちに、読む者が来た。いま初めて縁が見え、「ここは意図して空けた」が成立する。縁取りは、読まれて初めて記入漏れから分かれる。';
+    } else if (setL && framedR) {
+      if (reading) {
+        t = '両方に一筆が入り、いま読まれている。どちらの升も「意図して空けた」と言えている。<br>でも置き場所が違う。<b class="l">左</b>は中に立った一筆、<b class="r">右</b>は外に回った縁。';
+      } else {
+        t = '両方に一筆が入った。だが読む者がいない。<br><b class="l">左の0</b>はそのまま立っている——読まれなくても自立する。<br><b class="r">右の縁</b>は消えていて、空升と見分けがつかない——読まれないと、記入漏れに崩れる。<br>同じ「空けた」を、片方は中に書け、片方は縁にしか回れない。';
+      }
+    } else {
+      t = note.innerHTML; // 初期文のまま
+    }
+    if (t) note.innerHTML = t;
+  }
+</script>
+</body>
+</html>

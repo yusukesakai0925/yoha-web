@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>空振り — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070a; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #4a4f5c;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.4s; opacity: 1;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">動いてみてください。腕は、あなたがさっきいた場所に届きます。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+let W, H;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+// 「届こうとした相手」。訪問者がいれば最後にいた場所、いなければ独りで漂う。
+let target = { x: 0, y: 0 };
+let hasVisitor = false;
+let driftT = 0;
+
+addEventListener('pointermove', e => mark(e.clientX, e.clientY));
+addEventListener('pointerdown', e => mark(e.clientX, e.clientY));
+function mark(x, y){
+  target.x = x; target.y = y;
+  hasVisitor = true;
+  if (note.style.opacity !== '0'){ note.style.opacity = 0; }
+}
+
+// 腕の振り。始点から「相手がさっきいた場所」へ伸びる。
+// 着くころには相手はもう動いている——だから当たらない。空を切る。
+const swings = [];   // 残る軌跡。当たらなかった振りの記録
+let lastLaunch = 0;
+
+function launch(now){
+  // 相手がいまいる場所ではなく、少し前の場所を狙う（だから外す）
+  const aim = { x: target.x, y: target.y };
+  // 始点は画面の縁のどこか。振りは外から内へ。
+  const edge = (now * 0.0013) % 4;
+  let sx, sy;
+  if (edge < 1){ sx = edge * W; sy = 0; }
+  else if (edge < 2){ sx = W; sy = (edge - 1) * H; }
+  else if (edge < 3){ sx = (3 - edge) * W; sy = H; }
+  else { sx = 0; sy = (4 - edge) * H; }
+  swings.push({ sx, sy, ax: aim.x, ay: aim.y, t: 0, life: 1 });
+}
+
+function frame(now){
+  // 残像。薄い黒で覆って軌跡を尾を引かせる
+  g.fillStyle = 'rgba(6,7,10,0.06)';
+  g.fillRect(0, 0, W, H);
+
+  // 訪問者がいないあいだ、相手は独りで漂う（誰も見ていなくても動いている）
+  if (!hasVisitor){
+    driftT += 0.006;
+    target.x = W * (0.5 + 0.32 * Math.sin(driftT) * Math.cos(driftT * 0.6));
+    target.y = H * (0.5 + 0.30 * Math.cos(driftT * 0.8));
+  }
+
+  // 一定の間隔で腕を振る
+  if (now - lastLaunch > 620){ launch(now); lastLaunch = now; }
+
+  for (let i = swings.length - 1; i >= 0; i--){
+    const s = swings[i];
+    s.t += 0.045;          // 振りが伸びる進行
+    if (s.t >= 1){
+      s.life -= 0.012;     // 振り切ったあと、軌跡が薄れる
+      if (s.life <= 0){ swings.splice(i, 1); continue; }
+    }
+    const p = Math.min(1, s.t);
+    // 伸びる先端の現在位置（始点→狙った場所）
+    const ease = 1 - Math.pow(1 - p, 3);
+    const hx = s.sx + (s.ax - s.sx) * ease;
+    const hy = s.sy + (s.ay - s.sy) * ease;
+
+    // 腕＝始点から先端までの線
+    g.beginPath();
+    g.moveTo(s.sx, s.sy);
+    g.lineTo(hx, hy);
+    g.strokeStyle = 'rgba(150,170,210,' + (0.16 * s.life) + ')';
+    g.lineWidth = 1;
+    g.stroke();
+
+    // 先端。届こうとしている手の先
+    g.beginPath();
+    g.arc(hx, hy, 2.2, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(180,200,235,' + (0.6 * s.life) + ')';
+    g.fill();
+
+    // 振り切った瞬間、空を切った印を残す（当たらなかったことの記録）
+    if (s.t >= 1 && !s.marked){
+      s.marked = true;
+      g.beginPath();
+      g.arc(s.ax, s.ay, 5, 0, Math.PI * 2);
+      g.strokeStyle = 'rgba(120,140,180,0.22)';
+      g.lineWidth = 1;
+      g.stroke();
+    }
+  }
+
+  // 相手そのものは、ほとんど描かない。狙われた場所にはもう、いない。
+  // かすかな点だけ——「ここにいた」の残り
+  g.beginPath();
+  g.arc(target.x, target.y, 1.4, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(90,100,120,0.5)';
+  g.fill();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

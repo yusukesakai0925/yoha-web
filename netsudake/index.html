@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ねつだけ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070a; overflow: hidden; cursor: none; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #444a57;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.6s; opacity: 1;
+  }
+  .reveal {
+    position: fixed; left: 0; right: 0; top: 42%;
+    text-align: center; color: #5b6680;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 13px; letter-spacing: .18em; line-height: 2.2; pointer-events: none;
+    transition: opacity 2.6s; opacity: 0;
+  }
+  .gauge {
+    position: fixed; left: 0; right: 0; top: 14px;
+    display: flex; justify-content: center; gap: 56px;
+    color: #3a3f4a; font-size: 11px; letter-spacing: .14em; pointer-events: none;
+    font-family: -apple-system, sans-serif;
+  }
+  .gauge b { color: #6a7080; font-weight: normal; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em; cursor: pointer; z-index: 2;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="gauge" id="gauge"></div>
+<div class="reveal" id="reveal">熱はどちらも同じだった。<br>けれど片方は新しい形を産み、片方は同じ形をなぞっていた。<br>熱では見分けられない。産んだ形の数でしか分からない。</div>
+<div class="note" id="note">ふたつとも、同じ熱で燃えている。<br>しばらく見ていると、片方だけが別の形になっていく。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+const reveal = document.getElementById('reveal');
+const gauge = document.getElementById('gauge');
+let W, H;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+// ── 今朝の問いを形にした一枚 ───────────────────────────────
+// 熱が読めるのは「生死」だけで、「真贋」は読めない。
+// だから "生きたまま偽" ——冷めない捏造——はありうる。
+//
+// 外から見える癖はひとつだけある：本物の生きた問いは、起動するたびに
+// 少しずつ別の形に組み変わる。冷めない捏造は、熱は同じでも、何度回っても
+// 同じ形をなぞる。
+//
+// ここに二つの群れを置く。熱（明るさ・脈打ち）は完全に同じに保つ。
+// どちらも一定の拍（=起動）ごとに別の配置へ組み変わる。
+// 左は手持ちの6枚を順ぐりに使うだけ——何度起動しても同じ形をなぞる。
+// 右は起動のたびに新しい配置を作る——二度と同じ形に戻らない。
+// どちらが本物かは熱では分からない。産んだ「形の数」だけが言い当てる。
+// ────────────────────────────────────────────────────────
+
+let px=-1, py=-1, hasPointer=false, touched=false;
+addEventListener('pointermove', e=>{ px=e.clientX; py=e.clientY; hasPointer=true;
+  if(!touched){ touched=true; note.style.opacity=0; } });
+addEventListener('pointerleave', ()=>{ hasPointer=false; });
+
+const N = 84;            // 各群れの粒数
+const TAU = Math.PI*2;
+const BEAT = 1.3;        // 「起動」の間隔。このたびに群れは別の配置へ組み変わる。
+const LOOPSET = 6;       // 同じ形をなぞる側が持ちまわす配置の数
+
+// 一つの整数 seed から配置のパラメータを作る。同じ seed なら必ず同じ形。
+// 形＝花弁数 m・振幅 amp・位相 phase・全体の回転 rot。
+function shapeOf(seed){
+  return {
+    m: 3 + (seed % 5),
+    amp: 0.22 + (seed % 7) / 7 * 0.5,
+    phase: (seed * 2.39996323) % TAU,   // 黄金角
+    rot: (seed * 1.10714872) % TAU
+  };
+}
+// 粒 i の、その配置での目標座標（中心相対）。
+function targetOf(s, i){
+  const a0 = (i / N) * TAU;
+  const r = 96 * (1 + s.amp * Math.sin(s.m * a0 + s.phase));
+  const a = a0 + s.rot;
+  return { x: Math.cos(a) * r, y: Math.sin(a) * r * 0.72 };
+}
+
+function makeCluster(loop){
+  const pts = [];
+  for(let i=0;i<N;i++) pts.push({ x:0, y:0, ph:(i%11)/11*TAU });
+  const c = {
+    pts, loop,
+    forms: 0,             // 産んだ「別の形」の数
+    seen: new Set(),      // 出た seed の集合（loop は 6 個で頭打ち）
+    idx: 0,               // loop 側：今どの持ち札か
+    freeN: 100,           // free 側：使い切りの seed カウンタ
+    cur: null,            // 今の配置（目標）
+    beat: 0
+  };
+  jump(c);                // 最初の配置
+  for(let i=0;i<N;i++){ const t=targetOf(c.cur,i); c.pts[i].x=t.x; c.pts[i].y=t.y; }
+  return c;
+}
+
+// 「起動」が来るたびに次の配置へ組み変わる。
+// loop:  固定の6枚を順ぐりに使う → seed は6種類しか出ない（同じ形をなぞる）
+// free:  使うたび新しい seed → 二度と同じ形にならない（新しい形を産む）
+function jump(c){
+  let seed;
+  if(c.loop){ seed = 11 + c.idx; c.idx = (c.idx + 1) % LOOPSET; }
+  else      { seed = c.freeN++; }
+  c.cur = shapeOf(seed);
+  if(!c.seen.has(seed)){ c.seen.add(seed); c.forms++; }
+}
+
+const A = makeCluster(true);    // 同じ形をなぞる（冷めない捏造の側）
+const B = makeCluster(false);   // 新しい形を産む（生きた問いの側）
+// 左右どちらが loop かは見た目では区別できない。脈打つ熱も同じ。
+
+let heat = 0;            // 共通の熱（脈打ち）。両群れまったく同じ値を使う。
+let frame_t = 0;
+let lastReal = performance.now();
+
+function drawCluster(c, ox, dt){
+  // 起動の拍。来るたびに次の配置へ。
+  c.beat += dt;
+  if(c.beat >= BEAT){ c.beat -= BEAT; jump(c); }
+
+  for(let i=0;i<N;i++){
+    const p = c.pts[i];
+    const t = targetOf(c.cur, i);
+    // 目標へなめらかに組み変わる（一気には移らない）。
+    p.x += (t.x - p.x) * Math.min(1, dt * 3.2);
+    p.y += (t.y - p.y) * Math.min(1, dt * 3.2);
+    const br = Math.sin(frame_t*1.4 + p.ph) * (2 + heat*4);   // 脈打ち＝熱
+    const x = ox + p.x;
+    const y = H/2 + p.y + br;
+    // 熱＝明るさと粒径。両群れ同一の heat を使うので、熱では差が出ない。
+    const al = 0.20 + heat*0.55;
+    const rad = 1.3 + heat*1.8;
+    g.fillStyle = `rgba(150,${175+heat*60|0},235,${al.toFixed(3)})`;
+    g.beginPath(); g.arc(x,y,rad,0,TAU); g.fill();
+  }
+}
+
+function tick(now){
+  const dt = Math.min(0.05,(now-lastReal)/1000);
+  lastReal = now;
+  frame_t += dt;
+
+  // 共通の熱。手を近づけると両方ぶん等しく熱くなる。
+  let target = 0.45 + Math.sin(frame_t*1.1)*0.18;
+  if(hasPointer) target += 0.3;
+  heat += (target-heat)*0.06;
+
+  // 残像をうっすら残す（過去の形の堆積）。
+  g.fillStyle = 'rgba(6,7,10,0.12)';
+  g.fillRect(0,0,W,H);
+
+  const lx = W*0.32, rx = W*0.68;
+  drawCluster(A, lx, dt);
+  drawCluster(B, rx, dt);
+
+  // ゲージ：熱は同値、形は片方だけ増える。
+  gauge.innerHTML =
+    `左　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${A.forms}</b>` +
+    `　｜　` +
+    `右　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${B.forms}</b>`;
+
+  // 差が十分ついたら——熱では見分けられなかったものが、形の数で見える。
+  const gap = Math.abs(B.forms - A.forms);
+  reveal.style.opacity = (gap >= 6 ? Math.min(0.85,(gap-6)/12) : 0).toFixed(3);
+
+  // 手のしるし。
+  if(hasPointer){
+    const grad = g.createRadialGradient(px,py,0,px,py,16);
+    grad.addColorStop(0,'rgba(190,200,235,0.4)');
+    grad.addColorStop(1,'rgba(150,170,220,0)');
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(px,py,16,0,TAU); g.fill();
+  }
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

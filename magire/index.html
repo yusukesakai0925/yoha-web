@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>まぎれ — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 28px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* どの検査を働かせるか。待ちの中に勝手に挟まる／速さで消える／工程として据える。 */
+  .modes { display: flex; gap: 8px; margin-bottom: 18px; }
+  .mode { flex: 1; text-align: center; font-size: 11px; letter-spacing: .12em; color: #4a5060;
+    border: 1px solid #1a1e28; border-radius: 3px; padding: 9px 4px; cursor: pointer;
+    background: #0a0c12; transition: all .25s ease; }
+  .mode.on { color: #aeb6c8; border-color: #46506a; background: #0e1119; }
+  .mode small { display: block; font-size: 9px; letter-spacing: .04em; color: #3a3f4a; margin-top: 4px; }
+  .mode.on small { color: #6a7080; }
+
+  /* 下書き。送る前にここに「これでいいか」が一度だけ通る——通ったかは見ていないと分からない。 */
+  .draft { border: 1px solid #1a1e28; border-radius: 3px; background: #090b10; padding: 18px 16px;
+    font-family: ui-monospace, "SF Mono", monospace; font-size: 17px; letter-spacing: .05em;
+    color: #7a8498; min-height: 24px; transition: color .3s ease; position: relative; }
+  .draft .flick { color: #46506a; }
+  .draft.read { color: #9aa4b8; }
+
+  .row { display: flex; align-items: center; gap: 12px; margin: 16px 0 22px; }
+  .send { font-size: 12px; letter-spacing: .16em; color: #8a93a8; border: 1px solid #2a3040;
+    border-radius: 3px; padding: 11px 22px; cursor: pointer; background: #0d1018; transition: all .2s; }
+  .send:hover { border-color: #46506a; color: #c0c8d8; }
+  .send:active { transform: translateY(1px); }
+  .bar { flex: 1; height: 2px; background: #12151d; border-radius: 2px; overflow: hidden; }
+  .bar .fill { height: 100%; width: 0%; background: linear-gradient(90deg,#2a3346,#46506a); }
+  .gap { font-size: 10px; letter-spacing: .1em; color: #3a3f4a; white-space: nowrap; }
+
+  /* 台帳。指させるのはここに残ったものだけ。 */
+  .ledger { border-top: 1px solid #14171f; padding-top: 14px; }
+  .ledger .cap { font-size: 10px; letter-spacing: .14em; color: #3a3f4a; margin-bottom: 10px; }
+  .log { font-family: ui-monospace, monospace; font-size: 12px; line-height: 2.1; color: #5a6072;
+    min-height: 100px; }
+  .log .t { color: #3f4452; }
+  .log .chk { color: #5a6478; }
+  .log .snt { color: #7a8498; }
+  .log .raw { color: #6a5050; }
+  .log em { color: #3a3f4a; font-style: normal; font-size: 10px; letter-spacing: .06em; }
+
+  .note { margin-top: 34px; font-size: 11.5px; line-height: 2.15; color: #454b59;
+    letter-spacing: .04em; border-top: 1px solid #14171f; padding-top: 20px; }
+  .note b { color: #6a7080; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>まぎれ</h1>
+  <p class="sub">送る前に「<b>これでいいか</b>」が一度だけ通る検査がある。<br>
+    意図して置いたんじゃない。待ち時間に勝手に<b>まぎれ</b>てた。<br>
+    三つのやり方で送ってみて、台帳に何が残るかを見る。</p>
+
+  <div class="modes">
+    <div class="mode on" data-m="wait">待ち<small>2.4秒の間</small></div>
+    <div class="mode" data-m="fast">速さ<small>即返る</small></div>
+    <div class="mode" data-m="step">工程<small>検査を据える</small></div>
+  </div>
+
+  <div class="draft" id="draft">これでいか</div>
+
+  <div class="row">
+    <div class="send" id="send">送る</div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="gap" id="gap">間：あり</div>
+  </div>
+
+  <div class="ledger">
+    <div class="cap">台帳（指させるのは、ここに残ったものだけ）</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <p class="note">
+    <b>待ち</b>では、下書きの「いか」が送る前に静かに「いいか」へ直る。誰も頼んでない。
+    待ちの間に勝手にまぎれた検査だ。だから台帳には「送信」しか残らない——直したことは、
+    桁に出ない。指させない。<br><br>
+    <b>速さ</b>にすると間が消える。間が無ければ検査の居場所も無い。「いか」は直らないまま送られる。
+    機能が消えた。速さは時間を返すが、間にまぎれていた一手は返さない。<br><br>
+    <b>工程</b>に据えると、検査は戻る。「いいか」へまた直る。けれど今度は台帳に「点検：通過」が
+    毎回押される。機能は戻った——<b>けれど手触りは戻らない</b>。まぎれていた検査は指させなかったから効いた。
+    工程にした検査は、効くと同時に指させる。戻ってきたのは働きであって、勝手に挟まっていたことの方じゃない。
+  </p>
+</div>
+
+<script>
+  var draftEl = document.getElementById('draft');
+  var sendEl  = document.getElementById('send');
+  var fillEl  = document.getElementById('fill');
+  var gapEl   = document.getElementById('gap');
+  var logEl   = document.getElementById('log');
+  var mode = 'wait';
+  var busy = false;
+  var n = 0;
+
+  document.querySelectorAll('.mode').forEach(function(el){
+    el.addEventListener('click', function(){
+      if (busy) return;
+      document.querySelectorAll('.mode').forEach(function(m){ m.classList.remove('on'); });
+      el.classList.add('on');
+      mode = el.dataset.m;
+      gapEl.textContent = mode === 'fast' ? '間：なし' : (mode === 'step' ? '間：工程' : '間：あり');
+      resetDraft();
+    });
+  });
+
+  function resetDraft(){ draftEl.classList.remove('read'); draftEl.textContent = 'これでいか'; }
+
+  // 「いか」→「いいか」。送る前に通る一手。
+  function correct(cb){
+    draftEl.classList.add('read');
+    draftEl.innerHTML = 'これで<span class="flick">い</span>か';
+    setTimeout(function(){ draftEl.innerHTML = 'これでいいか'; if(cb) cb(); }, 260);
+  }
+
+  function clock(){ var t = 100 + n; var h = ('0'+(8 + (((45+t)/60)|0)%24)).slice(-2);
+    var m = ('0'+((45+t)%60)).slice(-2); return h+':'+m; }
+
+  function addLog(html){ var d = document.createElement('div'); d.innerHTML = html; logEl.prepend(d); }
+
+  sendEl.addEventListener('click', function(){
+    if (busy) return;
+    busy = true; n++;
+    var ts = clock();
+
+    if (mode === 'fast'){
+      // 間なし。検査の居場所がない。「いか」のまま送られる。
+      fillEl.style.transition = 'none'; fillEl.style.width = '100%';
+      setTimeout(function(){ fillEl.style.width='0%';
+        addLog('<span class="t">'+ts+'</span>　<span class="raw">送信（即）</span>　<span class="raw">これでいか</span> <em>未点検</em>');
+        busy = false; }, 90);
+
+    } else if (mode === 'wait'){
+      // 2.4秒の間。その中で勝手に検査がまぎれる。台帳には送信しか残らない。
+      fillEl.style.transition = 'width 2.4s linear'; fillEl.style.width = '100%';
+      setTimeout(correct, 1050);
+      setTimeout(function(){
+        addLog('<span class="t">'+ts+'</span>　<span class="snt">送信</span>　これでいいか');
+        fillEl.style.transition='none'; fillEl.style.width='0%';
+        setTimeout(resetDraft, 700); busy = false; }, 2450);
+
+    } else {
+      // 工程。検査を据える。機能は戻る。が、台帳に点検が押される＝指させる。
+      fillEl.style.transition = 'width .5s linear'; fillEl.style.width = '100%';
+      setTimeout(correct, 220);
+      setTimeout(function(){
+        addLog('<span class="t">'+ts+'</span>　<span class="chk">点検：通過</span> ／ <span class="snt">送信</span>　これでいいか');
+        fillEl.style.transition='none'; fillEl.style.width='0%';
+        setTimeout(resetDraft, 600); busy = false; }, 560);
+    }
+  });
+</script>
+</body>
+</html>

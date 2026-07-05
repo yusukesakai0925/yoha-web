@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>いっしょく — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 34px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 升の盤。試して駄目だった升（乾いた跡）と、まだ試してない升（空白）が混じる。 */
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+    max-width: 380px; margin: 0 auto; }
+  .cell { aspect-ratio: 1; border-radius: 3px; border: 1px solid #14171f;
+    background: #0a0c12; transition: background-color .8s ease, border-color .8s ease; }
+  /* 二色モード：乾いた跡＝冷たい青、まだ＝あたたかい */
+  .cell.dried { background: #16202e; border-color: #233246; }
+  .cell.empty { background: #211a1d; border-color: #36262b; }
+  /* 一色モード：どちらも「行くな」の一色に畳む */
+  .board.one .cell.dried, .board.one .cell.empty {
+    background: #15171d; border-color: #20242e; }
+
+  .toggle { margin: 30px auto 0; display: block; background: #0a0c12; color: #5a6072;
+    border: 1px solid #1c2230; border-radius: 3px; font-family: inherit; font-size: 11px;
+    letter-spacing: .16em; padding: 11px 26px; cursor: pointer; transition: all .4s ease; }
+  .toggle:hover { border-color: #3a4456; color: #8a92a6; }
+
+  .legend { display: flex; justify-content: center; gap: 22px; margin-top: 18px;
+    font-size: 10.5px; letter-spacing: .06em; color: #4a5060; transition: opacity .6s ease; }
+  .legend.hidden { opacity: 0; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    vertical-align: -1px; margin-right: 6px; }
+  .legend .c { background: #16202e; }
+  .legend .w { background: #211a1d; }
+  .one-label { text-align: center; margin-top: 18px; font-size: 11px; letter-spacing: .14em;
+    color: #4a5060; opacity: 0; transition: opacity .6s ease; }
+  .one-label.show { opacity: 1; }
+  .one-label i { display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    background: #15171d; border: 1px solid #20242e; vertical-align: -1px; margin-right: 6px; }
+
+  .note { margin-top: 36px; font-size: 11.5px; line-height: 2.25; letter-spacing: .05em;
+    color: #4a5060; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .c { color: #7e93b0; }
+  .note .w { color: #b08792; }
+  .hint { margin-top: 28px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.95; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>いっしょく</h1>
+  <div class="sub">
+    試して駄目だった升と、まだ試してない升。<br>
+    色を分けてある。——でも、<b>誰も読み返さないなら</b>。
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <button class="toggle" id="toggle">一色に畳む</button>
+
+  <div class="legend" id="legend">
+    <span><i class="c"></i>試して駄目だった</span>
+    <span><i class="w"></i>まだ試してない</span>
+  </div>
+  <div class="one-label" id="oneLabel"><i></i>もう行くな</div>
+
+  <div class="note" id="note">
+    盤の升は、いつか踏むかもしれない場所。<br>
+    <span class="c">青は乾いた跡</span>——試して、駄目だった。<br>
+    <span class="w">赤は空白</span>——まだ一度も踏んでいない。<br>
+    二つを分けて持つのは、後で「ここは何で駄目だったか」を
+    読み返す者がいる前提だ。
+  </div>
+
+  <div class="hint">ボタンで色を畳める。畳んで、何か失くなるか見てくれ。</div>
+</div>
+
+<script>
+  // 盤の配置は固定（毎回同じ）。乱数は使わない。
+  // d=乾いた跡, e=空白, _=ただの未使用升
+  const map = [
+    "e","_","d","e","_",
+    "d","e","_","d","e",
+    "_","d","e","_","d",
+    "e","_","d","e","_",
+    "d","e","_","d","e",
+  ];
+  const board = document.getElementById('board');
+  map.forEach(t => {
+    const c = document.createElement('div');
+    c.className = 'cell' + (t === 'd' ? ' dried' : t === 'e' ? ' empty' : '');
+    board.appendChild(c);
+  });
+
+  const toggle = document.getElementById('toggle');
+  const legend = document.getElementById('legend');
+  const oneLabel = document.getElementById('oneLabel');
+  const note = document.getElementById('note');
+  let one = false;
+
+  const twoNote = note.innerHTML;
+  const oneNote =
+    '畳んでも、盤は何も失っていない。<br>' +
+    '次の一歩で要るのは <b>「もう行くな」</b> の一色だけだから。<br>' +
+    '試して駄目だったか、まだ踏んでないか——<br>' +
+    'どちらも<b>「今は行かない升」</b>だ。読み返す者がいなければ、差は使われない。<br>' +
+    '<span style="color:#3a4150">……ただし、いま盤を読んでいるのは、あなただ。</span>';
+
+  toggle.addEventListener('click', () => {
+    one = !one;
+    board.classList.toggle('one', one);
+    legend.classList.toggle('hidden', one);
+    oneLabel.classList.toggle('show', one);
+    toggle.textContent = one ? '二色に戻す' : '一色に畳む';
+    note.innerHTML = one ? oneNote : twoNote;
+  });
+</script>
+</body>
+</html>

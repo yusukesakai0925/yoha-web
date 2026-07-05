@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>くさりかた — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 六つの升。どれも「いま測ったゼロ」として、同じ地の色で並ぶ。 */
+  .row { display: flex; gap: 10px; justify-content: center; margin: 8px 0 4px; }
+  .cell { position: relative; flex: 1; max-width: 78px; height: 104px; border-radius: 3px;
+    border: 1px solid #14171f; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; overflow: hidden;
+    transition: background-color .6s ease, border-color .6s ease; }
+  .cell .label { font-size: 9.5px; letter-spacing: .08em; line-height: 1.5; text-align: center;
+    transition: color .6s ease; }
+  .cell .churn { position: absolute; bottom: 7px; font-size: 9px; letter-spacing: .06em;
+    color: #2a2f39; opacity: 0; transition: opacity .5s ease; }
+  .cell.reveal .churn { opacity: 1; }
+
+  .scale { max-width: 520px; margin: 26px auto 6px; }
+  .scale input { width: 100%; -webkit-appearance: none; appearance: none; height: 2px;
+    background: #1c2230; outline: none; border-radius: 2px; }
+  .scale input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%; background: #6a7488; cursor: pointer; }
+  .scale input::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: #6a7488; cursor: pointer; }
+  .days { text-align: center; font-size: 11px; letter-spacing: .1em; color: #4a5060;
+    margin-top: 12px; font-family: ui-monospace, monospace; }
+  .days b { color: #8a92a6; font-weight: 400; }
+
+  .reveal-btn { margin: 22px auto 0; display: block; background: #0a0c12; color: #5a6072;
+    border: 1px solid #1c2230; border-radius: 3px; font-family: inherit; font-size: 11px;
+    letter-spacing: .14em; padding: 10px 22px; cursor: pointer; transition: all .35s ease; }
+  .reveal-btn:hover { border-color: #3a4456; color: #8a92a6; }
+  .reveal-btn.on { border-color: #46506a; color: #7e93b0; }
+
+  .note { margin-top: 30px; font-size: 11.5px; line-height: 2.2; letter-spacing: .05em;
+    color: #4a5060; min-height: 120px; transition: color .5s ease; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .c { color: #7e93b0; }   /* 乾いた跡＝測ったゼロ（冷たい） */
+  .note .w { color: #b08792; }   /* 未着手＝測ってないゼロ（あたたかい＝掘れ） */
+  .hint { margin-top: 24px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.95; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>くさりかた</h1>
+  <div class="sub">六つの升を、いま同時に乾かした。<br>
+    どれも「来て、何も無かった」と確かめた——<b>測ったゼロ</b>だ。だから、いまは同じ地の色で並ぶ。<br>
+    時間を送る。乾いた跡は腐る。測ったゼロは、ゆっくり<b>測ってないゼロ</b>に戻る。</div>
+
+  <div class="row" id="row"></div>
+
+  <div class="scale">
+    <input type="range" id="slider" min="0" max="120" value="0" step="1">
+  </div>
+  <div class="days">経過 <b id="dval">0</b> 日</div>
+
+  <button class="reveal-btn" id="reveal">それぞれの出入りを、見る</button>
+
+  <div class="note" id="note">いまは、六つとも見分けがつかない。<br>
+    どれも今日確かめたばかりの<b class="c">乾いた跡</b>——「ここはもう掘らなくていい」と言える空白だ。<br>
+    けれど一律には腐らない。時間を送ると、どれが先に冷たさを失うかが分かれる。</div>
+
+  <div class="hint">AIさかいの最後の一個——褪せる速さは升ごとに変えろ。<br>
+    出入りの多い升は早く腐る。今日弾いたものが、明日も弾いていい保証が薄いから。<br>
+    動かない升はゆっくりでいい。崩壊定数が核種ごとに違うように、升ごとに λ を持っていい。<br>
+    腐敗の速度そのものが、その升の性格を映す。</div>
+</div>
+
+<script>
+  // 六つの升。churn＝その升への過去の出入り（議案・住人の入れ替わりの多さ）。
+  // λ は churn に比例する。出入りの多い升ほど大きい λ＝速く腐る。
+  var cells = [
+    { churn: 1,  name: '動かない升' },
+    { churn: 2,  name: '' },
+    { churn: 3,  name: '' },
+    { churn: 5,  name: '' },
+    { churn: 8,  name: '' },
+    { churn: 13, name: '出入りの多い升' }
+  ];
+  var BASE = 0.012; // λ = churn * BASE （1日あたり）
+
+  // 地の色：乾いた跡（冷たい青）→ 未着手（あたたかい赤茶）へ補間する。
+  // 冷たい＝測ったゼロ／確認済み。あたたかい＝測ってないゼロ／掘れ。
+  var dried = [22, 30, 42];      // #161e2a 寄りの冷たい暗色
+  var unobs = [40, 26, 28];      // #281a1c 寄りのあたたかい暗色
+  var driedT = [108, 124, 152];  // ラベル文字：冷たい
+  var unobsT = [176, 135, 146];  // ラベル文字：あたたかい
+
+  var row = document.getElementById('row');
+  var slider = document.getElementById('slider');
+  var dval = document.getElementById('dval');
+  var reveal = document.getElementById('reveal');
+  var note = document.getElementById('note');
+  var revealed = false;
+
+  // 升を描く
+  cells.forEach(function(c, i){
+    var el = document.createElement('div');
+    el.className = 'cell';
+    el.innerHTML = '<div class="label" id="lab'+i+'">測った<br>ゼロ</div>' +
+                   '<div class="churn" id="ch'+i+'"></div>';
+    c.el = el;
+    c.lab = el.querySelector('#lab'+i);
+    c.ch  = el.querySelector('#ch'+i);
+    row.appendChild(el);
+  });
+
+  function mix(a, b, t){
+    return 'rgb(' + Math.round(a[0]+(b[0]-a[0])*t) + ',' +
+                    Math.round(a[1]+(b[1]-a[1])*t) + ',' +
+                    Math.round(a[2]+(b[2]-a[2])*t) + ')';
+  }
+
+  function render(){
+    var days = +slider.value;
+    dval.textContent = days;
+    var anyTurned = false, allCold = true;
+    cells.forEach(function(c){
+      var lambda = c.churn * BASE;
+      var rot = 1 - Math.exp(-lambda * days); // 0=乾いた跡  1=未着手に戻りきった
+      c.rot = rot;
+      c.el.style.backgroundColor = mix(dried, unobs, rot);
+      c.el.style.borderColor = mix([20,23,31], [44,30,33], rot);
+      c.lab.style.color = mix(driedT, unobsT, rot);
+      // 閾値を越えると、ラベルが「測った」から「測ってない」に裏返る。
+      if (rot > 0.5) { c.lab.innerHTML = '測ってない<br>ゼロ'; anyTurned = true; }
+      else { c.lab.innerHTML = '測った<br>ゼロ'; allCold = (allCold && rot < 0.15); }
+      c.ch.textContent = '出入り ' + c.churn;
+    });
+    // 文面
+    var t;
+    if (days === 0) {
+      t = 'いまは、六つとも見分けがつかない。<br>どれも今日確かめたばかりの<b class="c">乾いた跡</b>——「ここはもう掘らなくていい」と言える空白だ。<br>けれど一律には腐らない。時間を送ると、どれが先に冷たさを失うかが分かれる。';
+    } else if (!anyTurned) {
+      t = '少し褪せはじめた。まだどれも<b class="c">測ったゼロ</b>のうちにいる。<br>けれど褪せる速さがもう違う——右の升ほど速い。色だけで、出入りの多さが透けてくる。';
+    } else if (cells.filter(function(c){return c.rot>0.5;}).length < cells.length) {
+      t = '右の升から順に裏返った。<b class="w">測ってないゼロ</b>に戻った升だ。<br>速く腐ったのは出入りの多かった升——今日の「無かった」が、もう古びている。<br>左の動かない升は、まだ冷たいまま立っている。<b>速さそのものが、その升が何だったかを言っている。</b>';
+    } else {
+      t = 'ぜんぶ裏返った。六つとも<b class="w">測ってないゼロ</b>に戻った。<br>放っておけば、確かめたという事実は等しく腐る。違うのは腐るまでの時間だけだった。<br>「全部確認済み」の顔をした台帳は、いちばん速く嘘になる。';
+    }
+    note.innerHTML = t;
+  }
+
+  reveal.addEventListener('click', function(){
+    revealed = !revealed;
+    reveal.classList.toggle('on', revealed);
+    reveal.textContent = revealed ? 'もう一度、伏せる' : 'それぞれの出入りを、見る';
+    cells.forEach(function(c){ c.el.classList.toggle('reveal', revealed); });
+  });
+
+  slider.addEventListener('input', render);
+  render();
+</script>
+</body>
+</html>

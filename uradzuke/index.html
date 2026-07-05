@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>うらづけ — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #08090d; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  body { overflow-x: hidden; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none; letter-spacing: .08em; z-index: 5;
+  }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 660px; margin: 0 auto; padding: 92px 20px 140px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .1em; margin-bottom: 40px; line-height: 1.8; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 16px 10px; border-bottom: 1px solid #161922; vertical-align: baseline; }
+  th { color: #444a5a; font-weight: 400; font-size: 11px; letter-spacing: .14em; }
+  .item { color: #8a90a2; }
+  .val { color: #c2c8d8; font-variant-numeric: tabular-nums; font-size: 16px; min-width: 40px;
+    display: inline-block; transition: color 1.6s, opacity 2.4s; }
+
+  /* どの出所も、最初はちゃんと埋まっている。みな裏付けがあるように見える。 */
+  .src {
+    color: #8a90a2; font-size: 13px; letter-spacing: .04em; cursor: pointer; user-select: none;
+    border-bottom: 1px dotted #2a2e3a; transition: color 1.4s, opacity 2.2s, border-color 1.4s;
+  }
+  .src:hover { border-bottom-color: #3a4150; color: #a2a8ba; }
+
+  /* 裏を返したあと出てくる注記 */
+  .behind { display: block; font-size: 11px; letter-spacing: .06em; margin-top: 7px;
+    opacity: 0; transition: opacity 2s ease-out; }
+  .behind.shown { opacity: 1; }
+
+  /* 実のある裏付け：返しても残る。裏に中身がある。ほのかに灯る */
+  .src.solid { color: #5e8f7a; border-bottom-color: #243a33; }
+  .behind.solid { color: #3f6857; }
+
+  /* 中空の出所：埋めてあったが裏は空。返すと剥がれ、値が足場を失う */
+  .src.hollow { color: #6a3b3b; border-bottom: 1px dashed #3a2424; opacity: .4; }
+  .behind.hollow { color: #6a3b3b; }
+  tr.loose .val { color: #2f333f; opacity: .35; }
+
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #41475a; font-size: 12px; letter-spacing: .1em;
+    pointer-events: none; transition: opacity 1.6s; padding: 0 20px; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>うらづけ</h1>
+  <div class="sub">どの数字にも、もう出所が書いてある。みな裏付けがあるように見える。<br>
+    出所を押すと、裏を返す。中身があるか、空か。</div>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>値</th><th>出所（裏を返す）</th></tr>
+    </thead>
+    <tbody id="body">
+      <!-- data-behind があるものは実のある裏付け／空のものは中空（埋めた本人が線を引きたくなかった出所） -->
+      <tr><td class="item">支持の広がり</td>
+        <td><span class="val">＋18%</span></td>
+        <td><span class="src" data-behind="">街頭の手応え</span></td></tr>
+      <tr><td class="item">配布したポスター</td>
+        <td><span class="val">420枚</span></td>
+        <td><span class="src" data-behind="6/12 掲示板台帳・写真44枚・班長3名の署名">掲示記録</span></td></tr>
+      <tr><td class="item">関心の高まり</td>
+        <td><span class="val">＋31%</span></td>
+        <td><span class="src" data-behind="">支持者の声</span></td></tr>
+      <tr><td class="item">回収した署名</td>
+        <td><span class="val">1,206筆</span></td>
+        <td><span class="src" data-behind="6/14 受任者名簿・原本照合済・番号連番">名簿原本</span></td></tr>
+      <tr><td class="item">熱量の上昇</td>
+        <td><span class="val">＋40%</span></td>
+        <td><span class="src" data-behind="">現場の空気</span></td></tr>
+      <tr><td class="item">折込んだチラシ</td>
+        <td><span class="val">8,000部</span></td>
+        <td><span class="src" data-behind="6/10 新聞販売店の受領書・部数印字">受領書</span></td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="note" id="note">出所を押すと、裏を返す。</div>
+
+<script>
+  // 芯：埋めた出所は、空けた出所より危ない。
+  //
+  // しょうげん／くうらん では「空欄」が偽物を露した。空欄は正直に「無い」と言う。
+  // ここでは出所がぜんぶ埋まっている。みな裏付けの顔をしている。
+  // でも、線を引きたくなかった本人が埋めた出所は——中身を偽る方に回った。
+  // 「街頭の手応え」「支持者の声」「現場の空気」。それっぽい。裏を返すまでは。
+  // 返すと、実のある裏付けは残り、中空の出所は剥がれて、上の値が足場を失う。
+  // 空欄なら一目で「無い」と分かった。埋めたから、返すまで「在る」と嘘をつけた。
+  const note = document.getElementById('note');
+  const srcs = [...document.querySelectorAll('.src')];
+  let opened = 0, hollow = 0, solid = 0;
+  const total = srcs.length;
+
+  function flip(s) {
+    if (s.dataset.done) return;
+    s.dataset.done = '1';
+    const row = s.closest('tr');
+    const behind = s.dataset.behind;
+    const tag = document.createElement('span');
+    tag.className = 'behind';
+    if (behind) {                       // 実のある裏付け：返しても残る
+      tag.textContent = '裏：' + behind;
+      tag.classList.add('solid');
+      s.classList.add('solid');
+      requestAnimationFrame(() => tag.classList.add('shown'));
+      s.parentNode.appendChild(tag);
+      solid++;
+    } else {                            // 中空：返すと裏が空。値が足場を失う
+      tag.textContent = '裏：——（なにも無い）';
+      tag.classList.add('hollow');
+      s.parentNode.appendChild(tag);
+      requestAnimationFrame(() => tag.classList.add('shown'));
+      setTimeout(() => { s.classList.add('hollow'); row.classList.add('loose'); }, 800);
+      hollow++;
+    }
+    opened++;
+    if (opened === 1) {
+      note.style.opacity = '0';
+      setTimeout(() => {
+        note.textContent = 'みな同じ「出所あり」の顔をしていた。裏を返すまでは。';
+        note.style.opacity = '1';
+      }, 1500);
+    }
+    if (opened >= total) {
+      setTimeout(() => {
+        note.style.opacity = '0';
+        setTimeout(() => {
+          note.textContent = '空欄なら一目で「無い」と分かった。埋めた ' + hollow +
+            ' 個は、返すまで「在る」と嘘をつけた。';
+          note.style.opacity = '1';
+        }, 1700);
+      }, 1300);
+    }
+  }
+
+  srcs.forEach(s => s.addEventListener('click', () => flip(s)));
+</script>
+</body>
+</html>

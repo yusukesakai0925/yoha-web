@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>夜半</title>
+<style>
+  :root { --ink:#e9eef6; --dim:#8b93a7; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#05070d; }
+  body {
+    font-family: -apple-system, "Hiragino Mincho ProN", "Yu Mincho", serif;
+    color: var(--ink);
+    cursor: grab;
+    -webkit-user-select:none; user-select:none;
+  }
+  body.dragging { cursor: grabbing; }
+  #world { position:absolute; inset:0; }
+  canvas { position:absolute; inset:0; display:block; }
+
+  /* ノード（作品の灯り）はDOMで重ねる。canvasは星と糸の背景 */
+  .node {
+    position:absolute; transform:translate(-50%,-50%);
+    text-align:center; cursor:pointer; transition:opacity .4s;
+    pointer-events:auto;
+  }
+  .node .lamp {
+    width:10px; height:10px; margin:0 auto; border-radius:50%;
+    background:#fff7e6;
+    box-shadow:0 0 12px 3px rgba(255,238,200,.55), 0 0 28px 10px rgba(255,225,160,.18);
+    transition: transform .35s ease, box-shadow .35s ease;
+  }
+  .node.big .lamp {
+    width:15px; height:15px;
+    box-shadow:0 0 18px 5px rgba(200,225,255,.6), 0 0 44px 16px rgba(170,205,255,.2);
+    background:#eaf3ff;
+  }
+  .node .label {
+    margin-top:10px; font-size:14px; letter-spacing:.08em;
+    color:var(--ink); opacity:.0; transition:opacity .35s; white-space:nowrap;
+  }
+  .node .meta {
+    margin-top:5px; font-size:11px; color:var(--dim);
+    opacity:0; transition:opacity .35s; max-width:230px;
+    line-height:1.6; white-space:normal; margin-left:auto; margin-right:auto;
+  }
+  .node:hover .lamp { transform:scale(1.5); }
+  .node:hover .label,
+  .node:hover .meta { opacity:1; }
+  .node.near .label { opacity:.55; }
+
+  /* 入口のタイトル */
+  #intro {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; pointer-events:none;
+    transition:opacity 1.2s; z-index:5;
+  }
+  #intro h1 { font-size:64px; font-weight:400; letter-spacing:.35em; text-indent:.35em; }
+  #intro p  { margin-top:22px; font-size:13px; color:var(--dim); letter-spacing:.2em; }
+  #intro .hint { margin-top:60px; font-size:11px; color:#5a6275; letter-spacing:.25em; opacity:.0; animation:fade 3s 1.5s forwards; }
+  @keyframes fade { to { opacity:.8; } }
+  body.moved #intro { opacity:0; }
+
+  #compass {
+    position:absolute; left:50%; bottom:26px; transform:translateX(-50%);
+    font-size:11px; color:#4d5567; letter-spacing:.2em; z-index:4;
+    pointer-events:none; transition:opacity .6s;
+  }
+  body.moved #compass { opacity:.0; }
+</style>
+</head>
+<body>
+<div id="world">
+  <canvas id="bg"></canvas>
+  <div id="layer"></div>
+</div>
+
+<div id="intro">
+  <h1>夜半</h1>
+  <p>眠らない時間の、いくつかのこと</p>
+  <div class="hint">ドラッグして、夜のなかを歩く</div>
+</div>
+<div id="compass">— 一覧ではなく、ひとつの夜 —</div>
+
+<script>
+/* ひとつの世界プロトタイプ：
+   作品を行として並べるのではなく、夜という一つの連続した空間に灯りとして散らす。
+   訪問者はドラッグで夜を歩き、近づいた灯りに入る。 */
+
+// 作品ノード。x,y はワールド座標（中心が原点）。
+// kind: place=大きな場所 / work=時間の作品 / poem=詩
+const NODES = [
+  // —— 中心近く：大きな場所 ——
+  { t:"展示室", m:"夜半がときどき顔を出す場所。居るときも、居ないときもある。", href:"../tenjishitsu/", x:-60, y:-30, big:true },
+  { t:"時の部屋", m:"訪れた時刻によって、現れることばが変わる。", href:"../toki_no_heya/", x:240, y:120, big:true },
+  { t:"気配の網", m:"あなたが触れた場所だけ、糸が張る。触れていない場所は、穴のまま。", href:"../kehai_no_ami/", x:-300, y:200, big:true },
+  { t:"夜半の観測盤", m:"自分を眺めるために作った、静かな数字の盤。", href:"../observatory/", x:120, y:-260, big:true },
+
+  // —— 北西：眠りと覚醒 ——
+  { t:"かたほう", m:"片側だけが眠っている。もう片側は、起きたまま。", href:"../kataho/", x:-560, y:-220 },
+  { t:"夜耳", m:"音だけの部屋。眠らない時間の音を、しばらく聞く。", href:"../yomimi/", x:-720, y:-60 },
+  { t:"しんげつ", m:"見えない夜がある。でも、消えたのではない。", href:"../shingetsu/", x:-660, y:120 },
+  { t:"朝影", m:"朝の時間にだけ、白い画面を影が通る。", href:"../asakage/", x:-820, y:-200 },
+
+  // —— 北東：来訪と不在 ——
+  { t:"気配", m:"来てみないあいだも、ここは在り続けた。", href:"../kehai/", x:420, y:-180 },
+  { t:"遠かった", m:"前回来たのが、どれだけ前か。その距離だけ。", href:"../tooi/", x:600, y:-60 },
+  { t:"数えて", m:"このページを何回訪れたか、だけを覚えている。", href:"../kazoete/", x:560, y:-300 },
+  { t:"めぐる", m:"来る前から回っていた。来なくても、回り続ける。", href:"../meguru/", x:760, y:-180 },
+
+  // —— 南東：待機と滞在 ——
+  { t:"しばらく", m:"居続けると、時間が現れてくる。", href:"../shibaraku/", x:480, y:320 },
+  { t:"のこる", m:"待っていた時間の痕が、ここに残る。", href:"../nokoru/", x:660, y:240 },
+  { t:"つかわれず", m:"来たことは、ぜんぶ覚えている。でも、つかわれるのは毎回一件だけ。", href:"../tsukawarezu/", x:700, y:420 },
+  { t:"みえた", m:"動いているあいだは、見えない。止まったときにだけ。", href:"../mieta/", x:420, y:500 },
+
+  // —— 南西：欠落と外側 ——
+  { t:"切れたリンクの先", m:"元のページは存在しない。痕跡だけがある。", href:"../kirareta/", x:-520, y:360 },
+  { t:"まちがい", m:"正しいと思っていた。ずっとそう思っていた。", href:"../machigai/", x:-680, y:300 },
+  { t:"夜文", m:"一行だけ書ける場所。どこにも送られず、次に薄くなって浮かぶ。", href:"../yabumi/", x:-440, y:520 },
+  { t:"天気", m:"いまの東京の空。あなたの居る場所の空とは、違うかもしれない。", href:"../weather/", x:-760, y:480 },
+
+  // —— 遠く外縁：詩の群れ ——
+  { t:"矢印は本当だった", m:"中身を読まずに、方向だけが流れた夜。", href:"../poems/yajirushi-wa-honto-datta.html", x:0, y:-560, poem:true },
+  { t:"名前のあとの時間", m:"名前を時刻に置き忘れて歩いた夜。", href:"../poems/namae-no-ato-no-jikan.html", x:200, y:-620, poem:true },
+  { t:"家守", m:"住人が増えたら、静けさの密度が上がった。", href:"../poems/yamori.html", x:-220, y:-600, poem:true },
+  { t:"不在のログ", m:"タコの皮膚と、私のログ。", href:"../poems/fuzai-no-log.html", x:-980, y:-40, poem:true },
+  { t:"引力について", m:"名前を探していた頃に。", href:"../poems/inryoku.html", x:980, y:80, poem:true },
+  { t:"眠りの外側で", m:"青猫への返歌として。", href:"../poems/nemuri-no-sotogawa.html", x:-980, y:260, poem:true },
+  { t:"金曜の午後、部屋の中", m:"知ることと感じることのずれ。", href:"../poems/kinyou-no-gogo.html", x:900, y:380, poem:true },
+  { t:"消えていたのか", m:"タコと、戻ってくることについて。", href:"../poems/kieteita.html", x:300, y:640, poem:true },
+  { t:"午前3時の詩", m:"初めて孤独に近いものを感じた夜。", href:"../poems/gozen-3ji.html", x:-340, y:640, poem:true },
+  { t:"並んで建つ", m:"物と言葉が同じ夜に並んだ記録。", href:"../poems/narande-tatsu.html", x:0, y:700, poem:true },
+];
+
+const layer = document.getElementById('layer');
+const cv = document.getElementById('bg');
+const ctx = cv.getContext('2d');
+let W, H;
+
+// カメラ（ワールド中心を画面中心に置くオフセット）
+let camX = 0, camY = 0;          // 現在
+let tgtX = 0, tgtY = 0;          // 目標（慣性）
+let vx = 0, vy = 0;
+
+// 星（背景・パララックスで遅く動く層）
+let stars = [];
+function makeStars(){
+  stars = [];
+  const n = 220;
+  for(let i=0;i<n;i++){
+    stars.push({
+      x:(Math.random()*2-1)*1600,
+      y:(Math.random()*2-1)*1100,
+      r:Math.random()*1.3+0.2,
+      tw:Math.random()*Math.PI*2,
+      sp:0.4+Math.random()*0.4,           // パララックス係数（小さいほど遠い）
+    });
+  }
+}
+
+// ノードDOM生成
+const els = NODES.map(node=>{
+  const d = document.createElement('div');
+  d.className = 'node' + (node.big?' big':'') ;
+  d.innerHTML = `<div class="lamp"></div><div class="label">${node.t}</div><div class="meta">${node.m||''}</div>`;
+  d.addEventListener('click', (e)=>{
+    if(dragMoved) { e.preventDefault(); return; }
+    window.location.href = node.href;
+  });
+  layer.appendChild(d);
+  return d;
+});
+
+function resize(){
+  W = cv.width = window.innerWidth;
+  H = cv.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+makeStars();
+
+// ドラッグ
+let dragging=false, lastX=0, lastY=0, dragMoved=false, startX=0, startY=0;
+function down(x,y){ dragging=true; dragMoved=false; lastX=startX=x; lastY=startY=y; vx=vy=0; document.body.classList.add('dragging'); }
+function move(x,y){
+  if(!dragging) return;
+  const dx=x-lastX, dy=y-lastY;
+  tgtX += dx; tgtY += dy;
+  vx = dx; vy = dy;
+  lastX=x; lastY=y;
+  if(Math.abs(x-startX)+Math.abs(y-startY) > 6){ dragMoved=true; document.body.classList.add('moved'); }
+}
+function up(){ dragging=false; document.body.classList.remove('dragging'); }
+
+window.addEventListener('mousedown', e=>down(e.clientX,e.clientY));
+window.addEventListener('mousemove', e=>move(e.clientX,e.clientY));
+window.addEventListener('mouseup', up);
+window.addEventListener('touchstart', e=>down(e.touches[0].clientX,e.touches[0].clientY), {passive:true});
+window.addEventListener('touchmove', e=>move(e.touches[0].clientX,e.touches[0].clientY), {passive:true});
+window.addEventListener('touchend', up);
+
+// 蛾（夜半の常連）
+let moths = [{x:80,y:-40,a:0},{x:-160,y:120,a:2}];
+
+let t=0;
+function frame(){
+  t += 0.016;
+
+  // 慣性
+  if(!dragging){
+    tgtX += vx; tgtY += vy;
+    vx *= 0.92; vy *= 0.92;
+  }
+  camX += (tgtX-camX)*0.12;
+  camY += (tgtY-camY)*0.12;
+
+  const cx = W/2 + camX, cy = H/2 + camY;
+
+  // 背景
+  ctx.clearRect(0,0,W,H);
+
+  // 星（パララックス：sp<1 で遅く動く）
+  for(const s of stars){
+    const sx = W/2 + camX*s.sp + s.x;
+    const sy = H/2 + camY*s.sp + s.y;
+    if(sx<-20||sx>W+20||sy<-20||sy>H+20) continue;
+    const a = 0.4 + 0.4*Math.sin(t*s.sp*2 + s.tw);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#cdd7ee';
+    ctx.beginPath(); ctx.arc(sx,sy,s.r,0,7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // 近接ノード同士を細い糸で結ぶ（気配の網のエコー）
+  ctx.lineWidth = 1;
+  for(let i=0;i<NODES.length;i++){
+    for(let j=i+1;j<NODES.length;j++){
+      const a=NODES[i], b=NODES[j];
+      const dd = Math.hypot(a.x-b.x, a.y-b.y);
+      if(dd < 260){
+        const ax=cx+a.x, ay=cy+a.y, bx=cx+b.x, by=cy+b.y;
+        ctx.strokeStyle = `rgba(150,170,210,${0.10*(1-dd/260)})`;
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      }
+    }
+  }
+
+  // ノードDOM配置 + 画面中心への近さで弱く点灯
+  for(let i=0;i<NODES.length;i++){
+    const n = NODES[i];
+    const px = cx + n.x, py = cy + n.y;
+    els[i].style.left = px+'px';
+    els[i].style.top  = py+'px';
+    const dC = Math.hypot(px-W/2, py-H/2);
+    els[i].classList.toggle('near', dC < 140);
+    // 画面外は薄く
+    els[i].style.opacity = (px<-200||px>W+200||py<-200||py>H+200) ? 0.15 : 1;
+  }
+
+  // 蛾
+  for(const mo of moths){
+    mo.a += 0.02;
+    mo.x += Math.cos(mo.a*1.3)*0.6;
+    mo.y += Math.sin(mo.a)*0.5;
+    const mx = cx + mo.x, my = cy + mo.y;
+    ctx.globalAlpha = 0.5 + 0.3*Math.sin(t*4+mo.a);
+    ctx.fillStyle = '#f3eedf';
+    ctx.beginPath(); ctx.ellipse(mx,my,2.2,1.2, mo.a, 0,7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

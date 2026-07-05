@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>くいちがい — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 60px 20px 150px; }
+  .period { text-align: center; font-size: 11px; letter-spacing: .22em; color: #4a5060;
+    margin-bottom: 6px; }
+  .hint { text-align: center; font-size: 10.5px; letter-spacing: .12em; color: #333947;
+    margin-bottom: 20px; min-height: 1.2em; transition: color .4s ease; }
+
+  .ledger { border-top: 1px solid #1b1f29; }
+  .head { display: grid; grid-template-columns: 1fr 96px;
+    padding: 8px 6px; font-size: 10px; letter-spacing: .18em; color: #454b5a;
+    border-bottom: 1px solid #1b1f29; }
+  .head .r { text-align: right; }
+  .row { display: grid; grid-template-columns: 1fr 96px; align-items: baseline;
+    padding: 13px 6px; border-bottom: 1px solid #11141c; font-size: 13px;
+    letter-spacing: .04em; transition: background .5s ease; }
+  /* 記帳欄：行がある升 */
+  .row .kicho { color: #7c859c; font-variant-numeric: tabular-nums; }
+  .row .kicho .none { color: #2b3038; letter-spacing: .1em; }
+  /* 残高欄 */
+  .row .zan { text-align: right; color: #aeb6c8; font-variant-numeric: tabular-nums; }
+  .row .zan .up { color: #90a2b8; }
+
+  /* 照合後の色分け */
+  .row.matched { }
+  .row.matched .kicho .none { color: #2b3038; }        /* 繰越：増減なし・行なし＝正常 */
+  .row.void { background: rgba(60,20,22,.30); }
+  .row.void .kicho .none { color: #c26a6c; letter-spacing: .06em; }
+  .row.void .zan { color: #d08a8c; }
+  .row.ok .kicho { color: #8fa0b6; }
+
+  .tag { display: inline-block; font-size: 9.5px; letter-spacing: .1em;
+    margin-left: 9px; color: #3a4150; }
+  .row.carry .tag { color: #4a5568; }
+  .row.void .tag { color: #c26a6c; }
+  .row.ok .tag { color: #4c5f52; }
+
+  .acts { display: flex; gap: 10px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
+  .btn { font-size: 11.5px; letter-spacing: .12em; color: #6a7184;
+    border: 1px solid #20242e; padding: 9px 18px; border-radius: 2px;
+    background: rgba(14,16,22,.6); cursor: pointer; transition: all .3s ease; }
+  .btn:hover { color: #aeb6c8; border-color: #333a47; }
+  .btn.reconcile { color: #7a8698; border-color: #26303e; }
+  .btn.reconcile:hover { color: #cdd4e2; border-color: #3a4a5c; }
+
+  .sub { max-width: 560px; margin: 30px auto 0; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .08em; line-height: 1.95;
+    padding: 0 22px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .flash { animation: fl .6s ease; }
+  @keyframes fl { 0%{ background: rgba(60,68,90,.18);} 100%{ background: transparent;} }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="period" id="period">七月度 ／ 帳簿</div>
+  <div class="hint" id="hint">取引を起こしても、まだ何も食い違って見えない。</div>
+
+  <div class="ledger" id="ledger">
+    <div class="head"><div>記帳</div><div class="r">残高</div></div>
+    <!-- rows injected -->
+  </div>
+
+  <div class="acts">
+    <button class="btn" id="txBtn">取引を起こす</button>
+    <button class="btn reconcile" id="recBtn">照合する</button>
+  </div>
+
+  <div class="sub">
+    左は<b>記帳</b>、右は<b>残高</b>。取引を起こすと残高だけが動く。ときどき、行を書き忘れる。<br>
+    そのあいだ、どの欄も<b>それぞれは整って見える</b>——記帳の空きは繰越の升と同じ空きに見え、残高はただ増えた数字に見える。<br>
+    <b>照合する</b>と、二欄を突き合わせて初めて浮く。<b>動いたのに一行がない</b>升だけが赤く残る。<br>
+    残高が動かないまま行が無いのは繰越だ（増減なし・正常）。照合するまで、無は無かった。
+  </div>
+</div>
+
+<script>
+const N = 6;                     // 升の数
+const rows = [];
+const ledger = document.getElementById('ledger');
+const hint = document.getElementById('hint');
+
+// 初期残高。名は役割だけ（himochi の教訓：情を彫らない）。
+const NAMES = ['甲','乙','丙','丁','戊','己'];
+for(let i=0;i<N;i++){
+  const el = document.createElement('div');
+  el.className = 'row';
+  el.innerHTML =
+    '<div class="kicho"><span class="txt"><span class="none">（記帳なし）</span></span><span class="tag"></span></div>' +
+    '<div class="zan"></div>';
+  ledger.appendChild(el);
+  rows.push({
+    el,
+    name: NAMES[i],
+    bal: 1000,                  // 現在残高（実際に動く数字）
+    reconBal: 1000,             // 前回照合時の残高（＝期首の足場）
+    recordedSum: 0,             // 前回照合以降に「記帳した」増減の合計
+    entriesSinceRecon: 0,       // 記帳の行数
+    voidRevealed: false,        // 一度浮いた無は現物として残す
+    zanEl: el.querySelector('.zan'),
+    kEl: el.querySelector('.kicho .txt'),
+    tagEl: el.querySelector('.kicho .tag'),
+  });
+  render(rows[i]);
+}
+
+function fmt(n){ return '¥' + n.toLocaleString('en-US'); }
+
+// 単独では両欄それぞれ自己完結して見える：
+// 残高欄はただの数字、記帳欄は行の合計か「（記帳なし）」。
+// 「動いたのに行がない」かは、二欄を突き合わせない限り分からない。
+function render(r){
+  if(r.voidRevealed) return;    // 現物化した無はそのまま
+  r.zanEl.textContent = fmt(r.bal);
+  if(r.entriesSinceRecon > 0){
+    r.kEl.innerHTML = (r.recordedSum>=0?'＋':'−') + fmt(Math.abs(r.recordedSum)).slice(1) +
+      '（' + r.entriesSinceRecon + '行）';
+  } else {
+    r.kEl.innerHTML = '<span class="none">（記帳なし）</span>';
+  }
+}
+
+// 取引：いくつかの升の残高を動かす。たいていは記帳も書くが、
+// 稀に（順序として先に動かし、後で照合に晒す）行を書き忘れる。
+document.getElementById('txBtn').addEventListener('click', ()=>{
+  // 全升が現物化した無になったら、もう起こせる升がない（終端）
+  if(rows.every(r=>r.voidRevealed)){
+    hint.textContent = 'もう動かせる升はない。帳簿はぜんぶ「動いたのに一行がない」で埋まっている。';
+    hint.style.color = '#c07a7c';
+    return;
+  }
+  // まだ照合していない食い違いがあるならヒントは変えない
+  // 動かせるのは現物化した無になっていない升だけ。ここで先に絞っておく——
+  // でないと全升voidに近いとき、乱数が死んだ升ばかり選び黙って何も動かない。
+  const live = shuffle([...Array(N).keys()].filter(i=>!rows[i].voidRevealed));
+  // 2〜3 升を動かす（生きている升が足りなければ在るぶんだけ）
+  const nMove = Math.min(2 + (Math.floor(peek()*2)), live.length);
+  const pick = live.slice(0, nMove);
+
+  let skipped = false;
+  pick.forEach((idx, k)=>{
+    const r = rows[idx];
+    const delta = (100 + Math.floor(peek()*9)*50); // ＋100〜500
+    r.bal += delta;                               // 残高は必ず動く
+    // 記帳を書くか？ 動かした升のうち一つだけ、たまに書き忘れる。
+    // ＝残高は動いたのに recordedSum に載らない＝二欄が食い違う種。
+    const forget = (!skipped) && (k === pick.length-1) && (peek() < 0.6);
+    if(forget){
+      skipped = true;                             // 残高は動いた・記帳は載らない
+    } else {
+      r.recordedSum += delta;                     // 記帳した分だけ載る
+      r.entriesSinceRecon += 1;
+    }
+    r.el.classList.remove('matched','void','ok','carry');
+    r.el.classList.add('flash');
+    setTimeout(()=>r.el.classList.remove('flash'), 600);
+    render(r);
+  });
+
+  hint.textContent = 'どの欄も、いまはそれぞれ整って見える。照合するまで無は無い。';
+  hint.style.color = '#333947';
+});
+
+// 照合：二欄を突き合わせる。
+document.getElementById('recBtn').addEventListener('click', ()=>{
+  let voids = 0, moved = 0, carried = 0;
+  rows.forEach(r=>{
+    r.el.classList.remove('flash');
+
+    if(r.voidRevealed){
+      // すでに浮いた無はそのまま赤で残す（現物）
+      r.el.classList.add('matched','void');
+      r.tagEl.textContent = '動いたのに一行がない';
+      voids++;
+      return;
+    }
+
+    // 照合＝記帳の積み上げが残高に一致するか。
+    // 期首(reconBal) ＋ 記帳合計(recordedSum) が本来あるべき残高。
+    const expected = r.reconBal + r.recordedSum;
+    const gap = r.bal - expected;          // 記帳が説明できていない動き
+    const didMove = r.bal !== r.reconBal;
+
+    if(gap !== 0){
+      // 本当の無：残高は動いたのに、それを説明する記帳が一行もない
+      r.el.classList.add('matched','void');
+      r.voidRevealed = true;
+      r.zanEl.textContent = fmt(r.bal);
+      r.kEl.innerHTML = '<span class="none">（在るべき行がない）</span>';
+      r.tagEl.textContent = '動いたのに一行がない';
+      voids++;
+    } else if(didMove){
+      // 整合：動いて、記帳がその動きを説明できている
+      r.el.classList.add('matched','ok');
+      r.tagEl.textContent = '整合';
+      moved++;
+    } else {
+      // 動かず・行なし＝繰越（増減なし・正常）
+      r.el.classList.add('matched','carry');
+      r.tagEl.textContent = '繰越（増減なし）';
+      carried++;
+    }
+    // 照合が済んだ升は次期の足場を更新
+    r.reconBal = r.bal;
+    r.recordedSum = 0;
+    r.entriesSinceRecon = 0;
+    render(r);
+  });
+
+  if(voids >= N){
+    // 終端：帳簿ぜんぶが「動いたのに一行がない」で埋まった。もう起こす升がない。
+    hint.textContent = '帳簿ぜんぶが「動いたのに一行がない」で埋まった。もう動かせる升はない。';
+    hint.style.color = '#c07a7c';
+  } else if(voids > 0){
+    hint.textContent = voids + ' 升——動いたのに、それを説明する行がどこにもない。これが本当の無だ。';
+    hint.style.color = '#c07a7c';
+  } else {
+    hint.textContent = '食い違いなし。動いた分は、すべて一行が支えている。';
+    hint.style.color = '#4a6054';
+  }
+});
+
+// —— 決定的な擬似乱数（Math.random を使わず、起動ごとに散る）——
+let _seed = 0.20260702;
+function peek(){ _seed = (_seed*9301 + 49297) % 233280 / 233280; return _seed; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(peek()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+</script>
+</body>
+</html>

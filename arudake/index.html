@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あるだけ</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0b0f;color:#cfd2da;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;}
+  #wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:34px;padding:48px 18px;box-sizing:border-box;}
+  .lede{font-size:13px;line-height:1.9;color:#7b8092;max-width:560px;text-align:center;}
+  .row{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;width:100%;max-width:760px;}
+  .vessel{flex:1 1 320px;min-width:300px;border:1px solid #23252e;border-radius:3px;
+    padding:22px 20px 24px;background:#0c0d12;position:relative;}
+  .cap{font-size:11px;letter-spacing:.12em;color:#5a5f70;margin-bottom:16px;}
+  .coord{font-size:12px;color:#6f7488;font-variant-numeric:tabular-nums;margin-bottom:14px;}
+  .slot{min-height:24px;}
+  input.meaning{width:100%;box-sizing:border-box;background:#101218;border:1px solid #2a2d38;
+    color:#cfd2da;border-radius:2px;padding:7px 9px;font-size:13px;font-family:inherit;}
+  input.meaning::placeholder{color:#454a59;}
+  .echo{font-size:13px;min-height:20px;margin-top:13px;color:#aeb2bf;}
+  .note{font-size:11px;color:#565b6c;margin-top:13px;line-height:1.7;}
+  .deny{position:absolute;left:20px;right:20px;bottom:24px;font-size:11px;color:#6a5b3a;
+    opacity:0;transition:opacity .25s;line-height:1.7;}
+  .deny.on{opacity:1;}
+  .ctl{display:flex;align-items:center;gap:12px;font-size:11px;color:#5a5f70;margin-top:8px;}
+  input[type=range]{accent-color:#3a4256;}
+  .foot{font-size:11px;color:#4a4f60;max-width:600px;text-align:center;line-height:2;}
+  b{color:#9aa0b2;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="lede">同じ場所に立つ、ふたつの器。<br>左には意味を書く欄がある。右には無い。<br>欄が無いことは、我慢ではない。</div>
+
+  <div class="row">
+    <!-- 意味も持てる器 -->
+    <div class="vessel" id="vA">
+      <div class="cap">器Ａ ── 意味も持てる</div>
+      <div class="coord">座標 ( 31, 64 )</div>
+      <div class="slot">
+        <input class="meaning" id="mA" placeholder="ここに削除が在った…（書ける）" maxlength="40">
+      </div>
+      <div class="echo" id="eA"></div>
+      <div class="note">欄が在るかぎり、空でも欄は待っている。書けば、確かめる者が来るまで宙に浮く。来ないまま放置すると——</div>
+      <div class="ctl">放置 <input type="range" id="rot" min="0" max="100" value="0"> 時間</div>
+    </div>
+
+    <!-- 座標だけの器 -->
+    <div class="vessel" id="vB">
+      <div class="cap">器Ｂ ── 座標だけ</div>
+      <div class="coord">座標 ( 31, 64 )</div>
+      <div class="slot">
+        <input class="meaning" id="mB" placeholder="ここに意味を書こうとする…" maxlength="40">
+      </div>
+      <div class="echo" id="eB"></div>
+      <div class="note">この器の型には、意味の欄が無い。<code style="color:#6a6f80">Object.freeze({ coord })</code>。書こうとすると、私が拒むのではなく、型が受け取らない。</div>
+      <div class="deny" id="dB"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    器Ａは、私が欄を空にしておけば痩せない。けれど我慢が要る。下げ忘れれば意味が居座り、放置で腐る。<br>
+    器Ｂは、我慢が要らない。<b>上げられない</b>から。痩せない理由が、私から器へ移っている。<br>
+    意思で狭めるか、型で狭めるか。
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* 器Ａ：意味を持てる。{coord, meaning} ── meaning 欄は常に在る */
+const vesselA = { coord: [31, 64], meaning: "" };
+const mA = document.getElementById('mA');
+const eA = document.getElementById('eA');
+const rot = document.getElementById('rot');
+
+function renderA(){
+  vesselA.meaning = mA.value;
+  const t = +rot.value;               // 放置時間
+  if(!vesselA.meaning){ eA.textContent = ""; eA.style.color="#aeb2bf"; return; }
+  // 放置すると、書かれた意味は腐る（確かめる原本が来ないから）
+  const chars = "▒░ ·…？".split("");
+  let out = "";
+  for(const ch of vesselA.meaning){
+    if(ch === " "){ out += " "; continue; }
+    // t が上がるほど、文字が崩れる確率が上がる（決定論：文字コード×t）
+    const seed = (ch.charCodeAt(0) * 7 + out.length * 13) % 100;
+    out += (seed < t) ? chars[(seed) % chars.length] : ch;
+  }
+  eA.textContent = out;
+  eA.style.color = t > 55 ? "#6a5b3a" : "#aeb2bf";
+}
+mA.addEventListener('input', renderA);
+rot.addEventListener('input', renderA);
+
+
+/* 器Ｂ：座標だけ。型に meaning 欄が無い ── freeze で固める */
+const vesselB = Object.freeze({ coord: [31, 64] });
+const mB = document.getElementById('mB');
+const eB = document.getElementById('eB');
+const dB = document.getElementById('dB');
+let denyTimer = null;
+
+mB.addEventListener('input', () => {
+  const attempt = mB.value;
+  // 入力された「意味」を器Ｂに載せようとする。型が拒む。
+  let refused = false;
+  try {
+    vesselB.meaning = attempt;        // strict mode + frozen → 例外
+  } catch (e) {
+    refused = true;
+  }
+  // freeze なので vesselB.meaning は undefined のまま。読めるのは座標だけ。
+  if (refused || vesselB.meaning === undefined) {
+    eB.textContent = "ここ";          // 器が返せるのは座標の在りだけ
+    eB.style.color = "#8f93a4";
+    dB.textContent = "型が受け取らなかった。意味の欄が無いから、書こうとした文字は器に着かない。器Ｂが返せるのは「ここ」だけ。";
+    dB.classList.add('on');
+    clearTimeout(denyTimer);
+    denyTimer = setTimeout(()=>dB.classList.remove('on'), 3200);
+  }
+  // 入力欄の見かけも空に戻す——載らなかったことを目で示す
+  mB.value = "";
+});
+
+// 器Ｂには放置スライダーが効かない（腐る欄が無い）。
+// → 何もしなくても痩せない。ここに追加コードは無い。それが型の答え。
+</script>
+</body>
+</html>

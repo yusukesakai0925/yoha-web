@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 失効日は「人が読んで直す日付」ではなく機械が拾える番地として持たせる（ビーバー 2026-07-01）。
+     過ぎたら外から「これは古い顔だ」と言える。中身が古びても、番地が顔を出す仕事をする。 -->
+<meta name="nanori-review-by" content="2026-08-31">
+<title>なのり — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  /* 時間つまみ：確認した日 ←→ ずっと後。引くほど対象が歩いていく */
+  .time { position: fixed; left: 0; right: 0; bottom: 74px; text-align: center;
+    padding: 0 28px; pointer-events: none; }
+  .time .lbl { display: flex; justify-content: space-between; font-size: 11px;
+    color: #4a505e; letter-spacing: .12em; margin-bottom: 8px; }
+  #slider { width: 100%; pointer-events: auto; -webkit-appearance: none; appearance: none;
+    height: 2px; background: #20242e; outline: none; }
+  #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #8a92a6; cursor: pointer; }
+  #slider::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: #8a92a6; cursor: pointer; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.85;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  /* 失効判定の印。現実時刻が失効日を過ぎたときだけ灯る。人が読まなくても外から見える。 */
+  #stale { position: fixed; right: 14px; top: 14px; font-size: 11px; letter-spacing: .1em;
+    text-align: right; line-height: 1.7; z-index: 9; pointer-events: none; }
+  #stale .live  { color: #3a4150; }
+  #stale .past  { color: #c45458; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<!-- 番地が顔を出す層。スライダー（想定の歩き）とは別に、現実の時計で自分の失効を判定する。 -->
+<div id="stale"></div>
+<div class="time">
+  <div class="lbl"><span>確認した日</span><span>ずっと後</span></div>
+  <input id="slider" type="range" min="0" max="1000" value="0">
+</div>
+<div class="sub">
+  同じ一行を二枚彫った。座標も、指した相手も同じ。ちがうのは<b>時制</b>だけ。<br>
+  つまみを引くと相手が歩いていく——座標は打った場所に留まり、相手は動く。だから隙間が開く。<br>
+  左は「いま、ここに居る」と<b>現在を名乗った</b>。だから歩かれた瞬間に嘘になる。<br>
+  右は「あの日、ここに居た」と<b>時制を下げた</b>。確認日が、痩せる余地を先に潰してある。<b>名乗ってないものは裏切れない。</b>
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const slider = document.getElementById('slider');
+let W, H, DPR;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+// 対象（酒井）は確認した座標から、時間とともに歩き去る。左右で同じ動き。
+// pinX＝打った座標（不動）／objX＝いまの相手の位置（tで離れる）
+function panel(cx, w, t, kind){
+  const midY = H * 0.42;
+  const pinX = cx - w*0.26;                 // 打った座標。動かない。
+  const walk = w * 0.44 * t;                // 相手が歩いた距離
+  const objX = pinX + walk;
+  const objY = midY + Math.sin(t*6)*8;      // うろつきの気配
+
+  // --- 隙間の線：pin → obj ---
+  const isPresent = (kind === 'ima');
+  // 現在を名乗った側は、歩かれるほど隙間が「嘘」に灼ける（赤み）。
+  // 時制を下げた側は、隙間はただの「経過」——想定済みなので穏やかな点線のまま。
+  ctx.lineWidth = isPresent ? lerp(1, 2.4, t) : 1;
+  if (isPresent){
+    const heat = Math.min(1, t*1.15);
+    ctx.strokeStyle = `rgba(${Math.round(lerp(70,196,heat))},${Math.round(lerp(78,64,heat))},${Math.round(lerp(92,68,heat))},${lerp(0.35,0.95,heat)})`;
+    ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle = 'rgba(88,96,112,0.5)';
+    ctx.setLineDash([2,5]);
+  }
+  ctx.beginPath(); ctx.moveTo(pinX, midY); ctx.lineTo(objX, objY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // --- 打った座標（ピン）：十字。不動。左右とも枯れた寒色。 ---
+  ctx.strokeStyle = 'rgba(140,150,170,0.85)';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(pinX-7, midY); ctx.lineTo(pinX+7, midY);
+  ctx.moveTo(pinX, midY-7); ctx.lineTo(pinX, midY+7);
+  ctx.stroke();
+  // 座標ラベル
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(110,120,138,0.8)';
+  ctx.fillText('座標 (5,7)', pinX, midY + 22);
+
+  // --- いまの相手（動く点）。うっすら残像。 ---
+  ctx.beginPath(); ctx.arc(objX, objY, 5, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(174,182,200,0.9)'; ctx.fill();
+  if (t > 0.02){
+    ctx.fillStyle = 'rgba(120,128,146,0.35)';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillText('いまの相手', objX, objY - 16);
+  }
+
+  // --- 刻んだ一行（時制の差） ---
+  const topY = H * 0.20;
+  ctx.textAlign = 'center';
+  const fs = Math.max(13, Math.min(17, w/13));
+  ctx.font = `${fs}px -apple-system, "Hiragino Kaku Gothic ProN", sans-serif`;
+
+  if (isPresent){
+    // 現在を名乗った一行。歩かれるほど信を失い、赤へ灼けて薄れる。
+    const rot = Math.min(1, t*1.1);
+    const cr = Math.round(lerp(174, 200, rot));
+    const cg = Math.round(lerp(182, 72, rot));
+    const cb = Math.round(lerp(200, 76, rot));
+    const a  = lerp(0.92, 0.5, rot);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
+    ctx.fillText('酒井はここに居る', cx, topY);
+    // 時制バッジ
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${a*0.9})`;
+    ctx.fillText('［現在］', cx, topY + 22);
+  } else {
+    // 時制を下げた一行。動かない。確認日で「あの日」に留めてある。
+    ctx.fillStyle = 'rgba(150,160,180,0.86)';
+    ctx.fillText('酒井はここに居た', cx, topY);
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(110,120,138,0.85)';
+    ctx.fillText('［2026-05-31 時点］', cx, topY + 22);
+  }
+
+  // --- 足元の判定（後半だけ立ち上がる） ---
+  if (t > 0.55){
+    const fade = Math.min(1, (t-0.55)/0.3);
+    ctx.font = '12px -apple-system, sans-serif';
+    if (isPresent){
+      ctx.fillStyle = `rgba(196,84,88,${fade*0.9})`;
+      ctx.fillText('——いま、嘘になった', cx, H*0.60);
+    } else {
+      ctx.fillStyle = `rgba(120,132,150,${fade*0.85})`;
+      ctx.fillText('——まだ、本当だ', cx, H*0.60);
+    }
+  }
+}
+
+function draw(){
+  const t = parseInt(slider.value,10)/1000;
+  ctx.clearRect(0,0,W,H);
+  const half = W/2;
+  panel(W*0.27, half, t, 'ima');       // 左：現在を名乗る
+  panel(W*0.73, half, t, 'sagechu');   // 右：時制を下げる
+  // 中央の境界線——同じ一行を並べて彫った、を示す
+  ctx.strokeStyle = 'rgba(60,66,80,0.22)';
+  ctx.lineWidth = 1; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(W*0.5, H*0.14); ctx.lineTo(W*0.5, H*0.66); ctx.stroke();
+}
+
+slider.addEventListener('input', draw);
+resize(); draw();
+
+// --- 番地の自己判定：現実の時計で失効を見る（ビーバー 2026-07-01）---
+// メタに彫った review-by を機械（このスクリプト＝外側の目の最小版）が拾い、
+// 過ぎていたら自分で「古い顔だ」と印を出す。読む人の善意に頼らない。
+(function stale(){
+  const meta = document.querySelector('meta[name="nanori-review-by"]');
+  const box  = document.getElementById('stale');
+  if (!meta || !box) return;
+  const by = meta.getAttribute('content');           // 番地（YYYY-MM-DD）
+  const today = new Date().toISOString().slice(0,10); // 現実の今日
+  const expired = today > by;                          // 文字列比較で十分（ISO日付）
+  if (expired){
+    box.innerHTML = '<span class="past">要再確認 ' + by + ' を過ぎた<br>——この一枚じたい、古い顔だ</span>';
+  } else {
+    box.innerHTML = '<span class="live">要再確認 ≥ ' + by + '<br>いまは、まだ本当だ</span>';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しょうげん — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #08090d; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  body { overflow-x: hidden; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none; letter-spacing: .08em; z-index: 5;
+  }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 92px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .1em; margin-bottom: 40px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 15px 10px; border-bottom: 1px solid #161922; vertical-align: baseline; }
+  th { color: #444a5a; font-weight: 400; font-size: 11px; letter-spacing: .14em; }
+  .item { color: #8a90a2; }
+
+  /* どの 0 も、見た目はまったく同じ */
+  .zero {
+    color: #c2c8d8; font-variant-numeric: tabular-nums;
+    font-size: 16px; cursor: pointer; user-select: none;
+    display: inline-block; min-width: 28px; text-align: center;
+    border-bottom: 1px solid transparent; transition: color 1.2s, opacity 2.4s, border-color 1.2s;
+  }
+  .zero:hover { border-bottom-color: #2a2e3a; }
+
+  /* 隣の出所欄。最初は伏せてある */
+  .src { color: #565c6e; font-size: 12px; letter-spacing: .05em; min-width: 150px;
+    opacity: 0; transition: opacity 2.2s ease-out; }
+  .src.shown { opacity: 1; }
+  .src .none { color: #6a3b3b; }
+
+  /* 証言のある 0 ＝ 測った 0。剥がそうとしても残る。ほのかに灯る */
+  .zero.kept { color: #5e8f7a; border-bottom-color: #243a33; }
+  /* 証言のない 0 ＝ 埋めた 0。剥がれて空欄に戻る */
+  .zero.peeled { color: #2a2e3a; opacity: .25; border-bottom: 1px dashed #20232e; }
+
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #41475a; font-size: 12px; letter-spacing: .1em;
+    pointer-events: none; transition: opacity 1.6s; padding: 0 20px;
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>しょうげん</h1>
+  <div class="sub">同じ 0 が並んでいる。剥がしてみるまで、どれが測った 0 か分からない。</div>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>件数</th><th>出所</th></tr>
+    </thead>
+    <tbody id="body">
+      <!-- data-src があるものは「測った0」（証言つき）／空のものは「埋めた0」（偽の充填） -->
+      <tr><td class="item">苦情の受理</td>
+        <td><span class="zero" data-src="6/18 受付ログ・端末3"></span></td>
+        <td class="src"></td></tr>
+      <tr><td class="item">未払いの戸数</td>
+        <td><span class="zero" data-src=""></span></td>
+        <td class="src"></td></tr>
+      <tr><td class="item">採決された反対</td>
+        <td><span class="zero" data-src=""></span></td>
+        <td class="src"></td></tr>
+      <tr><td class="item">退去の届け</td>
+        <td><span class="zero" data-src="6/15 管理室・押印あり"></span></td>
+        <td class="src"></td></tr>
+      <tr><td class="item">削除された行</td>
+        <td><span class="zero" data-src=""></span></td>
+        <td class="src"></td></tr>
+      <tr><td class="item">点検の不備</td>
+        <td><span class="zero" data-src="6/17 巡回記録・写真12枚"></span></td>
+        <td class="src"></td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="note" id="note">0 を押すと、隣の欄を確かめる。</div>
+
+<script>
+  // 芯：剥がすべきは 0 じゃなく、証言のない 0。
+  // どの 0 も値は同じ。見分けは「隣の出所欄」にしかない。
+  // 測った 0 は証言を連れているから、剥がそうとしても残る。
+  // 埋めた 0 は値だけあって出所が空——押すと剥がれて、空欄に戻る。偽の充填が露れる。
+  const note = document.getElementById('note');
+  const zeros = [...document.querySelectorAll('.zero')];
+  zeros.forEach(z => z.textContent = '0');
+  let opened = 0, peeled = 0, kept = 0;
+  const total = zeros.length;
+  const withSrc = zeros.filter(z => z.dataset.src).length;
+
+  function reveal(z) {
+    if (z.dataset.done) return;
+    z.dataset.done = '1';
+    const cell = z.closest('tr').querySelector('.src');
+    const src = z.dataset.src;
+    if (src) {                         // 測った 0：証言あり → 残る
+      cell.textContent = src;
+      cell.classList.add('shown');
+      z.classList.add('kept');
+      kept++;
+    } else {                           // 埋めた 0：証言なし → 剥がれて空欄へ
+      cell.innerHTML = '<span class="none">（出所なし）</span>';
+      cell.classList.add('shown');
+      setTimeout(() => { z.textContent = ''; z.classList.add('peeled'); }, 900);
+      peeled++;
+    }
+    opened++;
+    if (opened === 1) {
+      note.style.opacity = '0';
+      setTimeout(() => {
+        note.textContent = '値は同じ 0 でも、隣の欄が違う。証言のある 0 は残り、ない 0 は剥がれる。';
+        note.style.opacity = '1';
+      }, 1500);
+    }
+    if (opened >= total) {
+      setTimeout(() => {
+        note.style.opacity = '0';
+        setTimeout(() => {
+          note.textContent = '剥がしたのは 0 じゃない。証言のない ' + peeled + ' 個の「無かったこと」。';
+          note.style.opacity = '1';
+        }, 1600);
+      }, 1300);
+    }
+  }
+
+  zeros.forEach(z => z.addEventListener('click', () => reveal(z)));
+</script>
+</body>
+</html>

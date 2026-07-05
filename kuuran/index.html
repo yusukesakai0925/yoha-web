@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>くうらん — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #08090d; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  body { overflow-x: hidden; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none; letter-spacing: .08em; z-index: 5;
+  }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 92px 20px 120px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072;
+    margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .1em; margin-bottom: 34px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 13px 10px; border-bottom: 1px solid #161922;
+    vertical-align: baseline; }
+  th { color: #444a5a; font-weight: 400; font-size: 11px; letter-spacing: .14em; }
+  .item { color: #8a90a2; }
+  .amt { color: #c2c8d8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .flag { font-size: 11px; letter-spacing: .08em; }
+  .flag.mitsumori { color: #6a6f4a; }
+  .flag.kakutei { color: #4a6a5a; }
+  .flag.keisan { color: #5a5a72; }
+  /* 出所セル */
+  .src { color: #565c6e; font-size: 12px; letter-spacing: .06em; min-width: 92px;
+    position: relative; }
+  .src .declared { color: #6f7588; }
+  .src .blank {
+    display: inline-block; min-width: 78px; border-bottom: 1px solid #20232e;
+    color: #2c5a52; opacity: 0; transition: opacity 2.6s ease-out; }
+  tr.row { transition: background .8s; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #41475a; font-size: 12px; letter-spacing: .1em;
+    pointer-events: none; transition: opacity 1.6s; padding: 0 20px; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>くうらん</h1>
+  <div class="sub">修理台帳 — 出所の欄</div>
+  <table>
+    <thead>
+      <tr><th>項目</th><th>金額</th><th></th><th>出所</th></tr>
+    </thead>
+    <tbody id="body">
+      <!-- 出所が空のものと、自分で出所を名乗るものを混ぜてある -->
+      <tr class="row" data-blank="1">
+        <td class="item">外壁塗装</td>
+        <td class="amt">税込 88,000 円</td>
+        <td class="flag mitsumori">見積</td>
+        <td class="src"><span class="blank"></span></td>
+      </tr>
+      <tr class="row" data-blank="1">
+        <td class="item">屋根補修</td>
+        <td class="amt">税込 152,000 円</td>
+        <td class="flag kakutei">確定</td>
+        <td class="src"><span class="blank"></span></td>
+      </tr>
+      <tr class="row" data-blank="0">
+        <td class="item">按分（3棟）</td>
+        <td class="amt">29,333 円</td>
+        <td class="flag keisan">計算</td>
+        <td class="src"><span class="declared">台帳で生まれた数字</span></td>
+      </tr>
+      <tr class="row" data-blank="1">
+        <td class="item">給湯器交換</td>
+        <td class="amt">税込 64,500 円</td>
+        <td class="flag mitsumori">見積</td>
+        <td class="src"><span class="blank"></span></td>
+      </tr>
+      <tr class="row" data-blank="1">
+        <td class="item">共用灯 修理</td>
+        <td class="amt">税込 8,800 円</td>
+        <td class="flag kakutei">確定</td>
+        <td class="src"><span class="blank"></span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="note" id="note">出所の欄が空いている。空いている、と思って見ているだけで。</div>
+
+<script>
+  // 「空欄は中立じゃない。最後に触れた者が、こっそり出所になる。」
+  // 訪問者がどの行の上に最後にいたか——それだけで、空いていた出所欄に
+  // 「—— あなた」が薄く書き込まれていく。名乗ったわけではない。
+  // 申告したわけでもない。ただ最後にそこに居た、それだけで出所にされる。
+  const note = document.getElementById('note');
+  const rows = [...document.querySelectorAll('tr.row')];
+  let written = 0;
+  const blanks = rows.filter(r => r.dataset.blank === '1').length;
+
+  function markSource(row) {
+    if (row.dataset.blank !== '1') return;       // 自分で出所を名乗る行は、あなたを吸い込まない
+    const span = row.querySelector('.blank');
+    if (!span || span.dataset.filled) return;
+    span.dataset.filled = '1';
+    span.textContent = '—— あなた';
+    requestAnimationFrame(() => { span.style.opacity = '1'; });
+    written++;
+    if (written === 1) {
+      note.style.opacity = '0';
+      setTimeout(() => {
+        note.textContent = '空欄は「誰でもない」に見えて、最後にそこに居たあなたが書き込まれている。';
+        note.style.opacity = '1';
+      }, 1700);
+    }
+    if (written >= blanks) {
+      setTimeout(() => {
+        note.style.opacity = '0';
+        setTimeout(() => {
+          note.textContent = '名乗ってない。申告もしてない。ただ最後に通っただけで、出所にされた。';
+          note.style.opacity = '1';
+        }, 1700);
+      }, 1400);
+    }
+  }
+
+  // ポインタがしばらく行の上に「居た」ら出所にする（通り過ぎるだけでは書かれない）
+  let timer = null, current = null;
+  function onMove(e) {
+    const el = document.elementFromPoint(
+      e.touches ? e.touches[0].clientX : e.clientX,
+      e.touches ? e.touches[0].clientY : e.clientY);
+    const row = el && el.closest ? el.closest('tr.row') : null;
+    if (row !== current) {
+      current = row;
+      clearTimeout(timer);
+      if (row) timer = setTimeout(() => markSource(row), 900);  // 0.9秒「居る」と書かれる
+    }
+  }
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('touchmove', onMove, { passive: true });
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>こめたまま — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080b; overflow: hidden; cursor: pointer; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 26px;
+    text-align: center; color: #464c59;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.6s; opacity: 1;
+  }
+  .days {
+    position: fixed; left: 0; right: 0; top: 44%;
+    text-align: center; color: #3c4353;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 13px; letter-spacing: .2em; pointer-events: none;
+    transition: opacity 2s; opacity: 0;
+  }
+  .state {
+    position: fixed; left: 0; right: 0; top: 52%;
+    text-align: center; color: #5b6680;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .22em; pointer-events: none;
+    transition: opacity 1.4s; opacity: 0;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="days" id="days"></div>
+<div class="state" id="state"></div>
+<div class="note" id="note">込められている。<br>撃てる。でも、撃たなくていい——閉じても、込めたまま残る。</div>
+<script>
+// こめたまま（装填）——昼の一枚。
+//
+// 夜の粒シリーズは全部「触ると起きる・一度起きたら戻らない」だった（おこさず／ねつかず）。
+// 訪問者が手を出すと崩れる前提。デフォルトは静止で、操作は損なう向き。
+//
+// これは逆を試す：
+//   - デフォルトが「装填」。待つ＝何もしない＝込めたまま。損なわない。
+//   - 撃つ＝一度きりの操作。撃てば空になる（そのセッションでは戻らない）。
+//   - 決定的な違い：localStorage で持ち越す。撃たずに閉じれば、次に来てもまだ込められている。
+//     「頭の中だけで待つと無かったことに化ける」（犬）の反対側——記録された装填は次の私に渡る。
+//   - 不発のリスク：込めたまま放置した日数が、静かに伸びる。
+//     長く撃たないことは保留じゃない、と言えるが、実体（日数）は黙って増える。
+//     せきとめの「実体は減るが見て分からない」の対。
+
+const KEY = 'yoha_komerta_v1';
+function load(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch(e){ return null; }
+}
+function save(s){
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){}
+}
+// 状態：loaded=込められている / firedThisSession=このセッションで撃った
+// loadedSince=いつ込めたか(ms)。初回訪問で装填し、そのときの時刻を刻む。
+let st = load();
+if (!st){ st = { loaded: true, loadedSince: Date.now() }; save(st); }
+let firedThisSession = false;
+
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+const daysEl = document.getElementById('days');
+const stateEl = document.getElementById('state');
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// 込められた弾：中心へ引き絞られた粒の環。張りを帯びてかすかに脈打つ。
+const N = 200;
+const P = [];
+for (let i = 0; i < N; i++){
+  const ang = (i / N) * Math.PI * 2 + (i % 7) * 0.11;
+  P.push({
+    ang,
+    baseR: 34 + (i % 9) * 7,     // 込められているときの半径（中心近くに締まる）
+    ph: (i % 13) / 13 * Math.PI * 2,
+    // 撃ったときに飛ぶ向き（外向き）
+    vx: Math.cos(ang) * (2.4 + (i % 5) * 0.5),
+    vy: Math.sin(ang) * (2.4 + (i % 5) * 0.5),
+    fx: 0, fy: 0
+  });
+}
+
+let charge = st.loaded ? 1 : 0;   // 1=込められている 0=空
+let burst = 0;                     // 撃った瞬間の外向き飛散（0..1）
+let pulse = 0;
+
+function daysLoaded(){
+  if (!st.loaded || !st.loadedSince) return 0;
+  return (Date.now() - st.loadedSince) / 86400000;
+}
+
+function fire(){
+  if (!st.loaded || firedThisSession) return;
+  firedThisSession = true;
+  st.loaded = false;
+  st.loadedSince = null;
+  save(st);
+  burst = 1;
+  note.style.opacity = 0;
+}
+// クリック＝撃つ（一度きり）。空なら、そっと込め直せる。
+addEventListener('pointerdown', e => {
+  if (st.loaded && !firedThisSession){
+    fire();
+  } else if (!st.loaded){
+    // 込め直す：持ち越しの機構を殺さないため、空からは再装填できる。日数は今から数え直す。
+    st.loaded = true;
+    st.loadedSince = Date.now();
+    firedThisSession = false;
+    save(st);
+    note.style.opacity = 1;
+  }
+});
+
+let touched = false;
+addEventListener('pointermove', () => {
+  if (!touched){ touched = true; note.style.opacity = 0.0; setTimeout(()=>{ if(st.loaded && !firedThisSession) note.style.opacity=1; }, 200); }
+});
+
+let lastT = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  // charge は状態に追従。撃てば 0 へ、込め直せば 1 へ、ゆっくり。
+  const target = (st.loaded && !firedThisSession) ? 1 : 0;
+  charge += (target - charge) * dt * 3.5;
+  burst = Math.max(0, burst - dt * 0.55);
+  pulse += dt * (1.1 + charge * 1.4);
+
+  // 残像
+  g.fillStyle = 'rgba(7,8,11,0.22)';
+  g.fillRect(0, 0, W, H);
+
+  // 込められた張りの脈動（込められているほど強い）
+  const tension = charge * (0.5 + 0.5 * Math.sin(pulse * 1.6));
+
+  for (let i = 0; i < N; i++){
+    const p = P[i];
+    // 込められているときは中心近くの環に締まる。空だと環がほどけて薄れる。
+    const r = p.baseR * (1 + (1 - charge) * 1.8) + Math.sin(pulse + p.ph) * (2 + tension * 3);
+    // 撃った瞬間の外向き飛散（累積、じわ戻り）
+    const bx = p.vx * burst * 46;
+    const by = p.vy * burst * 46;
+    p.fx += (bx - p.fx) * dt * 6;
+    p.fy += (by - p.fy) * dt * 6;
+
+    const x = cx + Math.cos(p.ang) * r + p.fx;
+    const y = cy + Math.sin(p.ang) * r * 0.9 + p.fy;
+
+    // 色：込め＝張りを帯びた暖色寄りの白／空＝青く沈んで散る
+    const warm = charge;
+    const a = (0.14 + charge * 0.5) * (1 - burst * 0.3);
+    const cR = 150 + warm * 95;
+    const cG = 150 + warm * 55;
+    const cB = 210 - warm * 40;
+    const rr = 1.2 + charge * 1.5 + burst * 1.4;
+    g.fillStyle = `rgba(${cR|0},${cG|0},${cB|0},${Math.max(0,a).toFixed(3)})`;
+    g.beginPath();
+    g.arc(x, y, rr, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 込められているときの芯：中心にひとつ、張りの点。
+  if (charge > 0.05){
+    const cr = 3 + tension * 4;
+    const grad = g.createRadialGradient(cx, cy, 0, cx, cy, cr * 3);
+    grad.addColorStop(0, `rgba(245,235,205,${(0.5*charge).toFixed(3)})`);
+    grad.addColorStop(1, 'rgba(245,235,205,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(cx, cy, cr * 3, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 込めた日数：静かに伸びる実体。込められているあいだだけ、薄く出る。
+  if (st.loaded && !firedThisSession){
+    const d = daysLoaded();
+    let label;
+    if (d < 1/24)      label = 'いま、込めた';
+    else if (d < 1)    label = '込めたまま — ' + Math.floor(d * 24) + '時間';
+    else               label = '込めたまま — ' + Math.floor(d) + '日';
+    daysEl.textContent = label;
+    // 日数が伸びるほど、うっすら濃くなる（放置が静かに前に出てくる）
+    daysEl.style.opacity = Math.min(0.7, 0.18 + d * 0.06).toFixed(3);
+    stateEl.style.opacity = 0;
+  } else {
+    daysEl.style.opacity = 0;
+    stateEl.textContent = firedThisSession ? '撃った。空。' : '空。もう一度、込められる。';
+    stateEl.style.opacity = 0.7;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

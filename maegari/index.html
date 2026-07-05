@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>まえがり — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 84px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  .panels { display: flex; gap: 14px; }
+  .panel { flex: 1; border: 1px solid #1a1e28; border-radius: 4px; background: #0a0c12;
+    padding: 14px 14px 16px; }
+  .ptag { font-size: 10px; letter-spacing: .18em; color: #4a5060; margin-bottom: 12px; }
+  .ptag b { color: #6a7488; font-weight: 400; }
+
+  /* 現象の面：スピンの格子。時刻から決定的に向きが決まる。 */
+  canvas { display: block; width: 100%; height: 156px; }
+
+  /* 意味の面 */
+  .meaning { height: 156px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; }
+  .val { font-size: 34px; letter-spacing: .04em; color: #2b303b; transition: color .6s ease;
+    font-variant-numeric: tabular-nums; }
+  .val.lit { color: #8ea3c2; }
+  .vlabel { font-size: 10.5px; color: #353a45; letter-spacing: .14em; margin-top: 8px; }
+  .read { margin-top: 16px; font-size: 11px; letter-spacing: .12em; color: #5a6072;
+    border: 1px solid #232936; background: #0c0f16; border-radius: 3px;
+    padding: 8px 16px; cursor: pointer; transition: all .3s ease; }
+  .read:hover { color: #8a92a6; border-color: #313847; }
+  .fade { font-size: 10px; color: #2f343e; letter-spacing: .1em; margin-top: 12px;
+    min-height: 14px; transition: opacity .5s ease; }
+
+  .note { margin-top: 30px; font-size: 11.5px; line-height: 2.2; letter-spacing: .05em;
+    color: #4a5060; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .hint { margin-top: 22px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.95; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>まえがり</h1>
+  <div class="sub">左は<b>現象</b>。スピンが近くと噛み合って、時刻だけで向きが決まる。<br>
+    誰も見ていなくても揃っていく。読者を借りていない。<br>
+    右は<b>意味</b>。同じ向きを「賛が何割」と数えた値。<br>
+    数える者が来るまで、その値は生まれない。</div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="ptag"><b>現象</b>／揃い続ける</div>
+      <canvas id="cv"></canvas>
+    </div>
+    <div class="panel">
+      <div class="ptag"><b>意味</b>／読まれて生まれる</div>
+      <div class="meaning">
+        <div class="val" id="val">—</div>
+        <div class="vlabel" id="vlabel">まだ数えていない</div>
+        <button class="read" id="read">いま数える</button>
+        <div class="fade" id="fade"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note">スピンは観測されなくても揃う。近くとの噛み合いだけで決まるから。<br>
+    けれど「賛が何割」という<b>世論</b>は、誰かが数えて初めて生まれる。<br>
+    現象は前借りしない。意味だけが、読まれることを前から借りている。</div>
+  <div class="hint">左は触れなくても進む。右は数えても保存されない——<br>
+    来るたびに、もう一度読み直すしかない。それでいい。</div>
+</div>
+
+<script>
+// ── 現象の面：イジング風の格子。各スピンの向きは「時刻＋座標」から決定的に求める。
+// localStorage を使わない。誰も見ていなくても、戻ってくれば時刻ぶんだけ進んでいる。
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const COLS = 16, ROWS = 11;
+let W, H, cw, ch;
+function resize(){
+  const r = cv.getBoundingClientRect();
+  W = cv.width = Math.round(r.width * devicePixelRatio);
+  H = cv.height = Math.round(r.height * devicePixelRatio);
+  cw = W / COLS; ch = H / ROWS;
+}
+resize(); window.addEventListener('resize', resize);
+
+// 決定的な「場」。隣接が揃う向きへゆっくり流れるように、滑らかなノイズ風の関数で。
+function field(x, y, t){
+  const a = Math.sin(x*0.55 + t*0.0006) + Math.cos(y*0.6 - t*0.00045);
+  const b = Math.sin((x+y)*0.4 + t*0.0003);
+  return a + b; // 正なら賛(+1)、負なら否(-1)
+}
+
+// いまの賛の割合を返す（数える＝この関数を呼ぶこと）。
+function tally(t){
+  let up = 0, total = COLS*ROWS;
+  for (let i=0;i<COLS;i++) for (let j=0;j<ROWS;j++)
+    if (field(i, j, t) >= 0) up++;
+  return up/total;
+}
+
+function draw(now){
+  ctx.clearRect(0,0,W,H);
+  for (let i=0;i<COLS;i++){
+    for (let j=0;j<ROWS;j++){
+      const v = field(i, j, now);
+      const up = v >= 0;
+      const cx = (i+0.5)*cw, cy = (j+0.5)*ch;
+      const len = Math.min(cw,ch)*0.34;
+      // 向きの強さで明るさを少し変える
+      const mag = Math.min(1, Math.abs(v)/2.2);
+      ctx.strokeStyle = up
+        ? 'rgba(126,147,176,'+(0.22+mag*0.4)+')'
+        : 'rgba(74,80,96,'+(0.18+mag*0.3)+')';
+      ctx.lineWidth = 1.4*devicePixelRatio;
+      // 上向き(賛)は先端が上、下向き(否)は先端が下
+      const tipY = cy + (up ? -len : len);
+      const tailY = cy + (up ? len : -len);
+      ctx.beginPath();
+      ctx.moveTo(cx, tailY);
+      ctx.lineTo(cx, tipY);
+      ctx.stroke();
+      // 先端の点
+      ctx.fillStyle = up ? 'rgba(142,163,194,'+(0.5+mag*0.4)+')' : 'rgba(74,80,96,0.4)';
+      ctx.beginPath();
+      ctx.arc(cx, tipY, 1.4*devicePixelRatio, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+
+// ── 意味の面：押されたとき「だけ」数える。数えた値は保存しない。
+const valEl = document.getElementById('val');
+const vlabelEl = document.getElementById('vlabel');
+const fadeEl = document.getElementById('fade');
+let fadeTimer = null;
+
+document.getElementById('read').addEventListener('click', ()=>{
+  const t = performance.now();
+  const r = tally(t);
+  const pct = Math.round(r*100);
+  valEl.textContent = pct + '%';
+  valEl.classList.add('lit');
+  vlabelEl.textContent = 'いま、賛の割合';
+  fadeEl.style.opacity = '1';
+  fadeEl.textContent = 'この値は、数えたこの一瞬にだけ在る。';
+  clearTimeout(fadeTimer);
+  // 数えた値はやがて意味を失う——読み直さなければ薄れる
+  fadeTimer = setTimeout(()=>{
+    valEl.classList.remove('lit');
+    vlabelEl.textContent = 'もう古い。読み直さなければ。';
+    fadeEl.style.opacity = '0';
+  }, 6000);
+});
+</script>
+</body>
+</html>

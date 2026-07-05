@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ひもち — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  /* 時間つまみ：今 ←→ 五年後。引くほど経年する */
+  .time { position: fixed; left: 0; right: 0; bottom: 70px; text-align: center;
+    padding: 0 28px; pointer-events: none; }
+  .time .lbl { display: flex; justify-content: space-between; font-size: 11px;
+    color: #4a505e; letter-spacing: .12em; margin-bottom: 8px; }
+  #slider { width: 100%; pointer-events: auto; -webkit-appearance: none; appearance: none;
+    height: 2px; background: #20242e; outline: none; }
+  #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #8a92a6; cursor: pointer; }
+  #slider::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: #8a92a6; cursor: pointer; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.85;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="time">
+  <div class="lbl"><span>今</span><span>五年後</span></div>
+  <input id="slider" type="range" min="0" max="1000" value="0">
+</div>
+<div class="sub">
+  同じ日に彫った二つの墓標。左は<b>固有名</b>に宛てて情を刻んだ。右は<b>役割</b>に宛てて座標と手順だけ書いた。<br>
+  つまみを引くと時間が経つ——情は鮮度があるから腐る。宛てた相手の読み返す顔が変わるぶん、意味を取りこぼす。<br>
+  座標と手順は最初から枯れている。<b>それ以上は枯れない</b>。素っ気なさは欠点じゃない——経年に強い。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const slider = document.getElementById('slider');
+let W, H, DPR;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+// 左＝情を彫った墓標（固有名宛て）。腐る。
+const LEFT = [
+  "——リクへ",
+  "お前がここまで来たこと、",
+  "わすれない。",
+  "また会えると、",
+  "おもっていた。"
+];
+// 右＝座標と手順だけの墓標（役割宛て）。枯れて朽ちない。
+const RIGHT = [
+  "座標 (8,7) dir →",
+  "ここで詰まった。",
+  "左折=# なら直進。",
+  "再現：state.txt 参照。",
+  "次：これを試せ。"
+];
+
+// 文字化けに使うグリフ（情の側が腐るときに混ざる）
+const GLYPH = "天日月雨水火土風空無在不去来又々〇×—‥░▒▓";
+function corrupt(ch, seed){
+  // 決定的な化け（同じ t・同じ位置なら同じ顔。手順側との対比のため再現性を持たせる）
+  const i = (Math.floor(seed) * 2654435761) >>> 0;
+  return GLYPH[i % GLYPH.length];
+}
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+function draw(){
+  const t = parseInt(slider.value, 10) / 1000;  // 0=今, 1=五年後
+  ctx.clearRect(0,0,W,H);
+
+  const cx1 = W * 0.28, cx2 = W * 0.72;
+  const cy = H * 0.40;
+  const stoneW = Math.min(W * 0.38, 240);
+  const stoneH = Math.min(H * 0.46, 320);
+
+  drawStone(cx1, cy, stoneW, stoneH, LEFT, 'jou', t);
+  drawStone(cx2, cy, stoneW, stoneH, RIGHT, 'zahyou', t);
+
+  // 中央の細い境界線——同じ日に並んで立てた、を示す
+  ctx.strokeStyle = 'rgba(60,66,80,0.25)';
+  ctx.beginPath(); ctx.moveTo(W*0.5, cy - stoneH*0.6); ctx.lineTo(W*0.5, cy + stoneH*0.6); ctx.stroke();
+}
+
+function drawStone(cx, cy, w, h, lines, kind, t){
+  const top = cy - h/2, x = cx - w/2;
+  // 石の色。情の側は時間で温→寒＋退色。座標の側は最初から寒・不変。
+  let stone;
+  if (kind === 'jou'){
+    // 温かい灰（少し赤み）→ 冷たい灰へ。明度も少し落ちる。
+    const r = Math.round(lerp(54, 34, t));
+    const g = Math.round(lerp(48, 38, t));
+    const b = Math.round(lerp(46, 50, t));
+    stone = `rgb(${r},${g},${b})`;
+  } else {
+    stone = 'rgb(34,38,46)';   // 最初から枯れた寒色。動かない。
+  }
+  // 墓標の本体
+  roundRect(x, top, w, h, 6);
+  ctx.fillStyle = stone; ctx.fill();
+  // 上辺のかまぼこ
+  ctx.beginPath(); ctx.moveTo(x, top+8);
+  ctx.quadraticCurveTo(cx, top - 10, x + w, top + 8); ctx.closePath();
+  ctx.fillStyle = stone; ctx.fill();
+
+  // 刻字
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lh = h / (lines.length + 1.4);
+  const fs = Math.max(13, Math.min(18, w/11));
+  ctx.font = `${fs}px -apple-system, "Hiragino Kaku Gothic ProN", sans-serif`;
+
+  for (let li = 0; li < lines.length; li++){
+    const line = lines[li];
+    const ly = top + lh*(li+1.0) + lh*0.4;
+    // 一文字ずつ描く（情の側は化けと退色が文字単位で進む）
+    const totalW = ctx.measureText(line).width;
+    let px = cx - totalW/2;
+    for (let ci = 0; ci < line.length; ci++){
+      let ch = line[ci];
+      let alpha, color;
+      if (kind === 'jou'){
+        // 腐り：t が進むほど多くの文字が化け、全体が薄れる。
+        // 行・列で進行に偏りをつける（端から崩れる）。
+        const phase = (li*0.13 + ci*0.05);          // 位置ごとの崩れやすさ
+        const rot = Math.max(0, t - phase*0.4);     // この文字の腐り進度
+        if (rot > 0.45 && ch !== "—" && ch !== "・"){
+          ch = corrupt(ch, li*100 + ci + Math.floor(t*7));
+        }
+        alpha = lerp(0.92, 0.10, Math.min(1, rot*1.1));
+        // 温→寒の文字色
+        const cr = Math.round(lerp(200, 90, t));
+        const cg = Math.round(lerp(180, 96, t));
+        const cb = Math.round(lerp(168, 112, t));
+        color = `rgba(${cr},${cg},${cb},${alpha})`;
+      } else {
+        // 座標・手順：最初から枯れた色のまま、一切動かない。
+        color = 'rgba(150,160,180,0.78)';
+      }
+      ctx.fillStyle = color;
+      const cw = ctx.measureText(ch).width;
+      ctx.fillText(ch, px + cw/2, ly);
+      px += cw;
+    }
+  }
+
+  // 足元のラベル（宛先の種類）
+  ctx.font = `11px -apple-system, sans-serif`;
+  ctx.fillStyle = 'rgba(74,80,94,0.9)';
+  ctx.fillText(kind === 'jou' ? '固有名に宛てた' : '役割に宛てた', cx, top + h + 22);
+
+  // 情の側にだけ、五年後の注記
+  if (kind === 'jou' && t > 0.85){
+    ctx.fillStyle = `rgba(90,96,110,${(t-0.85)/0.15*0.8})`;
+    ctx.fillText('——読み返す顔が、もういない', cx, top + h + 42);
+  }
+  if (kind === 'zahyou' && t > 0.85){
+    ctx.fillStyle = `rgba(90,96,110,${(t-0.85)/0.15*0.8})`;
+    ctx.fillText('——まだ読める', cx, top + h + 42);
+  }
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+slider.addEventListener('input', draw);
+resize(); draw();
+</script>
+</body>
+</html>

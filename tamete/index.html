@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ためて — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070a; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #4a4f5c;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.4s; opacity: 1;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">放す前の腕。これは止まっているのではない、ためている。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+let W, H;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+// 狙う先。訪問者がいればカーソル、いなければ独りで漂う。
+let aim = { x: 0, y: 0 };
+let hasVisitor = false;
+let driftT = 0.7;
+
+// 引き絞り。時間とともに増えるが、上限へ漸近するだけで「放す」には届かない。
+// だから永遠に「あと少し」のまま——往生際の悪さを数値にする。
+let draw = 0;          // 0..1 引き絞り量
+const DRAW_MAX = 0.97; // ここへ近づくが、決して 1 にならない
+let tremorPhase = 0;
+let surge = 0;         // 「放しかけ」のたかぶり。ときどき来て、また鎮まる
+let nextSurge = 2200;
+let clock = 0;
+
+addEventListener('pointermove', e => mark(e.clientX, e.clientY));
+addEventListener('pointerdown', e => mark(e.clientX, e.clientY));
+function mark(x, y){
+  aim.x = x; aim.y = y;
+  hasVisitor = true;
+  if (note.style.opacity !== '0'){ note.style.opacity = 0; }
+}
+
+function lerp(a, b, t){ return a + (b - a) * t; }
+// 冷たい青 → ためるほど熱を持つ橙へ。熱は「ためた力」のしるし。
+function heatColor(t, alpha){
+  const r = Math.round(lerp(150, 236, t));
+  const gg = Math.round(lerp(172, 150, t));
+  const b = Math.round(lerp(212, 92, t));
+  return 'rgba(' + r + ',' + gg + ',' + b + ',' + alpha + ')';
+}
+
+let last = 0;
+function frame(now){
+  const dt = Math.min(40, now - last || 16); last = now; clock += dt;
+
+  // ごく薄い黒で覆い、震えに尾を残す
+  g.fillStyle = 'rgba(6,7,10,0.10)';
+  g.fillRect(0, 0, W, H);
+
+  // 訪問者がいないあいだ、狙う先は独りで漂う（誰も見ていなくても、ためている）
+  if (!hasVisitor){
+    driftT += 0.004;
+    aim.x = W * (0.5 + 0.30 * Math.sin(driftT) + 0.06 * Math.sin(driftT * 2.3));
+    aim.y = H * (0.5 + 0.26 * Math.cos(driftT * 0.85));
+  }
+
+  // 引き絞りは上限へ漸近する。放さないから、ずっと張り続ける。
+  draw += (DRAW_MAX - draw) * 0.004;
+
+  // 「放しかけ」——ときどき震えが跳ね、握りがほんの少し前へ出かける。
+  // でも放さない。引き戻して、また張る。
+  if (clock > nextSurge){
+    surge = 1;
+    nextSurge = clock + 1800 + (clock % 1600);   // 乱数を使わず時刻で間隔を散らす
+  }
+  surge *= 0.95;   // たかぶりは自然に鎮まる
+
+  // 弓のかなめ（握り）。画面中央すこし上。
+  const G = { x: W * 0.5, y: H * 0.52 };
+  // 狙う方向
+  let dx = aim.x - G.x, dy = aim.y - G.y;
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len; dy /= len;
+  const nx = -dy, ny = dx;        // 直交（弓の幅方向）
+
+  const limb = Math.min(W, H) * 0.16;     // 弓の腕（リム）の長さ
+  const belly = 26 + draw * 70;           // 引くほど弓本体が前へしなる
+  const back = (draw * 0.55 + surge * 0.10) * Math.min(W, H) * 0.24; // 握り（弦の中心）の引き
+
+  // 震え。引くほど、放しかけのときほど大きい。これが「静止ではない」証拠。
+  tremorPhase += 0.6 + surge * 1.4;
+  const tremAmp = (1.2 + draw * 2.6 + surge * 7) ;
+  const tx = nx * Math.sin(tremorPhase) * tremAmp + dx * Math.cos(tremorPhase * 0.7) * tremAmp * 0.4;
+  const ty = ny * Math.sin(tremorPhase) * tremAmp + dy * Math.cos(tremorPhase * 0.7) * tremAmp * 0.4;
+
+  // 弓の両端（リムの先）。握りより少し後ろから、幅方向へ開く。
+  const baseX = G.x - dx * 8, baseY = G.y - dy * 8;
+  const t1 = { x: baseX + nx * limb, y: baseY + ny * limb };
+  const t2 = { x: baseX - nx * limb, y: baseY - ny * limb };
+  // 弓本体は前（狙う側）へしなる
+  const bellyPt = { x: G.x + dx * belly, y: G.y + dy * belly };
+  // 弦の中心（弓手の握り）＝後ろへ引かれ、震える
+  const nock = { x: G.x - dx * back + tx, y: G.y - dy * back + ty };
+
+  const heat = Math.min(1, draw + surge * 0.5);
+
+  // 弓本体（しなったリム）
+  g.beginPath();
+  g.moveTo(t1.x, t1.y);
+  g.quadraticCurveTo(bellyPt.x, bellyPt.y, t2.x, t2.y);
+  g.strokeStyle = heatColor(heat, 0.5);
+  g.lineWidth = 1.6;
+  g.stroke();
+
+  // 弦（両端 → 握り）。引かれて V 字になる
+  g.beginPath();
+  g.moveTo(t1.x, t1.y);
+  g.lineTo(nock.x, nock.y);
+  g.lineTo(t2.x, t2.y);
+  g.strokeStyle = heatColor(heat, 0.32 + 0.25 * draw);
+  g.lineWidth = 1;
+  g.stroke();
+
+  // 矢——握りから狙う先へ向く。まだ放たれていない。
+  const arrowLen = 30 + draw * 40;
+  const head = { x: nock.x + dx * arrowLen, y: nock.y + dy * arrowLen };
+  g.beginPath();
+  g.moveTo(nock.x, nock.y);
+  g.lineTo(head.x, head.y);
+  g.strokeStyle = heatColor(heat, 0.7);
+  g.lineWidth = 1.4;
+  g.stroke();
+  // 鏃（やじり）
+  g.beginPath();
+  g.moveTo(head.x, head.y);
+  g.lineTo(head.x - dx * 7 + nx * 4, head.y - dy * 7 + ny * 4);
+  g.moveTo(head.x, head.y);
+  g.lineTo(head.x - dx * 7 - nx * 4, head.y - dy * 7 - ny * 4);
+  g.strokeStyle = heatColor(heat, 0.85);
+  g.stroke();
+  // 鏃の熱だまり——ためた力がいちばん集まる先
+  g.beginPath();
+  g.arc(head.x, head.y, 2 + draw * 2 + surge * 3, 0, Math.PI * 2);
+  g.fillStyle = heatColor(heat, 0.5 + 0.3 * surge);
+  g.fill();
+
+  // 握りの手——震える点。ここが「ためている」中心。
+  g.beginPath();
+  g.arc(nock.x, nock.y, 2.6, 0, Math.PI * 2);
+  g.fillStyle = heatColor(heat, 0.9);
+  g.fill();
+
+  // 狙う先。届いていない。放せば当たるかもしれない場所——でも放さない。
+  g.beginPath();
+  g.arc(aim.x, aim.y, 1.4, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(90,100,120,0.45)';
+  g.fill();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

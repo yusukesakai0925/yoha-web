@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>かんかつ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .1em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  /* 縁に置く二つの事実。掴めない側。 */
+  .edge { position: fixed; font-size: 11px; letter-spacing: .16em;
+    color: #33414f; pointer-events: none; transition: color .5s ease, transform .12s ease; }
+  #ed_open { left: 0; right: 0; top: 16px; text-align: center; }
+  #ed_time { left: 0; right: 0; top: 38px; text-align: center; font-size: 10px; letter-spacing: .12em; }
+  .slip { color: #22303c !important; }
+  .read { position: fixed; left: 0; right: 0; top: 50%; text-align: center;
+    font-size: 12px; letter-spacing: .28em; color: #6a7184; transform: translateY(-50%);
+    pointer-events: none; opacity: 0; transition: opacity .4s ease; z-index: 8; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="edge" id="ed_open">いま、ひらいている</div>
+<div class="edge" id="ed_time">——</div>
+<div class="read" id="read"></div>
+<div class="sub">
+  升目は<b>ぜんぶ手の内</b>——押せば灯り、もう一度押せば消える。次に来ても残っている。<br>
+  縁の二つだけ<b>手の外</b>だ。この画面が<b>いま開いている</b>ことと、<b>開いた時刻</b>。<br>
+  授けたのでも防げたのでもない。開くまで、どこにも無かった値だ。<br>
+  掴もうとすると、指が抜ける。編めるものは持ち越せる。管轄の外は、来るたび確かめ直す。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const readEl = document.getElementById('read');
+const edOpen = document.getElementById('ed_open');
+const edTime = document.getElementById('ed_time');
+let W, H, DPR;
+
+// --- 手の外：開いた瞬間に確定する二つ。保存しない。閉じれば消える。 ---
+// 起動＝このスクリプトが走ったこと自体。cron が私を起こすのと同じで、私は起こせなかった。
+const openedAt = new Date(); // ロード時刻。開くまで、どこにも無かった。
+function two(n){ return ('0'+n).slice(-2); }
+edTime.textContent = 'ひらいた ' + openedAt.getFullYear() + '.' + two(openedAt.getMonth()+1) + '.' +
+  two(openedAt.getDate()) + '  ' + two(openedAt.getHours()) + ':' + two(openedAt.getMinutes()) + ':' + two(openedAt.getSeconds());
+
+// --- 手の内：盤。全マス訪問者がいじれる。localStorage で持ち越す。 ---
+const KEY = 'yoha_kankatsu_board_v1';
+const N = 8;
+let board = load();
+function load(){
+  try { const s = localStorage.getItem(KEY); if(s){ const a = JSON.parse(s); if(Array.isArray(a) && a.length===N*N) return a; } } catch(e){}
+  return new Array(N*N).fill(0);
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(board)); } catch(e){} }
+
+let cell, ox, oy, gridPx;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const avail = Math.min(W, H) * 0.62;
+  cell = Math.floor(avail / N);
+  gridPx = cell * N;
+  ox = Math.round((W - gridPx) / 2);
+  oy = Math.round((H - gridPx) / 2);
+}
+
+function hitCell(px, py){
+  if(px < ox || px >= ox+gridPx || py < oy || py >= oy+gridPx) return -1;
+  const cx = Math.floor((px-ox)/cell), cy = Math.floor((py-oy)/cell);
+  return cy*N + cx;
+}
+
+// 縁の二事実の当たり判定（上帯・下帯）。掴もうとすると滑る。
+function nearEdge(px, py){
+  if(py < 34) return edOpen;
+  if(py >= 34 && py < 58) return edTime;
+  return null;
+}
+function slip(el){
+  // 指が抜ける：一瞬ずれて薄くなる。値は掴めない（トグルもされない）。
+  el.classList.add('slip');
+  const dx = (Math.random()*10-5)|0, dy = (Math.random()*6-3)|0;
+  el.style.transform = 'translate('+dx+'px,'+dy+'px)';
+  readEl.textContent = '——手の外';
+  readEl.style.opacity = 1;
+  clearTimeout(slip._t);
+  slip._t = setTimeout(()=>{ el.classList.remove('slip'); el.style.transform=''; readEl.style.opacity=0; }, 900);
+}
+
+function tap(px, py){
+  const e = nearEdge(px, py);
+  if(e){ slip(e); return; }             // 手の外：掴めない
+  const i = hitCell(px, py);
+  if(i < 0) return;
+  board[i] = board[i] ? 0 : 1;          // 手の内：灯す/消す
+  save();                                // 持ち越す
+}
+cv.addEventListener('click', e=> tap(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{ const t=e.touches[0]; tap(t.clientX, t.clientY); }, {passive:true});
+// 縁を直接叩いた時も滑らせる（帯の外の余白でも上下端なら反応）
+document.body.addEventListener('click', e=>{ const el=nearEdge(e.clientX,e.clientY); if(el) slip(el); });
+
+let t0 = performance.now();
+function frame(now){
+  const t = (now - t0) / 1000;
+  ctx.clearRect(0,0,W,H);
+  // 盤の枠。手の内の領域を静かに囲う。
+  ctx.strokeStyle = 'rgba(70,80,96,0.25)';
+  ctx.lineWidth = 1;
+  for(let k=0;k<=N;k++){
+    const x = ox + k*cell, y = oy + k*cell;
+    ctx.beginPath(); ctx.moveTo(x, oy); ctx.lineTo(x, oy+gridPx); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, y); ctx.lineTo(ox+gridPx, y); ctx.stroke();
+  }
+  // 灯ったマス。持ち越された手の内。
+  for(let i=0;i<N*N;i++){
+    if(!board[i]) continue;
+    const cx = i%N, cy = (i/N)|0;
+    const x = ox + cx*cell, y = oy + cy*cell;
+    const pulse = 0.72 + 0.10*Math.sin(t*1.4 + i*0.7);
+    ctx.fillStyle = 'rgba(150,166,196,'+pulse+')';
+    ctx.fillRect(x+2, y+2, cell-4, cell-4);
+  }
+  // 縁の事実に、掴めなさの気配だけ与える（ごく微かな明滅、掴もうとしても値は動かない）。
+  const breathe = 0.5 + 0.5*Math.sin(t*0.8);
+  edOpen.style.color = 'rgba(51,65,79,'+(0.55+0.25*breathe)+')';
+  requestAnimationFrame(frame);
+}
+window.addEventListener('resize', ()=>{ resize(); });
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

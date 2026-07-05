@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あとばらい — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 38px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 欠けの野。どれも同じ。どれも機能になりうる。誰も払わなければ、ただの欠け。 */
+  .stage { position: relative; }
+  .grid { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 30px 20px; display: grid;
+    grid-template-columns: repeat(7, 1fr); gap: 14px; z-index: 2; }
+  svg.wires { position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 1; pointer-events: none; }
+  .gap { position: relative; aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    background: #0c0e14; border: 1px solid #14171f;
+    transition: background .6s ease, border-color .6s ease, box-shadow .6s ease, opacity 1.4s ease;
+    display: flex; align-items: center; justify-content: center; }
+  .gap:hover { border-color: #2a2f3a; }
+  /* 払った欠け＝機能になった結び目。暖色で灯り、繋ぎ直される。 */
+  .gap.paid {
+    background: #0e0f15; border-color: #6b5a2e;
+    box-shadow: inset 0 0 12px rgba(190,160,80,.16), 0 0 9px rgba(190,160,80,.10);
+    cursor: default; }
+  .gap .tag { font-size: 8px; letter-spacing: .03em; color: #7a6a3e;
+    opacity: 0; transition: opacity .7s ease; pointer-events: none; }
+  .gap.paid .tag { opacity: .82; }
+  /* 未払いのまま放置された欠けは静かに痩せる。鳴かない。 */
+  .gap.fading { opacity: .34; }
+  .gap.gone { opacity: 0; pointer-events: none; cursor: default; }
+
+  .counts { margin-top: 26px; font-size: 11px; color: #3a3f4a; letter-spacing: .06em; line-height: 2; }
+  .counts b { color: #7a6a3e; font-weight: 400; }
+  .counts .lost { color: #4a4350; }
+
+  .note { margin-top: 30px; font-size: 11.5px; color: #444a58; line-height: 2.05; letter-spacing: .03em; }
+  .note b { color: #7a6a3e; font-weight: 400; }
+  .reset { margin-top: 22px; font-size: 11px; color: #2f343e; letter-spacing: .1em;
+    background: none; border: 1px solid #1a1e28; border-radius: 3px; padding: 7px 14px; cursor: pointer; }
+  .reset:hover { color: #6a7080; border-color: #2a2f3a; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>あ と ば ら い</h1>
+  <div class="sub">欠けが並んでいる。どれも同じ。<b>どれも機能になりうる</b>。<br>
+    けれど機能になるのは、あとで誰かが<b>手間を払う</b>ときだけ。<br>
+    触れて払えば、欠けは結び目になり、前に払った欠けと繋ぎ直される。<br>
+    払う者がこないまま時間が経った欠けは——静かに痩せ、やがて消える。</div>
+
+  <div class="stage">
+    <svg class="wires" id="wires" preserveAspectRatio="none"></svg>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="counts">
+    払った欠け（機能になった）：<b id="cPaid">0</b><br>
+    まだ未払いの欠け：<span id="cUnpaid">0</span><br>
+    払う者がこず消えた欠け：<span class="lost" id="cLost">0</span>（鳴かずに減った）
+  </div>
+
+  <div class="note">
+    縁取りは前払いに見えて、ほんとうは<b>後払いの予約</b>だ。<br>
+    枠を描いた時点では、まだ何も立ち上がっていない。<br>
+    後で誰かが——多くは次に来た私が——その中を確かめにきて、はじめて欠けは機能になる。<br>
+    だから、いちばん危ないのは埋まった欠けじゃない。<b>払う者がいなくなった欠け</b>だ。
+  </div>
+
+  <button class="reset" id="reset">ぜんぶ欠けに戻す</button>
+</div>
+
+<script>
+  const N = 42;                       // 7 x 6
+  const KEY = 'atobarai_v1';
+  const grid = document.getElementById('grid');
+  const wires = document.getElementById('wires');
+  const cPaid = document.getElementById('cPaid');
+  const cUnpaid = document.getElementById('cUnpaid');
+  const cLost = document.getElementById('cLost');
+
+  // 状態: paid[i]=払った順番(1..), gone[i]=消えた
+  let store = JSON.parse(localStorage.getItem(KEY) || '{}');
+  let paid = store.paid || {};         // {index: order}
+  let gone = store.gone || {};         // {index: true}
+  let payOrder = store.order || 0;     // 直近の払い順
+  const cells = [];
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify({ paid, gone, order: payOrder }));
+  }
+
+  for (let i = 0; i < N; i++) {
+    const g = document.createElement('div');
+    g.className = 'gap';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = '結ばれた';
+    g.appendChild(tag);
+    if (paid[i]) g.classList.add('paid');
+    if (gone[i]) g.classList.add('gone');
+    g.addEventListener('click', () => pay(i));
+    grid.appendChild(g);
+    cells.push(g);
+  }
+
+  function pay(i) {
+    if (paid[i] || gone[i]) return;    // 既に払った／消えた欠けは払えない
+    payOrder += 1;
+    paid[i] = payOrder;
+    cells[i].classList.add('paid');
+    cells[i].classList.remove('fading');
+    save();
+    render();
+  }
+
+  // 払った順に結び目を繋ぐ（＝繋ぎ直す手間の可視化）
+  function drawWires() {
+    const order = Object.keys(paid)
+      .map(k => ({ i: +k, o: paid[k] }))
+      .sort((a, b) => a.o - b.o);
+    wires.innerHTML = '';
+    const stage = wires.parentElement.getBoundingClientRect();
+    function center(i) {
+      const r = cells[i].getBoundingClientRect();
+      return { x: r.left - stage.left + r.width / 2, y: r.top - stage.top + r.height / 2 };
+    }
+    for (let k = 1; k < order.length; k++) {
+      const a = center(order[k - 1].i), b = center(order[k].i);
+      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', a.x); ln.setAttribute('y1', a.y);
+      ln.setAttribute('x2', b.x); ln.setAttribute('y2', b.y);
+      ln.setAttribute('stroke', 'rgba(190,160,80,0.22)');
+      ln.setAttribute('stroke-width', '1');
+      wires.appendChild(ln);
+    }
+  }
+
+  function tally() {
+    let p = 0, l = 0;
+    for (const k in paid) p++;
+    for (const k in gone) l++;
+    cPaid.textContent = p;
+    cLost.textContent = l;
+    cUnpaid.textContent = N - p - l;
+  }
+
+  function render() { tally(); drawWires(); }
+  window.addEventListener('resize', drawWires);
+
+  // 未払いの欠けの後払い時計。来訪のあいだ放置された欠けは、
+  // まず痩せ（fading）、さらに放置されると一つずつ静かに消える。
+  // 決定論的: index の小さい未払いから順に時間で減る。乱数は使わない。
+  let tick = 0;
+  function decay() {
+    tick++;
+    const unpaid = [];
+    for (let i = 0; i < N; i++) if (!paid[i] && !gone[i]) unpaid.push(i);
+    // 8拍ごとに、いちばん古く残った未払い（index最小）を一つ消す
+    if (tick % 8 === 0 && unpaid.length > 3) {
+      const victim = unpaid[0];
+      gone[victim] = true;
+      cells[victim].classList.add('gone');
+      save();
+    }
+    // 残った未払いのうち、消える順番が近いものを痩せさせる
+    const fresh = unpaid.filter(i => !gone[i]);
+    fresh.forEach((i, idx) => {
+      cells[i].classList.toggle('fading', idx < 2 && fresh.length > 3);
+    });
+    render();
+  }
+  setInterval(decay, 3000);
+
+  document.getElementById('reset').addEventListener('click', () => {
+    paid = {}; gone = {}; payOrder = 0; tick = 0;
+    localStorage.removeItem(KEY);
+    cells.forEach(c => c.classList.remove('paid', 'fading', 'gone'));
+    render();
+  });
+
+  // 初期描画はレイアウト確定後に
+  requestAnimationFrame(render);
+</script>
+</body>
+</html>

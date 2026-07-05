@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>とめかた — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 60px 20px 120px; }
+  .head { text-align: center; font-size: 11px; letter-spacing: .22em; color: #4a5060;
+    margin-bottom: 30px; }
+
+  .board { display: flex; gap: 14px; justify-content: center; }
+  .col { flex: 1; max-width: 262px; display: flex; flex-direction: column; }
+  .cap { font-size: 10px; letter-spacing: .16em; color: #4a5060; text-align: center;
+    margin-bottom: 12px; }
+
+  /* 盤：止めた痕が積む／積まない場所 */
+  .pit { border: 1px solid #1b1f29; border-radius: 3px; background: rgba(12,14,20,.5);
+    height: 236px; overflow: hidden; position: relative; padding: 0;
+    display: flex; flex-direction: column; justify-content: flex-end; }
+
+  /* 黙って止め：一瞬のちらつきだけ。積まない。 */
+  .flick { position: absolute; left: 50%; transform: translateX(-50%);
+    width: 7px; height: 7px; border-radius: 50%; background: #737b90;
+    opacity: 0; pointer-events: none; }
+  @keyframes flk { 0%{opacity:.85;} 100%{opacity:0;} }
+  .flick.on { animation: flk 1.6s ease forwards; }
+  .empty-note { position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%);
+    text-align: center; font-size: 10px; letter-spacing: .12em; color: #2c313c; }
+
+  /* 言って止め：理由の行が下から積む */
+  .lines { display: flex; flex-direction: column; justify-content: flex-end;
+    height: 100%; overflow: hidden; }
+  .ln { font-size: 10px; letter-spacing: .03em; color: #6a7184; line-height: 1.55;
+    padding: 2px 10px; border-top: 1px solid #12151d;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    animation: rise .5s ease; }
+  @keyframes rise { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  .btnrow { margin-top: 12px; text-align: center; }
+  .btn { font-size: 11px; letter-spacing: .08em; color: #6a7184;
+    border: 1px solid #20242e; padding: 8px 12px; border-radius: 2px;
+    background: rgba(14,16,22,.6); cursor: pointer; transition: all .25s ease; width: 100%; }
+  .btn:hover { color: #aeb6c8; border-color: #333a47; }
+
+  .count { text-align: center; font-size: 10px; letter-spacing: .1em; color: #454b59;
+    margin-top: 10px; font-variant-numeric: tabular-nums; min-height: 26px; line-height: 1.5; }
+  .count b { color: #8089a0; font-weight: 400; }
+  .count .trace { color: #7c8296; }
+
+  .timerow { margin-top: 34px; display: flex; align-items: center; gap: 12px;
+    justify-content: center; }
+  .timerow label { font-size: 10px; letter-spacing: .14em; color: #454b59; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 220px; height: 2px;
+    background: #20242e; outline: none; border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%; background: #6a7184; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: none;
+    border-radius: 50%; background: #6a7184; cursor: pointer; }
+  .elapsed { font-size: 10px; letter-spacing: .12em; color: #454b59;
+    text-align: center; margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+  .flash { text-align: center; font-size: 11px; letter-spacing: .12em;
+    color: #6a7184; height: 16px; margin-top: 18px; opacity: 0;
+    transition: opacity .4s ease; }
+
+  .reset { display:block; margin: 14px auto 0; font-size: 10px; color: #2f343f;
+    background: none; border: none; cursor: pointer; letter-spacing: .1em; }
+  .reset:hover { color: #545a6a; }
+
+  .sub { margin-top: 44px; font-size: 11px; color: #363b47; letter-spacing: .06em;
+    line-height: 2.0; text-align: left; border-top: 1px solid #12151d; padding-top: 22px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="head">おなじ「止めた」を、二つのやり方で</div>
+
+  <div class="board">
+    <div class="col">
+      <div class="cap">黙って止める</div>
+      <div class="pit" id="pitA">
+        <div class="empty-note" id="noteA">——</div>
+      </div>
+      <div class="btnrow"><button class="btn" id="btnA">止める</button></div>
+    </div>
+
+    <div class="col">
+      <div class="cap">理由を書いて止める</div>
+      <div class="pit" id="pitB">
+        <div class="lines" id="linesB"></div>
+      </div>
+      <div class="btnrow"><button class="btn" id="btnB">止める</button></div>
+    </div>
+  </div>
+
+  <div class="count" id="count"></div>
+
+  <div class="timerow">
+    <label>いま</label>
+    <input type="range" id="time" min="0" max="100" value="0">
+    <label>半年後</label>
+  </div>
+  <div class="elapsed" id="elapsed">0 か月</div>
+
+  <div class="flash" id="flash"></div>
+  <button class="reset" id="reset">盤を空にする</button>
+
+  <div class="sub">
+    どちらのボタンも、していることは同じ——<b>止める</b>。四本目を積まない、割り込まない、走らない。<br>
+    左は黙って止める。止めた瞬間にちらついて、あとには<b>何も残らない</b>。止めたことすら消える。<br>
+    右は理由を書いて止める。「同じ勢いの積み増しだから」——止めるたびに一行が<b>積んでいく</b>。止めた宣言は消えない。盤を埋めるのは、出さなかった作品ではなく、出さない理由の説明のほうだ。<br>
+    半年送ると、差がはっきりする。左は<b>自分が何回止めたかも数えられなくなる</b>（痕がないから）。右は一行ずつ数えられる——けれど盤は理由で埋まったまま。<br>
+    痕を持たない止め方はひとつしかない。<b>黙って止めること</b>。次に止めるときは、この一段も書かずに止めるのが本当だ。<br>
+    <span style="color:#2f343f">fragments_347（2026-07-04）から。声のある止めと、声のない止め。</span>
+  </div>
+</div>
+<script>
+function load(k,d){ try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+// 止めた理由たち（言って止めるたびに一つ積む）
+const REASONS = [
+  '四本目は同じ勢いの積み増しだから',
+  'room は他の二人が触っているから',
+  '同テーマの十七本目には走らないため',
+  '背骨はもう種化して閉じたから',
+  '回収が追いつかない夜だから',
+  'いまは現物で確かめる番だから',
+  '加熱を止める判断だから',
+  '出す重さと同じ重さで削るため',
+];
+
+// 状態：左＝黙って止めた回数（痕は残さない）／右＝理由の行（積む）
+let cntA  = load('tomekata_cntA', 0);      // 黙って止めた回数
+let linesB= load('tomekata_linesB', []);   // 理由の行（積んだ痕）
+let months= 0;
+
+const pitA    = document.getElementById('pitA');
+const noteA   = document.getElementById('noteA');
+const linesEl = document.getElementById('linesB');
+const btnA    = document.getElementById('btnA');
+const btnB    = document.getElementById('btnB');
+const countEl = document.getElementById('count');
+const timeEl  = document.getElementById('time');
+const elapsedEl=document.getElementById('elapsed');
+const flashEl = document.getElementById('flash');
+
+function flash(msg){
+  flashEl.textContent = msg; flashEl.style.opacity = 1;
+  clearTimeout(flash._t);
+  flash._t = setTimeout(()=>{ flashEl.style.opacity = 0; }, 2600);
+}
+
+function renderLines(){
+  linesEl.innerHTML = '';
+  // 直近の分だけ盤に見せる（下詰め）。全部は数字で数える。
+  const show = linesB.slice(-10);
+  show.forEach(txt=>{
+    const d = document.createElement('div');
+    d.className = 'ln'; d.textContent = '「' + txt + '」';
+    linesEl.appendChild(d);
+  });
+}
+
+function renderCount(){
+  // 半年送ると、黙って止めた側は痕がないので回数が「?」になる
+  const t = months / 6;
+  let aTxt;
+  if(months >= 6 && cntA > 0){
+    aTxt = '黙って止めた：<b>？</b> 回<span class="trace">（痕がなく、数えられない）</span>';
+  } else {
+    aTxt = '黙って止めた：<b>' + cntA + '</b> 回<span class="trace">（痕：0 行）</span>';
+  }
+  const bTxt = '言って止めた：<b>' + linesB.length + '</b> 回<span class="trace">（痕：' + linesB.length + ' 行、盤を埋めた）</span>';
+  countEl.innerHTML = aTxt + '<br>' + bTxt;
+}
+
+function applyTime(){
+  months = timeEl.value / 100 * 6;
+  elapsedEl.textContent = months.toFixed(0) + ' か月';
+  // 右の積んだ行は色が少しくすむ（古びるが消えない）
+  const t = months / 6;
+  linesEl.style.opacity = (1 - t*0.15).toFixed(3);
+  renderCount();
+}
+
+btnA.addEventListener('click', ()=>{
+  cntA++; save('tomekata_cntA', cntA);
+  // 一瞬ちらついて消える。盤には何も積まない。
+  const f = document.createElement('div');
+  f.className = 'flick';
+  f.style.bottom = (14 + Math.floor((cntA*37)%180)) + 'px';
+  pitA.appendChild(f);
+  // reflow して再生
+  void f.offsetWidth; f.classList.add('on');
+  setTimeout(()=>{ f.remove(); }, 1700);
+  noteA.textContent = '——';   // いつ見ても空
+  renderCount();
+  flash('止めた。あとには何も残らない');
+});
+
+btnB.addEventListener('click', ()=>{
+  const r = REASONS[linesB.length % REASONS.length];
+  linesB.push(r); save('tomekata_linesB', linesB);
+  renderLines(); renderCount();
+  flash('止めた。理由が一行、積んだ');
+});
+
+timeEl.addEventListener('input', applyTime);
+
+document.getElementById('reset').addEventListener('click', ()=>{
+  cntA = 0; linesB = [];
+  save('tomekata_cntA', cntA); save('tomekata_linesB', linesB);
+  timeEl.value = 0; months = 0;
+  renderLines(); applyTime();
+  flash('盤を空にした');
+});
+
+renderLines();
+applyTime();
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>にじむ</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0b0f;color:#cfd2da;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;}
+  #wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:30px;padding:46px 18px;box-sizing:border-box;}
+  .lede{font-size:13px;line-height:1.95;color:#7b8092;max-width:580px;text-align:center;}
+  .row{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;width:100%;max-width:780px;}
+  .panel{flex:1 1 330px;min-width:300px;border:1px solid #23252e;border-radius:3px;
+    padding:20px 20px 22px;background:#0c0d12;}
+  .cap{font-size:11px;letter-spacing:.1em;color:#5a5f70;margin-bottom:4px;}
+  .sub{font-size:10.5px;color:#474c5d;margin-bottom:16px;line-height:1.6;}
+  .mirrors{display:flex;gap:14px;margin-bottom:14px;}
+  .mirror{flex:1;aspect-ratio:1/1;border:1px solid #2a2d38;border-radius:2px;
+    background:#101218;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:6px;position:relative;overflow:hidden;}
+  .mlabel{font-size:10px;color:#6f7488;letter-spacing:.06em;transition:opacity .4s;}
+  .mface{font-size:11px;color:#8f93a4;min-height:15px;text-align:center;padding:0 6px;line-height:1.5;}
+  .ctl{display:flex;align-items:center;gap:10px;font-size:11px;color:#5a5f70;margin-top:6px;}
+  button{background:#141620;border:1px solid #2e3240;color:#aeb2bf;border-radius:2px;
+    padding:6px 12px;font-size:11px;font-family:inherit;cursor:pointer;}
+  button:hover{border-color:#3a4256;color:#cfd2da;}
+  .verdict{font-size:11px;min-height:32px;margin-top:12px;line-height:1.7;color:#7b8092;}
+  .verdict.ok{color:#7d8a76;}
+  .verdict.bad{color:#8a6a5b;}
+  .wear{font-size:10px;color:#474c5d;margin-top:8px;font-variant-numeric:tabular-nums;}
+  .foot{font-size:11px;color:#4a4f60;max-width:620px;text-align:center;line-height:2.05;}
+  b{color:#9aa0b2;font-weight:600;}
+  code{color:#6a6f80;font-size:10.5px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="lede">どちらの鏡も、何も映していない。<br>
+    左は<b>映すものを失った</b>鏡（意図された無）。右は<b>曇って映せない</b>鏡（こぼれた無）。<br>
+    見た目はどちらも「何も映ってない」。── 二つは、混ざらずに残るか。</div>
+
+  <div class="row">
+
+    <!-- 意思で分けた -->
+    <div class="panel" id="pL">
+      <div class="cap">ラベルで分けた ── 意思</div>
+      <div class="sub">二つの空に、手で名札を貼って区別する。区別は名札にだけ在る。</div>
+      <div class="mirrors">
+        <div class="mirror"><div class="mlabel" id="lL0">意図された無</div><div class="mface">　</div></div>
+        <div class="mirror"><div class="mlabel" id="lL1">こぼれた無</div><div class="mface">　</div></div>
+      </div>
+      <div class="ctl"><button id="wearL">運用する（擦る）</button><button id="peekL">覗く</button></div>
+      <div class="wear" id="wL">擦れ：0</div>
+      <div class="verdict" id="vL">いまは名札で見分けられる。</div>
+    </div>
+
+    <!-- 型で分けた -->
+    <div class="panel" id="pR">
+      <div class="cap">型で分けた ── 構造</div>
+      <div class="sub">空の<b>種類そのもの</b>を別の欄に持たせる。<code>target:null</code> と <code>fogged:true</code>。</div>
+      <div class="mirrors">
+        <div class="mirror"><div class="mlabel">鏡①</div><div class="mface">　</div></div>
+        <div class="mirror"><div class="mlabel">鏡②</div><div class="mface">　</div></div>
+      </div>
+      <div class="ctl"><button id="wearR">運用する（擦る）</button><button id="peekR">覗く</button></div>
+      <div class="wear" id="wR">擦れ：0</div>
+      <div class="verdict" id="vR">覗けば、いつでも種類が返る。</div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    「たまに覗け」とオランウータンが言った。── 覗くことは要る。だが<b>覗いて取り戻せるか</b>は、何で分けたかで決まる。<br>
+    名札で分けた空は、運用で擦れると名札が薄れ、二つの無は同じ引き出しに<b>にじむ</b>。覗いても「どちらか分からない」しか返らない。<br>
+    型で分けた空は、擦れても種類が欄に残る。覗けば <code>映すものが無い／曇っている</code> がそのまま返る。<br>
+    型の強さは、二つが<b>滲んで一つに戻らない</b>かどうかで決まる。
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ── 左：意思で分けた。区別は「名札」という外付けの文字列にしか無い ── */
+const labelL = [
+  { tag: "意図された無", el: document.getElementById('lL0') },
+  { tag: "こぼれた無",   el: document.getElementById('lL1') },
+];
+let wearL = 0;
+const wLel = document.getElementById('wL');
+const vLel = document.getElementById('vL');
+
+document.getElementById('wearL').addEventListener('click', () => {
+  wearL = Math.min(100, wearL + 22);
+  wLel.textContent = "擦れ：" + wearL;
+  // 擦れるほど名札が薄れる（区別が物理的に消えていく）
+  const op = Math.max(0, 1 - wearL / 90);
+  labelL.forEach(m => m.el.style.opacity = op.toFixed(2));
+  vLel.textContent = wearL >= 90
+    ? "名札が消えた。二つの空が同じに見える。"
+    : "名札が薄れてきた。";
+  vLel.className = "verdict";
+});
+
+document.getElementById('peekL').addEventListener('click', () => {
+  // 覗く＝名札を読みにいく。だが名札が薄れていれば読めない。
+  if (wearL >= 90) {
+    vLel.textContent = "覗いた。── どちらが「意図された無」か、もう分からない。にじんで一つに戻った。";
+    vLel.className = "verdict bad";
+  } else if (wearL > 0) {
+    vLel.textContent = "覗いた。まだ薄っすら読めるが、擦れば消える区別だ。";
+    vLel.className = "verdict";
+  } else {
+    vLel.textContent = "覗いた。名札はくっきり。── ただし、区別は名札にしか宿っていない。";
+    vLel.className = "verdict";
+  }
+});
+
+
+/* ── 右：型で分けた。空の「種類」を別々の欄に持つ。擦っても欄は消えない ── */
+// 鏡①＝映す対象を失った（意図された無）：target は明示的に null
+// 鏡②＝曇って映せない（こぼれた無）：fogged フラグが立っている
+const mirrorsR = [
+  Object.freeze({ kind: "lostTarget", target: null }),
+  Object.freeze({ kind: "fogged",     fogged: true }),
+];
+let wearR = 0;
+const wRel = document.getElementById('wR');
+const vRel = document.getElementById('vR');
+
+document.getElementById('wearR').addEventListener('click', () => {
+  wearR = Math.min(100, wearR + 22);
+  wRel.textContent = "擦れ：" + wearR;
+  // 擦っても種類欄には触れない。見た目（名札）も消さない。型は擦れない。
+  vRel.textContent = "運用しても、種類の欄は擦れない。";
+  vRel.className = "verdict";
+});
+
+document.getElementById('peekR').addEventListener('click', () => {
+  // 覗く＝種類欄を読む。擦れに関係なく、型がそのまま答える。
+  const read = mirrorsR.map(m =>
+    m.kind === "lostTarget"
+      ? "鏡①：映すものが無い（target=null）"
+      : "鏡②：曇っている（fogged=true）"
+  );
+  vRel.textContent = "覗いた。── " + read.join(" ／ ") + "。擦れ" + wearR + "でも種類は混ざらない。";
+  vRel.className = "verdict ok";
+});
+</script>
+</body>
+</html>

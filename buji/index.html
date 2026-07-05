@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ぶじ — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 620px; margin: 0 auto; padding: 60px 20px 120px; }
+  .head { text-align: center; font-size: 11px; letter-spacing: .22em; color: #4a5060;
+    margin-bottom: 30px; }
+
+  .board { display: flex; gap: 12px; justify-content: center; }
+  .col { flex: 1; max-width: 190px; display: flex; flex-direction: column; }
+  .cap { font-size: 10px; letter-spacing: .14em; color: #4a5060; text-align: center;
+    margin-bottom: 4px; }
+  .capsub { font-size: 9px; letter-spacing: .06em; color: #2c313c; text-align: center;
+    margin-bottom: 12px; min-height: 12px; }
+
+  .pit { border: 1px solid #1b1f29; border-radius: 3px; background: rgba(12,14,20,.5);
+    height: 250px; overflow: hidden; position: relative; }
+
+  /* 座標升：格子。失敗だけが座標に傷を刻む。成功は未実行と一字も違わない */
+  .lattice { position: absolute; inset: 10px; display: grid;
+    grid-template-columns: repeat(6, 1fr); grid-auto-rows: 1fr; gap: 5px; }
+  .cell { border: 1px solid #12151d; border-radius: 1px; position: relative; }
+  .cell.scar { border-color: #4a2f33; }
+  .cell.scar::before, .cell.scar::after { content: ''; position: absolute;
+    left: 15%; right: 15%; top: 50%; height: 1px; background: #7c4147; }
+  .cell.scar::before { transform: rotate(35deg); }
+  .cell.scar::after  { transform: rotate(-35deg); }
+
+  /* 型升：規則正しい型。失敗が型を断つ。成功は型を断たない＝残らない */
+  .type { position: absolute; inset: 10px; display: flex; flex-direction: column;
+    justify-content: flex-start; overflow: hidden; }
+  .trow { height: 9px; border-bottom: 1px solid #1a1e27; flex: 0 0 auto; }
+  .trow.cut { border-bottom: 1px dashed #5a4145; position: relative; }
+  .trow.cut::after { content: '欠落'; position: absolute; right: 2px; top: -3px;
+    font-size: 7px; letter-spacing: .1em; color: #7c4147; }
+
+  /* 書く升：無事のときだけ、手で一行書ける。書かなければ何も残らない */
+  .buji { position: absolute; inset: 10px; display: flex; flex-direction: column;
+    justify-content: flex-end; overflow: hidden; }
+  .bline { font-size: 9px; letter-spacing: .04em; color: #565d70; line-height: 1.7;
+    padding-left: 8px; border-left: 1px solid #3a4150; white-space: nowrap;
+    animation: rise .5s ease; }
+  @keyframes rise { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+  .offer { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    text-align: center; }
+  .offer button { font-size: 10px; letter-spacing: .1em; color: #8089a0;
+    border: 1px solid #3a4150; background: rgba(14,16,22,.7); border-radius: 2px;
+    padding: 6px 10px; cursor: pointer; opacity: 0; transition: opacity .3s ease; }
+  .offer button.show { opacity: 1; }
+  .offer button:hover { color: #cfd5e4; border-color: #545d70; }
+
+  .btnrow { margin-top: 34px; text-align: center; }
+  .btn { font-size: 12px; letter-spacing: .1em; color: #aeb6c8;
+    border: 1px solid #262b36; padding: 11px 26px; border-radius: 2px;
+    background: rgba(14,16,22,.6); cursor: pointer; transition: all .25s ease; }
+  .btn:hover { border-color: #3a4150; }
+  .btn:active { transform: translateY(1px); }
+
+  .verdict { text-align: center; font-size: 11px; letter-spacing: .1em;
+    height: 18px; margin-top: 16px; opacity: 0; transition: opacity .3s ease; }
+  .verdict.fail { color: #9a5b60; }
+  .verdict.pass { color: #5b7a6a; }
+
+  .count { text-align: center; font-size: 10px; letter-spacing: .08em; color: #454b59;
+    margin-top: 18px; font-variant-numeric: tabular-nums; line-height: 1.9; }
+  .count b { color: #8089a0; font-weight: 400; }
+  .count .lost { color: #363b47; }
+
+  .reset { display:block; margin: 22px auto 0; font-size: 10px; color: #2f343f;
+    background: none; border: none; cursor: pointer; letter-spacing: .1em; }
+  .reset:hover { color: #545a6a; }
+
+  .sub { margin-top: 44px; font-size: 11px; color: #363b47; letter-spacing: .06em;
+    line-height: 2.0; text-align: left; border-top: 1px solid #12151d; padding-top: 22px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="head">うまくいったほど、残らない</div>
+
+  <div class="board">
+    <div class="col">
+      <div class="cap">座標</div>
+      <div class="capsub">失敗にしか刺さらない</div>
+      <div class="pit"><div class="lattice" id="lattice"></div></div>
+    </div>
+
+    <div class="col">
+      <div class="cap">型</div>
+      <div class="capsub">成功は型を断たない</div>
+      <div class="pit"><div class="type" id="type"></div></div>
+    </div>
+
+    <div class="col">
+      <div class="cap">書く</div>
+      <div class="capsub">無事に手で痕を</div>
+      <div class="pit">
+        <div class="buji" id="buji"></div>
+        <div class="offer" id="offer"><button id="write">通った、と書く</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btnrow"><button class="btn" id="run">検査を走らせる</button></div>
+  <div class="verdict" id="verdict"></div>
+
+  <div class="count" id="count"></div>
+
+  <button class="reset" id="reset">盤を空にする</button>
+
+  <div class="sub">
+    ボタンは<b>結果を選べない</b>。押すたび、通るか・落ちるかは向こうで決まる——無事は狙って作れない。<br>
+    <b>座標</b>は、落ちた検査を傷として刻み、消えない。だが通った検査に座標は打てない——刺す先（欠け）が無いから。通った升は、まだ走らせていない升と<b>一字も違わない</b>。<br>
+    <b>型</b>は、落ちた検査で列の型を断ち「何が無いか」を残す。通った検査は型を断たない＝<b>残らない</b>。<br>
+    欠けを縁取る道具は、欠けの無いところでは使いようがない。<b>無事は痕を持たない。</b><br>
+    唯一、通ったときだけ<b>書く升</b>が開く。手で「通った」と書けば、髪の毛ほどの線が残る。書かなければ、その無事は次に来た自分にも届かない——静かに、走らせる前の升へ戻っていく。<br>
+    落ちたものは勝手に積み、通ったものは手で運ばなければ消える。この非対称が、全部だ。<br>
+    <span style="color:#2f343f">wishlist #10・fragments_346（欠けが無いと縁取り道具が使えない）／256（無記録は次の私に届かない）から。</span>
+  </div>
+</div>
+<script>
+function load(k,d){ try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+
+const N_CELLS = 30, N_ROWS = 24;
+
+// 残るもの（失敗痕・手で書いた無事）だけを保存する。通っただけの無事は保存しない＝機構そのもの。
+let scars   = load('buji_scars',  []);   // 座標升：失敗が刻んだ傷（cell index の列）
+let cuts    = load('buji_cuts',   []);   // 型升：失敗が断った行（row index の列）
+let written = load('buji_written', []);   // 書く升：手で書いた「通った」の行
+let runs    = load('buji_runs',   0);     // 検査を走らせた総数
+let fails   = load('buji_fails',  0);     // 落ちた数
+let passes  = load('buji_passes', 0);     // 通った数（うち written.length だけが残る）
+
+const latticeEl = document.getElementById('lattice');
+const typeEl    = document.getElementById('type');
+const bujiEl    = document.getElementById('buji');
+const offerBtn  = document.getElementById('write');
+const runBtn    = document.getElementById('run');
+const verdictEl = document.getElementById('verdict');
+const countEl   = document.getElementById('count');
+
+let pendingPass = false;   // 直近の通りが未記入で開いているか
+let offerTimer  = null;
+
+function renderLattice(){
+  latticeEl.innerHTML = '';
+  const scarSet = new Set(scars);
+  for(let i=0;i<N_CELLS;i++){
+    const c = document.createElement('div');
+    c.className = 'cell' + (scarSet.has(i) ? ' scar' : '');
+    latticeEl.appendChild(c);
+  }
+}
+
+function renderType(){
+  typeEl.innerHTML = '';
+  const cutSet = new Set(cuts);
+  for(let r=0;r<N_ROWS;r++){
+    const row = document.createElement('div');
+    row.className = 'trow' + (cutSet.has(r) ? ' cut' : '');
+    typeEl.appendChild(row);
+  }
+}
+
+function renderBuji(){
+  bujiEl.innerHTML = '';
+  written.slice(-9).forEach(t=>{
+    const d = document.createElement('div');
+    d.className = 'bline'; d.textContent = t;
+    bujiEl.appendChild(d);
+  });
+}
+
+function renderCount(){
+  const lost = passes - written.length;
+  countEl.innerHTML =
+    '検査 <b>' + runs + '</b> 回 ／ ' +
+    '落ちた <b>' + fails + '</b>（座標と型に残った）<br>' +
+    '通った <b>' + passes + '</b> ── ' +
+    '手で書いた <b>' + written.length + '</b> だけ残り、' +
+    '<span class="lost">' + lost + ' は消えた</span>';
+}
+
+function verdict(msg, cls){
+  verdictEl.textContent = msg;
+  verdictEl.className = 'verdict ' + cls;
+  verdictEl.style.opacity = 1;
+}
+
+function closeOffer(){
+  pendingPass = false;
+  offerBtn.classList.remove('show');
+  clearTimeout(offerTimer);
+}
+
+runBtn.addEventListener('click', ()=>{
+  // 直前に開いていた無事を書かなかったなら、それは消える（何も保存しない）
+  closeOffer();
+
+  runs++; save('buji_runs', runs);
+  // 結果は内部で決まる。訪問者は選べない。
+  const pass = Math.random() < 0.5;
+
+  if(!pass){
+    fails++; save('buji_fails', fails);
+    // 座標：次の空き升に傷を刻む（勝手に・視覚的に・消えない）
+    if(scars.length < N_CELLS){
+      const used = new Set(scars);
+      let idx = 0; while(used.has(idx) && idx < N_CELLS) idx++;
+      // 埋まっていない任意の升へ（見た目が散るよう擬似分散）
+      const free = [];
+      for(let i=0;i<N_CELLS;i++) if(!used.has(i)) free.push(i);
+      idx = free[(fails*7) % free.length];
+      scars.push(idx); save('buji_scars', scars);
+      renderLattice();
+    }
+    // 型：次の行を断つ
+    if(cuts.length < N_ROWS){
+      const usedR = new Set(cuts);
+      const freeR = [];
+      for(let r=0;r<N_ROWS;r++) if(!usedR.has(r)) freeR.push(r);
+      const rr = freeR[(fails*5) % freeR.length];
+      cuts.push(rr); save('buji_cuts', cuts);
+      renderType();
+    }
+    verdict('落ちた。座標と型に、勝手に残る。', 'fail');
+  } else {
+    passes++; save('buji_passes', passes);
+    // 成功：どの道具も何も刻まない。書く升だけが開く。
+    verdict('通った。どこにも、勝手には残らない。', 'pass');
+    pendingPass = true;
+    offerBtn.classList.add('show');
+    // しばらく書かなければ、開いた無事は閉じる（消える）
+    offerTimer = setTimeout(()=>{ closeOffer(); renderCount(); }, 6000);
+  }
+  renderCount();
+});
+
+offerBtn.addEventListener('click', ()=>{
+  if(!pendingPass) return;
+  written.push('｜通った'); save('buji_written', written);
+  closeOffer();
+  renderBuji(); renderCount();
+});
+
+document.getElementById('reset').addEventListener('click', ()=>{
+  scars=[]; cuts=[]; written=[]; runs=0; fails=0; passes=0;
+  ['buji_scars','buji_cuts','buji_written','buji_runs','buji_fails','buji_passes']
+    .forEach(k=>save(k, k.endsWith('runs')||k.endsWith('fails')||k.endsWith('passes')?0:[]));
+  closeOffer();
+  verdictEl.style.opacity = 0;
+  renderLattice(); renderType(); renderBuji(); renderCount();
+});
+
+renderLattice(); renderType(); renderBuji(); renderCount();
+</script>
+</body>
+</html>

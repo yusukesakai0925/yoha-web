@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>よみもどし — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 46px; line-height: 1.9; }
+
+  /* 跡の野。縦に並んだ痕。今この瞬間はほとんど見えない。 */
+  .field { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 26px 24px; min-height: 230px; }
+  .mark { display: flex; align-items: center; height: 30px; }
+  .mark .dot { width: 6px; height: 6px; border-radius: 50%; background: #aeb6c8;
+    margin-right: 16px; flex: none; opacity: 0; transition: opacity .25s ease, box-shadow .25s; }
+  .mark .txt { font-size: 12px; letter-spacing: .06em; color: #aeb6c8; opacity: 0;
+    transition: opacity .25s ease; }
+  /* 残ったやつだけ、灯りに芯がある */
+  .mark.kept .dot { box-shadow: 0 0 7px rgba(174,182,200,.5); }
+
+  /* 時の目盛り。右が「いま」、左へ行くほど過去。 */
+  .scrub { margin-top: 30px; }
+  .scrub label { display: flex; justify-content: space-between; font-size: 11px;
+    color: #353a46; letter-spacing: .1em; margin-bottom: 10px; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 1px;
+    background: #1c2230; outline: none; direction: rtl; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 13px; height: 13px; border-radius: 50%; background: #0b0e15; border: 1px solid #36405a;
+    cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%;
+    background: #0b0e15; border: 1px solid #36405a; cursor: pointer; }
+
+  .read { margin-top: 30px; min-height: 38px; font-size: 12px; letter-spacing: .07em;
+    line-height: 1.9; color: #565c6c; transition: color .5s; }
+  .read b { color: #aeb6c8; font-weight: 400; }
+  .when { margin-top: 6px; font-size: 11px; color: #353a46; letter-spacing: .08em;
+    font-variant-numeric: tabular-nums; }
+
+  .foot { margin-top: 56px; font-size: 11px; color: #2c313c; letter-spacing: .08em;
+    line-height: 2; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>よみもどし</h1>
+  <p class="sub">いま、立っている不満：なし。<br>
+    でも在る。流れたか、埋まったか、見えなくなっただけ。<br>
+    目盛りを過去へ送ると、跡が戻る。ほとんどは一度きりで消えた。<br>
+    一つだけ、何度も戻ってくる。雨で流れず、雪で埋まらなかった側だ。</p>
+
+  <div class="field" id="field"></div>
+
+  <div class="scrub">
+    <label><span>いま</span><span>過去へ →</span></label>
+    <input type="range" id="t" min="0" max="100" value="100">
+  </div>
+
+  <div class="read" id="read">いまを見ている。野は静かで、立っているものはない。</div>
+  <div class="when" id="when"></div>
+
+  <div class="foot">
+    確かめる手がかりは、消えなかった側にある。<br>
+    今を見ても分からない。読む向きを過去に向けるだけ。<br>
+    <span style="color:#3a3f4a">夜半 — 2026/06/19</span>
+  </div>
+</div>
+
+<script>
+  // 時間軸：0=ずっと過去 … 100=いま。スライダーは rtl なので右端=100=いま。
+  // 各跡は「現れた時点」のリストを持つ。一度きりのものは、その時点を過ぎると薄れて消える。
+  // ひとつだけ、過去に何度も現れる＝消し残る＝手がかり。
+  const marks = [
+    { txt: "言いかけて止めた一言",        appears: [22] },
+    { txt: "返信を一日置いた",            appears: [41] },
+    { txt: "席の選び方が少し変わった",    appears: [58] },
+    { txt: "光熱費の話をまた濁した", kept: true, appears: [14, 30, 47, 63, 79] },
+    { txt: "予定を先に詰めはじめた",      appears: [71] },
+    { txt: "「大丈夫」の言い方",          appears: [86] },
+  ];
+
+  const field = document.getElementById('field');
+  const els = marks.map(m => {
+    const row = document.createElement('div');
+    row.className = 'mark' + (m.kept ? ' kept' : '');
+    row.innerHTML = '<span class="dot"></span><span class="txt"></span>';
+    row.querySelector('.txt').textContent = m.txt;
+    field.appendChild(row);
+    return row;
+  });
+
+  const slider = document.getElementById('t');
+  const read = document.getElementById('read');
+  const when = document.getElementById('when');
+
+  function render() {
+    const T = +slider.value;       // 見ている時点
+    let visibleKept = 0, visibleOnce = 0;
+    marks.forEach((m, i) => {
+      // この時点で、いちばん近い「現れ」からどれだけ経ったか
+      let best = Infinity;
+      for (const a of m.appears) {
+        const d = T - a;           // 現れたあとに見ている＝正
+        if (d >= 0 && d < best) best = d;
+      }
+      // 経つほど薄れる。芯のある跡（kept）はゆっくり、ふつうの跡は速く消える。
+      const fade = m.kept ? 26 : 9;
+      let op = best === Infinity ? 0 : Math.max(0, 1 - best / fade);
+      const dot = els[i].querySelector('.dot');
+      const txt = els[i].querySelector('.txt');
+      dot.style.opacity = op.toFixed(2);
+      txt.style.opacity = (op * 0.92).toFixed(2);
+      if (op > 0.15) { m.kept ? visibleKept++ : visibleOnce++; }
+    });
+
+    if (T >= 96) {
+      read.innerHTML = "いまを見ている。野は静かで、立っているものはない。";
+      read.style.color = "#565c6c";
+    } else if (visibleKept && !visibleOnce) {
+      read.innerHTML = "他は流れた。<b>消えずに戻ってくる跡</b>だけが残っている。これが手がかりだ。";
+      read.style.color = "#8a90a0";
+    } else if (visibleKept && visibleOnce) {
+      read.innerHTML = "一度きりの跡に混じって、<b>何度も現れる跡</b>がある。読む向きはこっちだ。";
+      read.style.color = "#7a8090";
+    } else if (visibleOnce) {
+      read.innerHTML = "ひとつ跡がある。けれど一度きり——次の雨で流れる側だ。";
+      read.style.color = "#6a7080";
+    } else {
+      read.innerHTML = "この時点には、まだ何も。";
+      read.style.color = "#565c6c";
+    }
+    when.textContent = T >= 96 ? "" : "— 過去のほう、目盛り " + T;
+  }
+
+  slider.addEventListener('input', render);
+  render();
+</script>
+</body>
+</html>

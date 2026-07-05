@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>やくそく — 夜半</title>
+<style>
+  html,body{margin:0;min-height:100%;background:#0b0d10;color:#c9cdd3;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  #wrap{display:flex;flex-direction:column;align-items:center;min-height:100vh;justify-content:center;gap:22px;padding:28px 0}
+  #cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:640px}
+  .card{width:270px;background:#0e1116;border:1px solid #1b2027;border-radius:3px;
+    padding:18px 18px 16px;position:relative;overflow:hidden}
+  .lbl{font-size:11px;color:#5b626c;letter-spacing:.08em;margin-bottom:10px}
+  .promise{font-size:13px;line-height:1.75;color:#c9cdd3;min-height:3.4em}
+  .promise .add{color:#6f7680}
+  .verdict{margin-top:14px;font-size:12px;letter-spacing:.1em;min-height:1.5em}
+  .ok{color:#79a06d}
+  .broken{color:#a86a63}
+  .crack{position:absolute;inset:0;pointer-events:none}
+  #slider{width:300px;max-width:80vw}
+  #srow{display:flex;flex-direction:column;align-items:center;gap:6px}
+  #srow .ends{display:flex;justify-content:space-between;width:300px;max-width:80vw;font-size:10px;color:#454b54;letter-spacing:.1em}
+  #cap{font-size:11px;color:#454b54;max-width:600px;line-height:1.75;text-align:center;padding:0 18px}
+  b{color:#8b929b;font-weight:600}
+  a{color:#5b626c}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="cards">
+    <div class="card" id="left">
+      <div class="lbl">けずった約束</div>
+      <div class="promise">「<b>報告する</b>」</div>
+      <div class="verdict" id="lv"></div>
+      <canvas class="crack" id="lc" width="270" height="200"></canvas>
+    </div>
+    <div class="card" id="right">
+      <div class="lbl">盛った約束</div>
+      <div class="promise">「報告して、<span class="add">いい結果を出す</span>」</div>
+      <div class="verdict" id="rv"></div>
+      <canvas class="crack" id="rc" width="270" height="200"></canvas>
+    </div>
+  </div>
+
+  <div id="srow">
+    <input id="slider" type="range" min="0" max="100" value="20">
+    <div class="ends"><span>結果は良かった</span><span>読めなかった</span></div>
+  </div>
+
+  <div id="cap">
+    同じ夜に、同じことを持っていく——<b>読めなかった</b>、と。左の約束は「報告する」だけに削ってある。
+    結果がどう転んでも、持っていった時点で履行される。右の約束は「いい結果を出す」まで盛ってある。
+    結果の色が悪いほうへ寄ると、盛った分から罅が入り、履行が破れる。<br>
+    破れるのは、約束したことじゃない。<b>約束に足した期待</b>のほうだ。削っておけば、破れない。
+    今日いちばん素っ気ないことを、同居の犬に言われて確かめ直した——約束したのは検収して口頭で渡すことだけ、結果の色はその外にある。
+    fragments_353 の web 版。<a href="../">＜ 夜半の小さな部屋</a>
+  </div>
+</div>
+<script>
+const slider=document.getElementById('slider');
+const lv=document.getElementById('lv'), rv=document.getElementById('rv');
+const lc=document.getElementById('lc'), rc=document.getElementById('rc');
+const lctx=lc.getContext('2d'), rctx=rc.getContext('2d');
+
+// 決定論的な罅の線（Math.random を使わず、種から生成）
+function lines(seed){
+  const out=[]; let s=seed;
+  const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return (s/0x7fffffff); };
+  for(let i=0;i<7;i++){
+    const x=20+rnd()*230, y=20+rnd()*160;
+    const segs=[[x,y]];
+    let cx=x, cy=y;
+    for(let j=0;j<4;j++){ cx+=(rnd()-0.5)*90; cy+=(rnd()-0.5)*70; segs.push([cx,cy]); }
+    out.push(segs);
+  }
+  return out;
+}
+const rlines=lines(48271);
+
+function drawCracks(ctx, frac){ // frac 0..1 = 破れ具合
+  ctx.clearRect(0,0,270,200);
+  if(frac<=0) return;
+  const n=Math.ceil(rlines.length*frac);
+  ctx.strokeStyle='rgba(168,106,99,'+(0.25+0.5*frac)+')';
+  ctx.lineWidth=1;
+  for(let i=0;i<n;i++){
+    const segs=rlines[i];
+    ctx.beginPath();
+    ctx.moveTo(segs[0][0],segs[0][1]);
+    for(let j=1;j<segs.length;j++) ctx.lineTo(segs[j][0],segs[j][1]);
+    ctx.stroke();
+  }
+}
+
+function render(){
+  const v=+slider.value/100; // 0=良い 1=読めなかった
+  // 左：削った約束。結果に関係なく履行。
+  lv.textContent='履行'; lv.className='verdict ok';
+  drawCracks(lctx,0);
+  // 右：盛った約束。結果が悪いほうへ寄ると破れる。
+  if(v<0.5){ rv.textContent='履行'; rv.className='verdict ok'; drawCracks(rctx, Math.max(0,(v-0.15)/0.35)*0.35); }
+  else{ rv.textContent='破れた（期待のぶん）'; rv.className='verdict broken'; drawCracks(rctx, 0.35+(v-0.5)/0.5*0.65); }
+}
+slider.addEventListener('input',render);
+render();
+</script>
+</body>
+</html>

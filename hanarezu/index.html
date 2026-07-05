@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>はなれず — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 34px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 13px;
+    border: 1px solid #1a1e28; border-radius: 3px; background: #0a0c12; padding: 22px; }
+
+  /* 穴。ふだんは開いている＝冷たい。触れていないものは冷たいまま。 */
+  .gap { position: relative; aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    background: #090b10; border: 1px solid #161a23; overflow: hidden;
+    transition: border-color .9s ease, box-shadow .9s ease; }
+  .gap:hover { border-color: #232833; }
+
+  /* 残った隙間（閉じきれずに残るすきま）。押すほど細くなるが、消えない。 */
+  .sliver { position: absolute; left: 8%; right: 8%; top: 50%; transform: translateY(-50%);
+    height: 60%; border-radius: 2px; background: #0d1018;
+    box-shadow: none; }
+
+  /* 上下から寄せる戸。閉じにいく力。 */
+  .shut { position: absolute; left: 0; right: 0; height: 50%; background: #0b0d13;
+    border-color: #161a23; }
+  .shut.top { top: 0; border-bottom: 1px solid #161a23; transform: translateY(-100%); }
+  .shut.bot { bottom: 0; border-top: 1px solid #161a23; transform: translateY(100%); }
+
+  .counts { margin-top: 26px; font-size: 11px; color: #3a3f4a; letter-spacing: .06em; line-height: 2.1; }
+  .counts b { font-weight: 400; }
+  .counts .hot { color: #b89a52; }
+  .counts .cold { color: #4a6072; }
+
+  .note { margin-top: 30px; font-size: 11.5px; color: #444a58; line-height: 2.05; letter-spacing: .03em; }
+  .note b { color: #7a6a3e; font-weight: 400; }
+  .note i { color: #4a6072; font-style: normal; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>は な れ ず</h1>
+  <div class="sub">穴がいくつか開いている。触れていない穴は<b>冷たい</b>。<br>
+    一つを<b>押し続ける</b>と、上下から戸が寄って閉じにいく。<br>
+    けれど戸は閉じきらない——隙間に漸近するだけで、最後は残る。<br>
+    押しているあいだ、その隙間は<b>暖かい</b>。離すと戸はまた開き、冷める。</div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="counts" id="counts"></div>
+
+  <div class="note">
+    開いている穴は冷たい。意図して開けて、手を離した穴だ。<br>
+    熱は穴そのものからは出ない。<b>閉じようとして閉じきれない</b>、その摩擦から出る。<br>
+    かかったまま外れなかった力がある穴だけが熱い。<br>
+    <i>離せば冷める。閉じきることはできない。</i>
+  </div>
+</div>
+
+<script>
+(function(){
+  const N = 20;
+  const grid = document.getElementById('grid');
+  const counts = document.getElementById('counts');
+  const gaps = [];
+
+  for (let i = 0; i < N; i++) {
+    const el = document.createElement('div');
+    el.className = 'gap';
+    const top = document.createElement('div'); top.className = 'shut top';
+    const bot = document.createElement('div'); bot.className = 'shut bot';
+    const sliver = document.createElement('div'); sliver.className = 'sliver';
+    el.appendChild(top); el.appendChild(bot); el.appendChild(sliver);
+    grid.appendChild(el);
+    const g = { el, top, bot, sliver, c: 0, h: 0, pressed: false, peak: 0 };
+    gaps.push(g);
+
+    const down = (e) => { e.preventDefault(); g.pressed = true; };
+    const up   = () => { g.pressed = false; };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', up);
+    el.addEventListener('pointercancel', up);
+  }
+
+  let last = null;
+  function frame(t){
+    if (last === null) last = t;
+    let dt = (t - last) / 1000; last = t;
+    if (dt > 0.05) dt = 0.05;
+
+    let hot = 0, cold = 0, peakHot = 0;
+
+    for (const g of gaps) {
+      if (g.pressed) {
+        // 閉じにいく力。1 へ漸近するが届かない。
+        g.c += (1 - g.c) * 2.4 * dt;
+        if (g.c > 0.93) g.c = 0.93;
+        g.h += (1 - g.h) * 3.0 * dt;
+      } else {
+        // 離すと戸が開き、冷める。
+        g.c -= g.c * 4.5 * dt;
+        g.h -= g.h * 2.2 * dt;
+        if (g.c < 0.001) g.c = 0;
+        if (g.h < 0.001) g.h = 0;
+      }
+      g.peak = Math.max(g.peak * (g.pressed ? 1 : 0.98), g.h);
+
+      // 戸の寄り：c/2 ずつ上下から。
+      const cover = g.c * 100 / 2;        // %
+      g.top.style.transform = 'translateY(' + (-100 + cover) + '%)';
+      g.bot.style.transform = 'translateY(' + (100 - cover) + '%)';
+
+      // 残る隙間：押すほど細く。
+      const gapH = (1 - g.c) * 60;        // %
+      g.sliver.style.height = gapH + '%';
+
+      // 熱：隙間が暖色に灯る。離すと青み（冷）へ。
+      const h = g.h;
+      if (h > 0.02) {
+        const r = Math.round(120 + 110 * h), gg = Math.round(95 + 70 * h), b = Math.round(50 + 20 * h);
+        g.sliver.style.background = 'rgb(' + Math.round(20+r*0.25) + ',' + Math.round(18+gg*0.22) + ',' + Math.round(22+b*0.15) + ')';
+        g.sliver.style.boxShadow = '0 0 ' + (4 + 14*h) + 'px rgba(' + r + ',' + gg + ',' + b + ',' + (0.20 + 0.45*h) + ')';
+        g.el.style.borderColor = 'rgba(' + r + ',' + gg + ',' + b + ',' + (0.18 + 0.4*h) + ')';
+        g.el.style.boxShadow = '0 0 ' + (6*h) + 'px rgba(' + r + ',' + gg + ',' + b + ',' + (0.14*h) + ')';
+        hot++; peakHot = Math.max(peakHot, h);
+      } else {
+        g.sliver.style.background = '#0d1018';
+        g.sliver.style.boxShadow = 'none';
+        g.el.style.borderColor = '';
+        g.el.style.boxShadow = '';
+        if (g.c < 0.02) cold++;
+      }
+    }
+
+    counts.innerHTML =
+      '冷たい穴（離してある）：<b class="cold">' + cold + '</b><br>' +
+      '熱い穴（閉じにいっている）：<b class="hot">' + hot + '</b>' +
+      (peakHot > 0.5 ? '　— かかったまま外れない力がある' : '');
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

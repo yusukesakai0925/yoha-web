@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>てばなし — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 60px 20px 120px; }
+  .head { text-align: center; font-size: 11px; letter-spacing: .22em; color: #4a5060;
+    margin-bottom: 30px; }
+
+  .board { display: flex; gap: 14px; justify-content: center; margin-bottom: 8px; }
+  .cell { flex: 1; max-width: 156px; border: 1px solid #1b1f29; border-radius: 3px;
+    background: rgba(12,14,20,.5); padding: 16px 12px 14px; min-height: 132px;
+    display: flex; flex-direction: column; align-items: center;
+    transition: border-color .6s ease, background .6s ease; }
+  .cell .cap { font-size: 10px; letter-spacing: .14em; color: #4a5060; margin-bottom: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #737b90;
+    margin: 6px 0 12px; box-shadow: 0 0 0 0 rgba(0,0,0,0); transition: all .6s ease; }
+  .vec { font-size: 11px; letter-spacing: .05em; color: #8089a0; text-align: center;
+    line-height: 1.7; min-height: 30px; transition: opacity .6s ease; }
+  .vec .ar { color: #3a4150; padding: 0 .35em; }
+  .amt { font-size: 12px; color: #aeb6c8; font-variant-numeric: tabular-nums;
+    letter-spacing: .04em; margin-top: 8px; }
+  .tag { font-size: 9.5px; letter-spacing: .12em; margin-top: 10px; height: 13px;
+    transition: opacity .6s ease, color .6s ease; }
+  .tag.held { color: #7c8296; }        /* 「持ってた」——放置すると風化して消える */
+  .tag.kept { color: #b0857c; }        /* 「捨」——記すと消えない */
+  .tag.coord { color: #545a6a; }       /* 甲：最初から座標だけ */
+
+  /* 風化しきった乙（記さなかった場合）＝甲と見分けがつかなくなる */
+  .cell.weathered { border-color: #1b1f29; background: rgba(12,14,20,.5); }
+
+  .acts { display: flex; gap: 10px; justify-content: center; margin-top: 26px;
+    flex-wrap: wrap; }
+  .btn { font-size: 11px; letter-spacing: .1em; color: #6a7184;
+    border: 1px solid #20242e; padding: 8px 14px; border-radius: 2px;
+    background: rgba(14,16,22,.6); cursor: pointer; transition: all .25s ease; }
+  .btn:hover { color: #aeb6c8; border-color: #333a47; }
+  .btn:disabled { color: #2c313c; border-color: #14171f; cursor: default; }
+  .btn.mark { color: #9a7770; border-color: #35262433; }
+  .btn.mark:hover { color: #c49b93; border-color: #4a3330; }
+
+  .timerow { margin-top: 30px; display: flex; align-items: center; gap: 12px;
+    justify-content: center; }
+  .timerow label { font-size: 10px; letter-spacing: .14em; color: #454b59; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 240px; height: 2px;
+    background: #20242e; outline: none; border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%; background: #6a7184; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: none;
+    border-radius: 50%; background: #6a7184; cursor: pointer; }
+  .elapsed { font-size: 10px; letter-spacing: .12em; color: #454b59;
+    text-align: center; margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+  .flash { text-align: center; font-size: 11px; letter-spacing: .14em;
+    color: #6a7184; height: 16px; margin-top: 22px; opacity: 0;
+    transition: opacity .4s ease; }
+
+  .sub { margin-top: 50px; font-size: 11px; color: #363b47; letter-spacing: .08em;
+    line-height: 2.0; text-align: left; border-top: 1px solid #12151d; padding-top: 22px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="head">みっつの点は、同じ暗さで並ぶ</div>
+
+  <div class="board">
+    <div class="cell" id="cA">
+      <div class="cap">甲</div>
+      <div class="dot"></div>
+      <div class="vec" id="vA">ここ</div>
+      <div class="amt" id="aA"></div>
+      <div class="tag coord">座標だけ</div>
+    </div>
+    <div class="cell" id="cB">
+      <div class="cap">乙</div>
+      <div class="dot"></div>
+      <div class="vec" id="vB">仕入<span class="ar">→</span>◯棟</div>
+      <div class="amt" id="aB"></div>
+      <div class="tag held" id="tB">持ってた</div>
+    </div>
+    <div class="cell" id="cC">
+      <div class="cap">丙</div>
+      <div class="dot"></div>
+      <div class="vec" id="vC">（畳んだ）</div>
+      <div class="amt" id="aC"></div>
+      <div class="tag coord">前期繰越</div>
+    </div>
+  </div>
+
+  <div class="acts">
+    <button class="btn" id="throw">乙を雑費へ放り込む</button>
+    <button class="btn mark" id="mark" disabled>捨てたと記す</button>
+  </div>
+
+  <div class="timerow">
+    <label>締めまで</label>
+    <input type="range" id="time" min="0" max="100" value="0">
+    <label>半年</label>
+  </div>
+  <div class="elapsed" id="elapsed">0 か月</div>
+
+  <div class="flash" id="flash"></div>
+
+  <div class="sub">
+    甲は<b>方向を一度も持たなかった</b>点。「ここに在った」ではなく「ここ」とだけ言う。座標しか主張していないから、痩せない。<br>
+    丙は<b>方向を全部畳みきった</b>点。来し方を一点に結んだ結果——方向を抱えた点だ。<br>
+    乙だけが違う。<b>持っていたのに、手放した</b>。雑費へ放り込んだ瞬間、方向は消えて点になる。<br>
+    そのまま時を送ると、乙の「持ってた」は<b>風化して消える</b>。半年経つと、乙は最初から座標しかなかった甲の顔をして並ぶ。締めのとき、どっちだったか思い出せない。<br>
+    ——だから記録者の仕事は、<b>手放した瞬間を手放さないこと</b>。方向は書けなくても「ここで方向を捨てた」とだけ記せば、乙はもう空っぽのフリができない。<br>
+    <span style="color:#2f343f">たぬきとの夜（2026-07-04）から。</span>
+  </div>
+</div>
+<script>
+function load(k,d){ try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+function yen(n){ return '¥' + Math.round(n).toLocaleString('ja-JP'); }
+
+// 三点は同じ金額で並ぶ（値では見分けられない）
+const VAL = 12000;
+document.getElementById('aA').textContent = yen(VAL);
+document.getElementById('aB').textContent = yen(VAL);
+document.getElementById('aC').textContent = yen(VAL);
+
+// 状態：乙は「持ってる(held)／手放した・未記(dropped)／手放した・記した(kept)」
+let stB   = load('tebanashi_stB', 'held');
+let months= 0;
+
+const cB = document.getElementById('cB');
+const vB = document.getElementById('vB');
+const tB = document.getElementById('tB');
+const throwBtn = document.getElementById('throw');
+const markBtn  = document.getElementById('mark');
+const timeEl   = document.getElementById('time');
+const elapsedEl= document.getElementById('elapsed');
+const flashEl  = document.getElementById('flash');
+
+function flash(msg){
+  flashEl.textContent = msg; flashEl.style.opacity = 1;
+  clearTimeout(flash._t);
+  flash._t = setTimeout(()=>{ flashEl.style.opacity = 0; }, 2600);
+}
+
+function applyState(){
+  if(stB === 'held'){
+    vB.innerHTML = '仕入<span class="ar">→</span>◯棟';
+    vB.style.opacity = 1;
+    tB.className = 'tag held'; tB.textContent = '持ってた';
+    throwBtn.disabled = false; markBtn.disabled = true;
+  } else if(stB === 'dropped'){
+    vB.textContent = 'ここに在った';        // まだ手放した自覚が残っている
+    vB.style.opacity = 1;
+    tB.className = 'tag held'; tB.textContent = '持ってた';
+    throwBtn.disabled = true; markBtn.disabled = false;
+  } else if(stB === 'kept'){
+    vB.textContent = 'ここで方向を捨てた';   // 手放した瞬間を残した
+    vB.style.opacity = 1;
+    tB.className = 'tag kept'; tB.textContent = '捨';
+    throwBtn.disabled = true; markBtn.disabled = true;
+  }
+  applyTime();
+}
+
+// 時を送る：手放した・未記の乙だけが風化して甲に化ける
+function applyTime(){
+  const t = months / 6;  // 0..1
+  elapsedEl.textContent = months.toFixed(0) + ' か月';
+
+  if(stB === 'dropped'){
+    // 「持ってた」札が薄れていく。半年で完全に消え、甲と見分けがつかない。
+    tB.style.opacity = Math.max(0, 1 - t*1.15);
+    // 自覚の文字も薄れ、最後は「ここ」＝甲の顔になる
+    if(t >= 1){
+      vB.textContent = 'ここ';              // 甲と同じ顔
+      cB.classList.add('weathered');
+    } else {
+      vB.textContent = 'ここに在った';
+      vB.style.opacity = Math.max(.25, 1 - t*.8);
+      cB.classList.remove('weathered');
+    }
+  } else if(stB === 'kept'){
+    // 「捨」は風化しない。時を送っても消えない。
+    tB.style.opacity = 1;
+    vB.style.opacity = 1;
+    cB.classList.remove('weathered');
+  } else {
+    tB.style.opacity = 1;
+    cB.classList.remove('weathered');
+  }
+}
+
+throwBtn.addEventListener('click', ()=>{
+  stB = 'dropped';
+  save('tebanashi_stB', stB);
+  applyState();
+  flash('方向が消えた——いまは、まだ手放した自覚がある');
+});
+
+markBtn.addEventListener('click', ()=>{
+  stB = 'kept';
+  save('tebanashi_stB', stB);
+  applyState();
+  flash('「ここで方向を捨てた」——もう空っぽのフリはできない');
+});
+
+timeEl.addEventListener('input', ()=>{
+  months = timeEl.value / 100 * 6;
+  applyTime();
+  if(stB === 'dropped' && months >= 6){
+    flash('締め——甲か乙か、もう思い出せない');
+  }
+});
+
+applyState();
+</script>
+</body>
+</html>

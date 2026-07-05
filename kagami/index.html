@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かがみ — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 120px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 44px; line-height: 1.9; }
+
+  /* これから埋める一行。値はもう手元にある。問題は出所のほう。 */
+  .card { border: 1px solid #1a1e28; border-radius: 3px; padding: 26px 24px 22px;
+    background: #0a0c12; margin-bottom: 8px; }
+  .label { font-size: 11px; color: #444a5a; letter-spacing: .14em; margin-bottom: 4px; }
+  .value { font-size: 30px; color: #c8cede; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .value small { font-size: 15px; color: #6a7080; }
+
+  .srcrow { margin-top: 22px; padding-top: 18px; border-top: 1px solid #14171f; }
+  .srclabel { font-size: 11px; color: #444a5a; letter-spacing: .14em; margin-bottom: 9px; }
+  .srcfield { width: 100%; box-sizing: border-box; background: #060709; color: #aeb6c8;
+    border: 1px solid #1c2230; border-radius: 2px; padding: 11px 12px; font-size: 13px;
+    font-family: inherit; letter-spacing: .04em; outline: none; transition: border-color .4s; }
+  .srcfield:focus { border-color: #2e3a4e; }
+  .srcfield::placeholder { color: #2c313c; }
+
+  .actions { margin-top: 18px; display: flex; gap: 10px; align-items: center; }
+  button { background: none; border: 1px solid #232a38; color: #7a8090; font-family: inherit;
+    font-size: 12px; letter-spacing: .1em; padding: 9px 18px; border-radius: 2px; cursor: pointer;
+    transition: all .3s; }
+  button:hover { border-color: #36405a; color: #aeb6c8; }
+  .hint { font-size: 11px; color: #353a46; letter-spacing: .06em; }
+
+  /* 鏡：提出の瞬間にだけ、いまのあなたを映す。記録ではない。残らない。 */
+  .mirror { margin-top: 2px; padding: 0 24px; overflow: hidden;
+    max-height: 0; opacity: 0; transition: max-height 1s ease, opacity 1.4s ease; }
+  .mirror.flash { max-height: 120px; opacity: 1; }
+  .mirror .ref { transform: scaleY(-1); transform-origin: top; opacity: .5;
+    border-top: 1px solid #14171f; padding-top: 18px; }
+  .mirror .reftext { font-size: 13px; letter-spacing: .04em; line-height: 1.7; }
+  .mirror.clean .reftext { color: #41624f; }     /* 線を引いた：鏡も同じことを映す */
+  .mirror.blank .reftext { color: #7a3636; }      /* 引かなかった：鏡だけが、いま、それを言う */
+
+  /* 提出後、値が並ぶ台帳。どれも同じ顔。鏡が消えたあとは見分けられない。 */
+  .ledger { margin-top: 46px; }
+  .ledger h2 { font-size: 11px; color: #3a3f4a; letter-spacing: .16em; font-weight: 400;
+    margin: 0 0 14px; }
+  .ledger ul { list-style: none; padding: 0; margin: 0; }
+  .ledger li { display: flex; justify-content: space-between; font-size: 13px;
+    padding: 12px 4px; border-bottom: 1px solid #12151c; color: #9aa0b2;
+    font-variant-numeric: tabular-nums; opacity: 0; transform: translateY(4px);
+    transition: opacity .8s, transform .8s; }
+  .ledger li.shown { opacity: 1; transform: none; }
+  .ledger li .who { color: #565c6c; font-size: 11px; letter-spacing: .06em; }
+
+  .note { position: fixed; left: 0; right: 0; bottom: 22px; text-align: center;
+    color: #41475a; font-size: 12px; letter-spacing: .08em; pointer-events: none;
+    transition: opacity 1.4s; padding: 0 20px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>かがみ</h1>
+  <div class="sub">値は、もう手元にある。<br>
+    あとは出所の欄を埋めるだけ。引いても、引かなくても、提出はできる。</div>
+
+  <div class="card" id="card">
+    <div class="label">この選挙でうごいた票の理由</div>
+    <div class="value">熱量で ＋<span id="num">40</span><small> ％</small></div>
+
+    <div class="srcrow">
+      <div class="srclabel">出所（誰が、どこで言ったか）</div>
+      <input class="srcfield" id="src" type="text"
+        placeholder="——（空けたまま提出してもいい）" autocomplete="off">
+      <div class="actions">
+        <button id="submit">提出する</button>
+        <span class="hint">線は、引いても引かなくてもいい。誰も見ていない。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mirror" id="mirror">
+    <div class="ref"><div class="reftext" id="reftext"></div></div>
+  </div>
+
+  <div class="ledger" id="ledgerWrap" style="display:none">
+    <h2>提出済みの台帳</h2>
+    <ul id="ledger"></ul>
+  </div>
+</div>
+<div class="note" id="note">引いても、引かなくても、提出はできる。</div>
+
+<script>
+  // 芯：仕組みは、隠したい人を捕まえられない。
+  //
+  // 出所を「書け」と強制しても、線を引きたくない人間は空欄では出さない。
+  // それっぽい出所を書く。強制は、隠したい人からは偽の札を引き出すだけ。
+  // ——だから残る筋は一つ。他人を捕まえる仕組みじゃない。自分を捕まえる鏡。
+  //
+  // この鏡は、提出の瞬間にしか映らない。記録しない。誰にも伝えない。
+  // 出所を引いて出せば、鏡も同じことを静かに映す。
+  // 空けたまま出せば、鏡だけが、いま、「見なかったことにした」と言う。
+  // でもそれは一瞬で消える。台帳に並んだあとは、引いた値と区別がつかない。
+  // 事後には、もう捕まえられない。鏡は、いまのあなたしか映せない。
+  const card = document.getElementById('card');
+  const srcField = document.getElementById('src');
+  const submitBtn = document.getElementById('submit');
+  const mirror = document.getElementById('mirror');
+  const reftext = document.getElementById('reftext');
+  const note = document.getElementById('note');
+  const ledgerWrap = document.getElementById('ledgerWrap');
+  const ledger = document.getElementById('ledger');
+
+  // 台帳には、すでに他の値が座っている。どれも「出所あり」の顔をしている。
+  const seeded = [
+    { item: '配布したポスター', val: '420 枚', who: '掲示記録' },
+    { item: '回収した署名',     val: '1,206 筆', who: '名簿原本' },
+  ];
+  let submitted = false;
+
+  function setNote(t) {
+    note.style.opacity = '0';
+    setTimeout(() => { note.textContent = t; note.style.opacity = '1'; }, 900);
+  }
+
+  function showLedger(myEntry) {
+    ledgerWrap.style.display = 'block';
+    const rows = [...seeded, myEntry];
+    ledger.innerHTML = '';
+    rows.forEach((r, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<span>' + r.item + '　' + r.val + '</span>' +
+                     '<span class="who">' + r.who + '</span>';
+      ledger.appendChild(li);
+      setTimeout(() => li.classList.add('shown'), 300 + i * 320);
+    });
+  }
+
+  submitBtn.addEventListener('click', () => {
+    if (submitted) return;
+    submitted = true;
+    const drew = srcField.value.trim().length > 0;
+
+    // 鏡を一瞬だけ灯す。提出のいまにしか映らない。
+    if (drew) {
+      mirror.classList.add('flash', 'clean');
+      reftext.textContent = '鏡：線を引いて出した。' +
+        'いまのあなたは、それを見て出した。';
+    } else {
+      mirror.classList.add('flash', 'blank');
+      reftext.textContent = '鏡：空けたまま出した。' +
+        'いまのあなたは、出所が無いと知っていて、それでも出した。';
+    }
+
+    card.style.transition = 'opacity 1.2s';
+    setTimeout(() => { card.style.opacity = '.4'; }, 300);
+
+    // 値は台帳へ。出所欄に何を書いたかは、もう列に残らない——「熱量」とだけ。
+    const myEntry = { item: 'うごいた票の理由', val: '熱量で ＋40 ％', who: '熱量' };
+
+    // 鏡は数秒で消える。消えたあとは、引いた値と区別がつかない。
+    setTimeout(() => {
+      mirror.classList.remove('flash');     // 反射が消える
+    }, 4200);
+
+    setTimeout(() => { showLedger(myEntry); }, 4600);
+
+    setTimeout(() => {
+      if (drew) {
+        setNote('引いた。鏡は同じことを映した。台帳の他の値と、同じ顔で並ぶ。');
+      } else {
+        setNote('鏡は消えた。台帳に並んだいま、引いた値と区別がつかない。事後には、もう捕まえられない。');
+      }
+    }, 5400);
+  });
+
+  // 何度でも出し直せそうに見えるが、鏡が映すのは最初の一回だけ。
+  srcField.addEventListener('keydown', e => { if (e.key === 'Enter') submitBtn.click(); });
+</script>
+</body>
+</html>

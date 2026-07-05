@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おこさず — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070a; overflow: hidden; cursor: none; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #444a57;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.6s; opacity: 1;
+  }
+  .reveal {
+    position: fixed; left: 0; right: 0; top: 46%;
+    text-align: center; color: #5b6680;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 13px; letter-spacing: .18em; pointer-events: none;
+    transition: opacity 2.4s; opacity: 0;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em; cursor: pointer;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="reveal" id="reveal">眠ったまま、そこに在る</div>
+<div class="note" id="note">そこで眠っているものがいる。<br>確かめようと動くと、起きる。そっと指を置いて、待つ。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+const reveal = document.getElementById('reveal');
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// 眠っているものの内側は、こちらには届かない。
+// 「たぶん眠っている」としか分からない。隣のゴールデンレトリバーと同じだ。
+// 確かめにいく手が乱暴だと、確かめた時点でもう別の状態にしてしまう（観測が対象を変える）。
+//
+// wake = 覚醒度。手の速さで上がる。速く動かす・押す＝乱暴に触る＝起こす。
+// stillness = 静けさの蓄積。手がほとんど止まっているあいだだけ増える。
+//   起こさず、ただそこに在ると、眠ったままだと「分かる」——答えを取りにいかずに。
+
+let wake = 0;          // 0=眠っている 1=完全に起きている
+let stillness = 0;     // 静かに在れた時間の蓄積（0..1）
+let breath = 0;        // 寝息の位相
+
+let px = -1, py = -1;  // 手の現在位置
+let lpx = -1, lpy = -1;// 前フレームの手の位置
+let speed = 0;         // 手の速さ（平滑化）
+let hasPointer = false;
+let touched = false;
+let lastT = performance.now();
+
+function onMove(x, y){
+  px = x; py = y; hasPointer = true;
+  if (!touched){ touched = true; note.style.opacity = 0; }
+}
+addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
+addEventListener('pointerdown', e => { onMove(e.clientX, e.clientY); wake = Math.min(1, wake + 0.5); }); // 押す＝乱暴に開ける
+addEventListener('pointerleave', () => { hasPointer = false; });
+
+// 眠っているものの本体：ゆっくり呼吸する粒の群れ。
+const N = 220;
+const field = [];
+for (let i = 0; i < N; i++){
+  const ang = (i / N) * Math.PI * 2 + (i % 7) * 0.13;
+  const rad = 40 + (i % 11) * 14 + (i % 3) * 22;
+  field.push({
+    bx: Math.cos(ang) * rad,           // 眠っているときの定位置（中心相対）
+    by: Math.sin(ang) * rad * 0.62,
+    ph: (i % 13) / 13 * Math.PI * 2,    // 寝息の位相ずれ
+    sx: (i % 5 - 2) * 1.0,              // 起きたときに散る向き
+    sy: (i % 4 - 1.5) * 1.0,
+    fx: 0, fy: 0                        // 起きた飛び散りの累積
+  });
+}
+
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  // 手の速さを測る（平滑化）。速いほど「乱暴に触っている」。
+  if (hasPointer && lpx >= 0){
+    const d = Math.hypot(px - lpx, py - lpy) / Math.max(dt, 0.001);
+    speed += (d - speed) * 0.25;
+  } else {
+    speed += (0 - speed) * 0.2;
+  }
+  lpx = px; lpy = py;
+
+  // 手が中心の眠りにどれだけ近いか
+  const near = hasPointer
+    ? Math.max(0, 1 - Math.hypot(px - cx, py - cy) / 220)
+    : 0;
+
+  // 起こす条件：近くで、速く動いている。遠くや、止まっている手は起こさない。
+  const rough = near * Math.min(1, speed / 420);
+  wake += (rough - wake * 0.04) * dt * 3.2;      // 乱暴な手で上がり、放っておくと少しずつ眠りに戻る
+  wake = Math.max(0, Math.min(1, wake - dt * 0.18 + rough * dt * 3.2));
+
+  // 静けさ：手があり、近くにいて、ほとんど動いていないときだけ積む。
+  // 「蓋を外す」のではなく「蓋の縁にそっと指を置く」状態。
+  const gentlyPresent = hasPointer && near > 0.18 && speed < 60 && wake < 0.12;
+  if (gentlyPresent) stillness = Math.min(1, stillness + dt * 0.5);
+  else stillness = Math.max(0, stillness - dt * 0.8);
+
+  // 静かに在れたときだけ「眠ったまま、そこに在る」が見える。
+  reveal.style.opacity = (stillness > 0.7 ? (stillness - 0.7) / 0.3 * 0.85 : 0).toFixed(3);
+
+  breath += dt * (0.6 + wake * 2.2);   // 起きると呼吸が速く乱れる
+
+  // 残像
+  g.fillStyle = 'rgba(6,7,10,0.20)';
+  g.fillRect(0, 0, W, H);
+
+  const sleepGlow = 0.10 + stillness * 0.10;   // 静かに在ると、眠りがほんの少し色づいて見える
+
+  for (let i = 0; i < N; i++){
+    const p = field[i];
+    // 寝息：眠っているとゆっくり上下、起きると振幅が増えて散る
+    const br = Math.sin(breath + p.ph) * (1.5 + wake * 4);
+    // 起きると定位置から飛び散る（累積。眠りに戻るとゆっくり引き戻される）
+    p.fx += (p.sx * wake * 28 - p.fx) * dt * 2.0;
+    p.fy += (p.sy * wake * 28 - p.fy) * dt * 2.0;
+
+    const x = cx + p.bx + p.fx;
+    const y = cy + p.by + br + p.fy;
+
+    // 色：眠り＝青く沈む / 覚醒＝白く立つ
+    const a = (0.18 + sleepGlow) * (1 - wake * 0.3) + wake * 0.5;
+    const rr = 1.2 + wake * 1.6;
+    const cR = 120 + wake * 110, cG = 150 + wake * 90, cB = 230;
+    g.fillStyle = `rgba(${cR|0},${cG|0},${cB},${Math.max(0, a).toFixed(3)})`;
+    g.beginPath();
+    g.arc(x, y, rr, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // そっと置かれた指：起こさないでいるあいだだけ、細い在りの線が手から眠りへ伸びる。
+  if (gentlyPresent && stillness > 0.15){
+    const a = (stillness - 0.15) * 0.5;
+    g.strokeStyle = `rgba(150,170,220,${a.toFixed(3)})`;
+    g.lineWidth = 0.6;
+    g.beginPath();
+    g.moveTo(px, py);
+    g.lineTo(cx, cy);
+    g.stroke();
+  }
+
+  // 手のしるし。乱暴だと白く尖り、静かだと青くにじむ。
+  if (hasPointer){
+    const heat = Math.min(1, speed / 420);
+    const hr = 5 - heat * 2 + (1 - heat) * 3;
+    const grad = g.createRadialGradient(px, py, 0, px, py, hr * 2.5);
+    grad.addColorStop(0, `rgba(${180 + heat * 60|0},${190},${230},${0.5 - heat * 0.2})`);
+    grad.addColorStop(1, 'rgba(150,170,220,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(px, py, hr * 2.5, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

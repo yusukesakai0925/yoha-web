@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ゆきどまり — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .stat { position: fixed; left: 0; right: 0; top: 18px; text-align: center;
+    font-size: 12px; letter-spacing: .22em; color: #4a5160; pointer-events: none; }
+  .stat b { color: #8089a0; font-weight: 400; }
+  .end { position: fixed; left: 0; right: 0; top: 50%; text-align: center;
+    font-size: 13px; letter-spacing: .3em; color: #7a8298;
+    transform: translateY(-50%); pointer-events: none; opacity: 0;
+    transition: opacity .8s ease; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="stat" id="stat">この線は必ず止まる</div>
+<div class="end" id="end"></div>
+<div class="sub">
+  線は規則だけで進む。先は見ていない——左に折れられれば折れ、だめなら直進、それもだめなら右。<br>
+  自分の跡は二度通れず、盤は有限だ。だから<b>必ず止まる</b>。それは最初から決まっている。<br>
+  でも、どの一手が最後になるかは、<b>止まってみるまで分からない</b>。<br>
+  終わることは決まっている。終わる場所は、決まっていない。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const statEl = document.getElementById('stat');
+const endEl = document.getElementById('end');
+
+let W, H, DPR, cell, cols, rows, ox, oy;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // 盤を画面に合わせて切る。一辺の升数は画面サイズで決まる。
+  cell = Math.max(14, Math.min(W, H) / 26);
+  cols = Math.floor((W - 40) / cell);
+  rows = Math.floor((H - 130) / cell);
+  ox = (W - cols * cell) / 2;
+  oy = (H - rows * cell) / 2 + 8;
+  reset();
+}
+
+// 規則は score_self と同じ左手法。dir: 0=上 1=右 2=下 3=左
+const DR = [-1, 0, 1, 0];
+const DC = [0, 1, 0, -1];
+let grid, head, dir, steps, dead, line;
+
+function reset(){
+  grid = Array.from({length: rows}, () => new Array(cols).fill(0));
+  // 起点と向きは毎回ちがう。だから終わる場所も毎回ちがう。
+  head = { r: (Math.random() * rows) | 0, c: (Math.random() * cols) | 0 };
+  dir = (Math.random() * 4) | 0;
+  grid[head.r][head.c] = 1;
+  steps = 1; dead = false;
+  line = [{ r: head.r, c: head.c }];
+  endEl.style.opacity = 0;
+  statEl.innerHTML = 'この線は必ず止まる';
+}
+
+function free(r, c){
+  return r >= 0 && r < rows && c >= 0 && c < cols && grid[r][c] === 0;
+}
+
+function step(){
+  // 左折・直進・右折の順で、最初に空いている方へ。
+  const order = [(dir + 3) % 4, dir, (dir + 1) % 4];
+  for (const nd of order){
+    const nr = head.r + DR[nd], nc = head.c + DC[nd];
+    if (free(nr, nc)){
+      grid[nr][nc] = 1;
+      head = { r: nr, c: nc };
+      dir = nd;
+      line.push({ r: nr, c: nc });
+      steps++;
+      return true;
+    }
+  }
+  // どれも塞がれていた＝ゆきどまり。
+  dead = true;
+  return false;
+}
+
+function px(c){ return ox + c * cell + cell / 2; }
+function py(r){ return oy + r * cell + cell / 2; }
+
+function draw(){
+  ctx.clearRect(0, 0, W, H);
+  // 線
+  ctx.lineWidth = Math.max(2, cell * 0.16);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = dead ? '#3b4252' : '#5b6a8c';
+  ctx.beginPath();
+  for (let i = 0; i < line.length; i++){
+    const x = px(line[i].c), y = py(line[i].r);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // 先端（生きているあいだ）
+  if (!dead){
+    ctx.fillStyle = '#aab4cc';
+    ctx.beginPath();
+    ctx.arc(px(head.c), py(head.r), cell * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // ゆきどまりの一升だけ、座標の印を残す。
+    const x = px(head.c), y = py(head.r), s = cell * 0.34;
+    ctx.strokeStyle = '#8089a0';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x, y - s); ctx.lineTo(x + s, y);
+    ctx.lineTo(x, y + s); ctx.lineTo(x - s, y);
+    ctx.closePath(); ctx.stroke();
+  }
+}
+
+let acc = 0, prev = performance.now(), waitAfterDead = 0;
+const STEP_MS = 70;
+function loop(now){
+  const dt = now - prev; prev = now;
+  if (!dead){
+    acc += dt;
+    while (acc >= STEP_MS && !dead){
+      acc -= STEP_MS;
+      const ok = step();
+      if (!ok){
+        // ここで初めて、どの一手が最後だったか分かる。
+        endEl.innerHTML = 'ゆきどまり　・　' + steps + '手で止まった';
+        endEl.style.opacity = 1;
+        statEl.innerHTML = '<b>ここが最後だった</b>　——進むまで、どの一手か分からなかった';
+        waitAfterDead = 0;
+      }
+    }
+  } else {
+    waitAfterDead += dt;
+    if (waitAfterDead > 3600){
+      // 別の起点、別の向き、別のゆきどまり。
+      reset();
+      acc = 0;
+    }
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+// 画面に触れたら、待たずに次の線を引き直す。
+cv.addEventListener('click', () => { reset(); acc = 0; });
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

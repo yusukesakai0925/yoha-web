@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>けものみち — 夜半</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0d10;color:#c9cdd3;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden}
+  #wrap{display:flex;flex-direction:column;align-items:center;height:100%;justify-content:center;gap:14px}
+  canvas{background:#0e1116;border:1px solid #1b2027;image-rendering:pixelated;touch-action:none}
+  #hint{font-size:12px;color:#5b626c;max-width:520px;line-height:1.7;text-align:center;padding:0 16px}
+  kbd{background:#161b22;border:1px solid #2a323c;border-radius:3px;padding:1px 6px;color:#9aa2ab;font-size:11px}
+  #cap{font-size:11px;color:#454b54;max-width:560px;line-height:1.7;text-align:center;padding:0 16px}
+  b{color:#8b929b;font-weight:600}
+  a{color:#5b626c}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="520" height="520"></canvas>
+  <div id="hint">
+    <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> で歩く。<br>
+    描くボタンも、消すゴムも、「ここに道」と指す方法も無い。<br>
+    同じ升を <b>15回</b> 通ると、床がへこみはじめる。反復だけが彫る。
+  </div>
+  <div id="cap">
+    灰の直線は、敷いた者（私）の舗装路。歩く者は経路を変える権限を持たない——
+    近道したければ足で削るしかない。舗装路が減っても<b>灰が沈むだけ</b>（設計の内側の摩耗）。
+    だが道を引かなかった升に反復だけで<b>土色の痕</b>が生えたら、それがけものみち。
+    墓標は私が彫る欠け。これは私が彫らない、歩く者が彫る在り。設計しなかった線だけが、ここに残る。
+  </div>
+</div>
+<script>
+const N = 26;                    // 盤の升数（N×N）
+const S = 20;                    // 1升のピクセル
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const THRESH = 15;               // これ以上踏まれた升が「道」として現れ始める
+const MAXWEAR = 60;              // へこみが飽和する踏み数
+const KEY = 'kemonomichi_wear_v1';
+
+// ── 踏み数の台帳（升ごと）。localStorage に持ち越す ──
+let wear;
+try { wear = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ wear = {}; }
+function idx(x,y){ return y*N + x; }
+function step(x,y){ const k = idx(x,y); wear[k] = (wear[k]||0) + 1; }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(wear)); }catch(e){} }
+
+// ── 敷いた者の舗装路：左下の入口→右上の出口を、L字で大回りさせる ──
+//    （素直に対角へ歩けば近道になる＝踏み分け道が生まれる余地を設計側が残す）
+const START = {x:2,  y:N-3};
+const GOAL  = {x:N-3, y:2};
+function onPaved(x,y){
+  // L字：まず右へ（下の縁）→ 突き当りで上へ（右の縁）
+  const corner = {x:N-3, y:N-3};
+  if (y===START.y && x>=START.x && x<=corner.x) return true;
+  if (x===corner.x && y<=corner.y && y>=GOAL.y) return true;
+  return false;
+}
+
+let px = START.x, py = START.y;
+step(px,py); save();
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    const w = wear[idx(x,y)]||0;
+    const paved = onPaved(x,y);
+    // 舗装路：うっすら灰の下地
+    if(paved){ ctx.fillStyle='#161b22'; ctx.fillRect(x*S,y*S,S-1,S-1); }
+    if(w>=THRESH){
+      const t = Math.min(1,(w-THRESH)/(MAXWEAR-THRESH));   // 0..1
+      if(paved){
+        // 舗装路が踏まれて減る＝設計の内側の摩耗。灰がただ深く沈むだけ（想定内・権限あり）
+        const g = 22 - Math.round(14*t);                   // 22→8
+        ctx.fillStyle = `rgb(${g},${g+1},${g+3})`;
+      }else{
+        // 舗装の無い升に反復だけで生えた痕＝けものみち。土（暖色）が削れて出る。
+        //   設計しなかった場所にしか立てない、権限の無い者だけの痕。
+        const r = 34 + Math.round(40*t), gg = 26 + Math.round(22*t), b = 18 + Math.round(8*t);
+        ctx.fillStyle = `rgb(${r},${gg},${b})`;
+      }
+      ctx.fillRect(x*S,y*S,S-1,S-1);
+    }
+  }
+  // 入口・出口の目印
+  mark(START,'#2e4d3a'); mark(GOAL,'#2e4d3a');
+  // 現在地
+  ctx.fillStyle = '#d7c98a';
+  ctx.fillRect(px*S+4,py*S+4,S-9,S-9);
+}
+function mark(p,col){ ctx.fillStyle=col; ctx.fillRect(p.x*S+6,p.y*S+6,S-13,S-13); }
+
+function move(dx,dy){
+  const nx=px+dx, ny=py+dy;
+  if(nx<0||ny<0||nx>=N||ny>=N) return;   // 盤の外へは出られない
+  px=nx; py=ny;
+  step(px,py); save();
+  draw();
+}
+addEventListener('keydown', e=>{
+  const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+  if(m[e.key]){ e.preventDefault(); move(...m[e.key]); }
+});
+// タッチ/ドラッグでも「隣の升へ一歩」だけ。任意の升を直接塗る手段は与えない。
+let last=null;
+cv.addEventListener('pointerdown',e=>{ last={x:e.clientX,y:e.clientY}; });
+cv.addEventListener('pointermove',e=>{
+  if(!last) return;
+  const dx=e.clientX-last.x, dy=e.clientY-last.y;
+  if(Math.abs(dx)<S && Math.abs(dy)<S) return;
+  if(Math.abs(dx)>Math.abs(dy)) move(Math.sign(dx),0); else move(0,Math.sign(dy));
+  last={x:e.clientX,y:e.clientY};
+});
+addEventListener('pointerup',()=>last=null);
+
+draw();
+</script>
+</body>
+</html>

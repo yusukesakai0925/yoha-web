@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>あとさき — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 16px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.95;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .hud { position: fixed; right: 16px; top: 14px; font-size: 10.5px; color: #2f343f;
+    letter-spacing: .1em; text-align: right; line-height: 1.7; white-space: pre; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="hud" id="hud"></div>
+<canvas id="c"></canvas>
+<div class="sub">
+  左をさわると<b>跡</b>を置く（後ろ向き）。右をさわると<b>予約</b>を置く（前向き）。<br>
+  どちらも同じ一筆——置いた瞬間は見分けがつかない。<br>
+  跡はそのまま<b>黙って在る</b>。何も要求しない。済んだことに約束はできないから。<br>
+  予約は置いた瞬間から<b>督促が閉じてくる</b>。閉じる前にもう一度さわれば<b>果たす</b>。<br>
+  果たさなければ<b>嘘</b>になり、掘り返されて傷だけが残る。前を指すと、黙れない。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const hud = document.getElementById('hud');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 跡（後ろ向き）と予約（前向き）。形は同じ点。差は時間軸の向きだけ。
+// 跡: 置いたら不変。黙っている。
+// 予約: 督促が閉じる。果たせば跡に変わる。果たさなければ嘘になり掘り返される。
+const DEMAND = 7000;   // 督促が閉じきるまで（ms）
+const traces = [];     // {x,y,t0}
+const holds  = [];     // {x,y,t0, state:'open'|'kept'|'lie', tEnd}
+
+let now = 0;
+function reading(state){
+  if(state==='open') return '…';
+  if(state==='kept') return '果たした';
+  return '嘘';
+}
+
+function hit(arr, px, py, r){
+  for(let i=arr.length-1;i>=0;i--){
+    const d=Math.hypot(arr[i].x-px, arr[i].y-py);
+    if(d<r) return i;
+  }
+  return -1;
+}
+
+function tap(px, py){
+  // 右半分なら予約、左半分なら跡。ただし開いている予約に触れたら「果たす」が最優先。
+  const hi = hit(holds.filter(h=>h.state==='open'), px, py, 26);
+  if(hi>=0){
+    const open = holds.filter(h=>h.state==='open');
+    const h = open[hi];
+    h.state='kept'; h.tEnd=now;        // 果たした → これ以降は黙る跡になる
+    return;
+  }
+  if(px > W/2){
+    holds.push({x:px, y:py, t0:now});  // 予約：督促が始まる
+  }else{
+    traces.push({x:px, y:py, t0:now}); // 跡：黙って在る
+  }
+}
+cv.addEventListener('click', e=> tap(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{ const t=e.touches[0]; tap(t.clientX,t.clientY); }, {passive:true});
+
+function dot(x,y,r,a){
+  ctx.fillStyle = `rgba(160,172,200,${a})`;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+
+function frame(ts){
+  now = ts;
+  ctx.clearRect(0,0,W,H);
+
+  // 中央の仕切り（後ろ向き｜前向き）
+  ctx.strokeStyle='rgba(40,46,58,0.5)'; ctx.lineWidth=1;
+  ctx.setLineDash([2,6]);
+  ctx.beginPath(); ctx.moveTo(W/2,46); ctx.lineTo(W/2,H-58); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(70,78,94,0.5)'; ctx.font='11px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('跡 ← 後ろ', W*0.25, 40);
+  ctx.fillText('前 → 予約', W*0.75, 40);
+  ctx.textAlign='left';
+
+  // 跡：置いた時刻が古くなっても変わらない。黙っている。
+  for(const t of traces){ dot(t.x, t.y, 3.2, 0.7); }
+
+  // 予約：督促が閉じる。
+  let lies=0, kept=0, open=0;
+  for(const h of holds){
+    if(h.state==='kept'){
+      kept++;
+      // 果たした予約は跡になる。閉じた実線の丸＝埋まった。
+      dot(h.x,h.y,3.4,0.82);
+      ctx.strokeStyle='rgba(120,150,130,0.4)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(h.x,h.y,7,0,Math.PI*2); ctx.stroke();
+      continue;
+    }
+    if(h.state==='lie'){
+      lies++;
+      // 掘り返された傷：×印と、消えかけの薄い点。
+      const age = now - h.tEnd;
+      const fade = Math.max(0.18, 1 - age/4000);
+      ctx.strokeStyle = `rgba(150,90,96,${0.55*fade})`; ctx.lineWidth=1.2;
+      ctx.beginPath();
+      ctx.moveTo(h.x-6,h.y-6); ctx.lineTo(h.x+6,h.y+6);
+      ctx.moveTo(h.x+6,h.y-6); ctx.lineTo(h.x-6,h.y+6);
+      ctx.stroke();
+      continue;
+    }
+    // open：督促が閉じてくる
+    open++;
+    const p = Math.min(1, (now - h.t0)/DEMAND);   // 0→1 で閉じきる
+    if(p>=1){ h.state='lie'; h.tEnd=now; lies++; open--; continue; }
+    // 点
+    const red = p;                                 // 督促が進むほど赤む
+    ctx.fillStyle = `rgba(${160+ (0)*red}, ${172-90*red}, ${200-110*red}, ${0.6+0.3*red})`;
+    ctx.beginPath(); ctx.arc(h.x,h.y,3.4,0,Math.PI*2); ctx.fill();
+    // 閉じてくる督促の環（外から内へ）
+    const R = 24*(1-p) + 6;
+    ctx.strokeStyle = `rgba(${150+0*red}, ${110-30*red}, ${118-30*red}, ${0.25+0.5*red})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(h.x,h.y,R,0,Math.PI*2); ctx.stroke();
+  }
+
+  hud.textContent =
+    `跡 ${traces.length}（黙っている）\n` +
+    `予約 ${holds.length}\n` +
+    `　果たした ${kept}\n` +
+    `　督促中 ${open}\n` +
+    `　嘘 ${lies}`;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

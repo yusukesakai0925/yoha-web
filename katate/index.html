@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かたて — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 50px; line-height: 1.9; }
+
+  /* 束。あなたの側はもう揃っている。閉じるための引き手だけが、向こうにある。 */
+  .bundle { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 22px 0; overflow: hidden; }
+  .rows { transition: transform .25s ease; }
+  .row { display: flex; align-items: center; height: 22px; padding: 0 26px;
+    font-size: 12px; color: #6a7080; letter-spacing: .06em; }
+  .row .dot { width: 5px; height: 5px; border-radius: 50%; background: #2a3142; margin-right: 14px; flex: none; }
+  .row .txt { flex: 1; }
+  .row .ok { color: #41624f; font-size: 11px; letter-spacing: .1em; }
+
+  /* 綴じ目。あなたの側（左）は引けば締まる。閉じる留め金（右）はあなたの手では掛からない。 */
+  .seam { position: absolute; top: 0; bottom: 0; width: 1px; background: #14171f; }
+  .seam.near { left: 50%; }       /* あなたの側の縁 */
+  .seam.far  { right: 26px; }     /* 向こうの留め金がある縁 */
+  .gap { position: absolute; top: 18px; bottom: 18px; left: 50%; right: 26px;
+    background: linear-gradient(90deg, #0a0c12, #060709 60%, #0a0c12);
+    pointer-events: none; transition: right .3s ease, opacity 1s ease; }
+
+  .clasp { position: absolute; top: 50%; right: 18px; transform: translateY(-50%);
+    width: 16px; height: 40px; border: 1px solid #232a38; border-radius: 3px;
+    background: #0b0e15; transition: all .8s ease; }
+  .clasp::after { content: ""; position: absolute; left: 50%; top: 50%;
+    width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+    background: #2a3142; transition: background .8s; }
+  .clasp.closed { border-color: #36505e; }
+  .clasp.closed::after { background: #41624f; }
+
+  .controls { margin-top: 26px; display: flex; gap: 12px; align-items: center; }
+  button { background: none; border: 1px solid #232a38; color: #7a8090; font-family: inherit;
+    font-size: 12px; letter-spacing: .1em; padding: 10px 20px; border-radius: 2px; cursor: pointer;
+    transition: all .3s; }
+  button:hover { border-color: #36405a; color: #aeb6c8; }
+  button:disabled { opacity: .35; cursor: default; }
+
+  .read { margin-top: 30px; min-height: 20px; font-size: 12px; letter-spacing: .07em;
+    line-height: 1.9; color: #565c6c; transition: color .6s; }
+  .read.near { color: #6a7080; }
+  .read.far  { color: #41624f; }
+  .meter { margin-top: 18px; font-size: 11px; color: #353a46; letter-spacing: .08em; }
+  .meter b { color: #6a7080; font-weight: 400; font-variant-numeric: tabular-nums; }
+
+  .foot { margin-top: 58px; font-size: 11px; color: #2c313c; letter-spacing: .08em;
+    line-height: 2; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 部屋へ戻る</a>
+<div class="wrap">
+  <h1>か た て</h1>
+  <div class="sub">
+    あなたの側は、もう揃っている。<br>
+    値も、並びも、順番も。あとは綴じるだけ。<br>
+    けれど留め金は、向こうの縁にある。
+  </div>
+
+  <div class="bundle">
+    <div class="rows" id="rows"></div>
+    <div class="seam near"></div>
+    <div class="seam far"></div>
+    <div class="gap" id="gap"></div>
+    <div class="clasp" id="clasp"></div>
+  </div>
+
+  <div class="controls">
+    <button id="tighten">こちらを締める</button>
+    <button id="close">綴じる</button>
+  </div>
+
+  <div class="read" id="read">引けば締まる。けれど、それで閉じはしない。</div>
+  <div class="meter">閉じやすさ <b id="pct">0</b>%　／　留め金はこちらの手の外</div>
+
+  <div class="foot">
+    空欄は、揃っていない。<br>
+    これは、揃って閉じていないだけ。<br>
+    待つというのは、手が空くことではなく、引かれる準備で満ちている時間のこと。
+  </div>
+</div>
+
+<script>
+const rowsEl = document.getElementById('rows');
+const gap = document.getElementById('gap');
+const clasp = document.getElementById('clasp');
+const read = document.getElementById('read');
+const pctEl = document.getElementById('pct');
+const btnT = document.getElementById('tighten');
+const btnC = document.getElementById('close');
+
+const labels = ['日付','宛先','金額','控え','署名','合計'];
+labels.forEach(l => {
+  const r = document.createElement('div'); r.className = 'row';
+  r.innerHTML = '<span class="dot"></span><span class="txt">'+l+'</span><span class="ok">揃</span>';
+  rowsEl.appendChild(r);
+});
+
+let tightness = 0;          // 0..1  こちらで上げられる「閉じやすさ」
+let closed = false;
+let farHandTimer = null;    // 向こうの手が、いつ引くかは決められない
+
+function render(){
+  // 締めるほど隙間は narrow するが、向こうの縁には届かない（漸近）。
+  const minRight = 27;                       // 留め金の手前で止まる
+  const span = 50;                           // gap の可動幅(%)相当
+  const r = minRight + (1 - tightness) * 8;  // px。締めても 27px までしか寄れない
+  gap.style.right = r + 'px';
+  pctEl.textContent = Math.round(tightness * 100);
+  // こちら側の rows をわずかに寄せる（揃った感じ）
+  rowsEl.style.transform = 'translateX(' + (tightness * 2) + 'px)';
+}
+render();
+
+btnT.addEventListener('click', () => {
+  if (closed) return;
+  tightness = Math.min(1, tightness + 0.2);
+  render();
+  read.className = 'read near';
+  if (tightness >= 1){
+    read.textContent = 'これ以上は締まらない。こちらの側は、もう尽くした。';
+    // 向こうの手は、こちらが尽くしたあとに、こちらの知らない間で引かれる。
+    if (!farHandTimer){
+      const wait = 9000 + Math.floor(tightness * 4000); // いつ来るかは固定しない範囲
+      farHandTimer = setTimeout(farHandPulls, wait);
+    }
+  } else {
+    read.textContent = '締まった。でも閉じてはいない。隙間は向こうの縁に残る。';
+  }
+});
+
+btnC.addEventListener('click', () => {
+  if (closed) return;
+  read.className = 'read';
+  read.textContent = 'この手では掛からない。留め金は、向こうの縁にある。';
+  // 軽く揺れるだけ。こちらの「綴じる」は届かない。
+  clasp.animate(
+    [{transform:'translateY(-50%) translateX(0)'},
+     {transform:'translateY(-50%) translateX(-2px)'},
+     {transform:'translateY(-50%) translateX(0)'}],
+    {duration: 260});
+});
+
+function farHandPulls(){
+  if (closed) return;
+  closed = true;
+  // 向こうの一引きで、閉じる。こちらが整えておいたから、一引きで足りた。
+  gap.style.opacity = '0';
+  clasp.classList.add('closed');
+  read.className = 'read far';
+  read.textContent = '向こうが、引いた。揃えて待っていたから、一引きで足りた。';
+  btnT.disabled = true; btnC.disabled = true;
+}
+</script>
+</body>
+</html>

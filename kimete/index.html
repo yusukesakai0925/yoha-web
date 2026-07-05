@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>きめて — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 26px; padding: 0 24px; }
+
+  /* 予約席 = 前向きの空欄。あたたかい琥珀の枠、督促のように脈打つ */
+  .seat { width: 220px; height: 132px; border-radius: 6px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(200,150,80,.42);
+    box-shadow: 0 0 0 0 rgba(200,150,80,0);
+    transition: border-color 1.2s ease, box-shadow 1.2s ease, background 1.2s ease;
+    background: rgba(40,30,18,.16); }
+  .seat.waiting { animation: pulse 3.4s ease-in-out infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(200,150,80,0); border-color: rgba(200,150,80,.30); }
+    50%     { box-shadow: 0 0 22px 2px rgba(200,150,80,.10); border-color: rgba(200,150,80,.52); }
+  }
+  /* 墓標 = 後ろ向きの跡。冷たい石板、動かない、脈打たない、痩せない */
+  .seat.confirmed { border-color: rgba(120,132,152,.5); background: rgba(20,24,32,.5);
+    box-shadow: none; animation: none; }
+
+  .seatlabel { position: absolute; top: -20px; left: 0; right: 0; text-align: center;
+    font-size: 11px; letter-spacing: .3em; color: #6a5a3c; transition: color 1.2s ease; }
+  .seat.confirmed .seatlabel { color: #545a6a; }
+
+  .seatbody { text-align: center; font-size: 12px; letter-spacing: .16em;
+    line-height: 2; color: #7a6a48; transition: color 1.2s ease; }
+  .seat.confirmed .seatbody { color: #7a8398; font-variant-numeric: tabular-nums; }
+  .coord { font-size: 12.5px; letter-spacing: .12em; color: #99a2b6; }
+  .coordsub { font-size: 10px; letter-spacing: .18em; color: #4a5060; }
+
+  .decide { border: 1px solid rgba(120,132,152,.28); background: transparent;
+    color: #7c8498; font-size: 12px; letter-spacing: .18em; padding: 9px 20px;
+    border-radius: 3px; cursor: pointer; font-family: inherit;
+    transition: border-color .3s, color .3s, background .3s; }
+  .decide:hover { border-color: rgba(150,162,182,.55); color: #aeb6c8; }
+  .decide:active { background: rgba(120,132,152,.08); }
+  .decide.gone { opacity: 0; pointer-events: none; transition: opacity 1.2s ease; }
+
+  .refuse { min-height: 16px; font-size: 11px; letter-spacing: .14em; color: #6a5a3c;
+    opacity: 0; transition: opacity .35s ease; text-align: center; }
+  .refuse.show { opacity: 1; }
+
+  .sub { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .1em; line-height: 1.95;
+    pointer-events: none; padding: 0 22px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+
+<div class="wrap">
+  <div class="seat waiting" id="seat">
+    <div class="seatlabel" id="label">よやくせき</div>
+    <div class="seatbody" id="body"></div>
+  </div>
+  <div class="refuse" id="refuse"></div>
+  <button class="decide" id="decide">来ないと決める</button>
+</div>
+
+<div class="sub" id="sub"></div>
+
+<script>
+// ── きめて ────────────────────────────────────────────────────────
+// 予約席は前向きの空欄。まだ来るかもしれないあいだ、督促のように脈打つ。
+// 座標は貼れない——確定の前に縁取らない（触れると席が拒む）。
+// 「来ないと決める」= 確定。この一手だけが後ろ向きの墓標に縫い直す。
+// 一度きり・不可逆。確定した瞬間そのものが、席に刻まれる座標になる。
+// 席を保持していた時間は localStorage に溜まり、閉じても続く。
+// ──────────────────────────────────────────────────────────────
+
+const seat   = document.getElementById('seat');
+const label  = document.getElementById('label');
+const bodyEl = document.getElementById('body');
+const decide = document.getElementById('decide');
+const refuse = document.getElementById('refuse');
+const subEl  = document.getElementById('sub');
+
+const K_STATE = 'kimete_state';     // 'waiting' | 'confirmed'
+const K_HELD  = 'kimete_held_ms';   // 保持した総時間（待っているあいだだけ増える）
+const K_LAST  = 'kimete_last';      // 前回ここを見た時刻（差分を held に足す）
+const K_STAMP = 'kimete_stamp_iso'; // 確定した瞬間 = 座標
+const K_XY    = 'kimete_xy';        // 墓標の空間座標（確定時に一度だけ決め、以後不変）
+
+function get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+let state = get(K_STATE) || 'waiting';
+let held  = parseFloat(get(K_HELD) || '0');
+
+// 保持時間の累積（待っているあいだだけ）。前回見た時刻との差分を足す。
+function accumulate(){
+  if(state !== 'waiting') return;
+  const now = performance.timing ? (Date.now()) : Date.now();
+  const last = parseFloat(get(K_LAST) || '0');
+  if(last > 0){
+    const gap = now - last;
+    // 席を閉じているあいだも待っていた、とみなす（上限は付けない＝空席は空席のまま持ち続く）
+    if(gap > 0) held += gap;
+  }
+  set(K_LAST, String(now));
+  set(K_HELD, String(held));
+}
+
+function fmtDur(ms){
+  const s = Math.floor(ms/1000);
+  const d = Math.floor(s/86400);
+  const h = Math.floor((s%86400)/3600);
+  const m = Math.floor((s%3600)/60);
+  const parts = [];
+  if(d) parts.push(d + '日');
+  if(h || d) parts.push(h + '時間');
+  parts.push(m + '分');
+  return parts.join('');
+}
+
+// ── 確定：来ないと決める ──────────────────────────────
+function confirmNoShow(){
+  if(state === 'confirmed') return;
+  state = 'confirmed';
+  // 確定した瞬間そのものが座標になる（前借りしていない、いま在るだけ）
+  const now = new Date();
+  const iso = now.toISOString();
+  set(K_STAMP, iso);
+  // 空間座標も確定時に一度だけ固定（以後どんな再訪でも動かない＝痩せない）
+  const rx = ((now.getTime() % 997) / 997);
+  const ry = ((now.getTime() % 733) / 733);
+  const xy = rx.toFixed(3) + ',' + ry.toFixed(3);
+  set(K_XY, xy);
+  set(K_STATE, 'confirmed');
+  render();
+}
+
+decide.addEventListener('click', confirmNoShow);
+
+// 席そのものに触れる = 縁取ろうとする。確定の前は拒む。
+seat.addEventListener('click', () => {
+  if(state === 'confirmed') return;
+  refuse.textContent = '——確定の前に縁取らない。まだ来るかもしれない。';
+  refuse.classList.add('show');
+  clearTimeout(seat._t);
+  seat._t = setTimeout(()=> refuse.classList.remove('show'), 2600);
+});
+
+// ── 描画 ───────────────────────────────────────────────
+function render(){
+  if(state === 'confirmed'){
+    seat.classList.remove('waiting');
+    seat.classList.add('confirmed');
+    label.textContent = 'ぼひょう';
+    decide.classList.add('gone');
+    refuse.classList.remove('show');
+    const iso = get(K_STAMP) || '';
+    const xy  = get(K_XY) || '';
+    const disp = iso ? iso.slice(0,10) + ' ' + iso.slice(11,19) : '';
+    bodyEl.innerHTML =
+      '<div class="coord">( ' + xy + ' )</div>' +
+      '<div class="coordsub">' + disp + '</div>' +
+      '<div class="coordsub" style="margin-top:6px;color:#5a6070">来なかった、と決めた瞬間</div>';
+    subEl.innerHTML =
+      '席は<b>後ろ向き</b>になった。もう督促しない、誰にも何も要求しない。<br>' +
+      '刻まれた座標は<b>確定の瞬間そのもの</b>——読む者が来なくても、痩せない。';
+  } else {
+    seat.classList.add('waiting');
+    seat.classList.remove('confirmed');
+    label.textContent = 'よやくせき';
+    bodyEl.innerHTML =
+      '<div style="color:#8a7852">まだ来ない</div>' +
+      '<div style="margin-top:8px;color:#6a5a3c;font-size:11px">' +
+        '空けて待っている：<span id="dur">' + fmtDur(held) + '</span></div>';
+    subEl.innerHTML =
+      '誰かのために空けた席。<b>前向き</b>だから「来なかったらどうする」を抱えている。<br>' +
+      '待ち続ける（何もしない）のがいちばんこらえ性がいる——閉じたい引力にあらがう。<br>' +
+      '席に触れても座標は貼れない。<b>来ないと決めた</b>ときだけ、跡になる。';
+  }
+}
+
+// 待っているあいだの保持時間を毎分ふやして見せる
+function tick(){
+  if(state === 'waiting'){
+    accumulate();
+    const dur = document.getElementById('dur');
+    if(dur) dur.textContent = fmtDur(held);
+  }
+}
+
+accumulate();
+render();
+setInterval(tick, 30000);
+</script>
+</body>
+</html>

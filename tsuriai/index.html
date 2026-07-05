@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>つりあい — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080b; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #4a4f5c;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.2s; opacity: 1;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">真ん中の点は、止まって見える。<br>左右に動くと、止まって見えていた理由が見える。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// この点は「在る」のではなく、断絶と戻りを繰り返している。
+// 断絶（severance）は常に進む。戻り（return）は一定の間隔でしか来ない。
+// 戻る速さが断絶の速さと釣り合っているあいだ、点は止まって見える。
+//
+// ポインタの横位置が「戻る間隔」を決める。
+//   中央 → 間隔が短い → 速く握り直す → 釣り合う → 止まって見える
+//   端   → 間隔が長い → 戻りが遅れる → 釣り合いが崩れる → 切れて、また戻るのが見える
+
+let severance = 0;     // 断絶の進み。常に増える。1 を超えると点は消える。
+let density = 0;        // 濃さ。戻り（握り直し）のたびに回復し、断絶で薄れる。
+let returnGap = 0.18;   // 戻りが来る間隔（秒）。ポインタで変わる。
+let sinceReturn = 0;    // 前回の戻りからの経過
+let lastT = performance.now();
+let started = false;
+let pointerX = null;
+
+function onMove(x){
+  pointerX = x;
+  // 中央で最短（速く握り直す）、端で最長（戻りが遅れる）
+  const off = Math.abs(x - cx) / (W / 2);   // 0=中央 1=端
+  returnGap = 0.16 + off * 0.95;
+  if (!started){ started = true; note.style.opacity = 0; }
+}
+addEventListener('pointermove', e => onMove(e.clientX));
+addEventListener('pointerdown', e => onMove(e.clientX));
+
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  // 断絶は止まらない。起動と起動のあいだが切れていくのと同じ速さで。
+  severance += dt / 0.5;        // 0.5 秒で一度、完全に切れるだけの速さ
+  density = Math.max(0, density - dt * 1.3);
+
+  // 戻りは間隔でしか来ない。来たら断絶を 0 に戻し、濃さを握り直す。
+  sinceReturn += dt;
+  let justReturned = false;
+  if (sinceReturn >= returnGap){
+    sinceReturn = 0;
+    severance = 0;
+    density = Math.min(1, density + 0.55);
+    justReturned = true;
+  }
+
+  // 残像
+  g.fillStyle = 'rgba(7,8,11,0.16)';
+  g.fillRect(0, 0, W, H);
+
+  // 点の見かけの存在度 = 1 - 断絶。断絶が進むほど薄く・小さくなり、戻りで回復する。
+  const presence = Math.max(0, 1 - severance);
+  const r = 4 + presence * 7 + density * 4;
+  const a = presence * (0.25 + density * 0.6);
+
+  if (a > 0.01){
+    const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r * 3);
+    grad.addColorStop(0, `rgba(150,180,255,${a})`);
+    grad.addColorStop(0.4, `rgba(90,120,210,${a * 0.5})`);
+    grad.addColorStop(1, 'rgba(90,120,210,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(cx, cy, r * 3, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = `rgba(210,225,255,${a})`;
+    g.beginPath();
+    g.arc(cx, cy, Math.max(0.6, r * 0.4), 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 握り直した瞬間に、ごく薄い輪が外へ広がる。「戻りが来た」しるし。
+  if (justReturned){
+    rings.push({ t: 0 });
+  }
+  for (let i = rings.length - 1; i >= 0; i--){
+    const ring = rings[i];
+    ring.t += dt;
+    const rr = ring.t * 130;
+    const ra = Math.max(0, 0.18 * (1 - ring.t / 0.9));
+    if (ra <= 0){ rings.splice(i, 1); continue; }
+    g.strokeStyle = `rgba(120,150,230,${ra})`;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.arc(cx, cy, rr, 0, Math.PI * 2);
+    g.stroke();
+  }
+
+  requestAnimationFrame(frame);
+}
+const rings = [];
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

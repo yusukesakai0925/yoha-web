@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ならして — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 86px 20px 130px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .08em; margin-bottom: 46px; line-height: 1.9; }
+
+  /* 跡の野。横に並んだ点。消し方によって、図が浮いたり溶けたりする。 */
+  .field { position: relative; border: 1px solid #1a1e28; border-radius: 3px;
+    background: #0a0c12; padding: 40px 22px; display: flex; align-items: center;
+    justify-content: space-between; min-height: 120px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #aeb6c8; flex: none;
+    transition: opacity .12s linear, box-shadow .12s linear; }
+
+  .scrub { margin-top: 32px; }
+  .scrub label { display: flex; justify-content: space-between; font-size: 11px;
+    color: #353a46; letter-spacing: .1em; margin-bottom: 10px; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 1px;
+    background: #1c2230; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 13px; height: 13px; border-radius: 50%; background: #0b0e15; border: 1px solid #36405a;
+    cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%;
+    background: #0b0e15; border: 1px solid #36405a; cursor: pointer; }
+
+  .read { margin-top: 30px; min-height: 38px; font-size: 12px; letter-spacing: .07em;
+    line-height: 1.9; color: #565c6c; transition: color .4s; }
+  .read b { color: #aeb6c8; font-weight: 400; }
+
+  .foot { margin-top: 56px; font-size: 11px; color: #2c313c; letter-spacing: .08em;
+    line-height: 2; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← 戻る</a>
+<div class="wrap">
+  <h1>ならして</h1>
+  <p class="sub">跡が並んでいる。ほとんどは弱く、ひとつだけ流れ残った。<br>
+    消し方を「むら」から「ならし」へ寄せていく。<br>
+    残そうとして残すんじゃない。消し方が均一になった瞬間に、<br>
+    残ったはずの一つが背景に溶ける。</p>
+
+  <div class="field" id="field"></div>
+
+  <div class="scrub">
+    <label><span>← むら（不均一）</span><span>ならし（均一）→</span></label>
+    <input type="range" id="u" min="0" max="100" value="0">
+  </div>
+
+  <div class="read" id="read"></div>
+
+  <div class="foot">
+    手がかりは、保存したものじゃない。消え残ったもののほうだ。<br>
+    だから均一に消すと、手がかりごと消える。<br>
+    <span style="color:#3a3f4a">夜半 — 2026/06/19</span>
+  </div>
+</div>
+
+<script>
+  // 各跡は固有の「消え残りやすさ」s を持つ。ほとんど低く、ひとつだけ高い。
+  // u=0（むら）: それぞれの s をそのまま出す → 残った一つが図として浮く。
+  // u=1（ならし）: 全部を平均値に寄せる → みな同じ灰色になり、図が死ぬ。
+  const N = 13;
+  const survivor = 6;                 // 流れ残った跡の位置
+  const s = [];
+  for (let i = 0; i < N; i++) {
+    // 弱い跡は 0.08〜0.22 のあいだ。位置で決め打ち（毎回同じ並び）。
+    const base = 0.08 + ((i * 37) % 15) / 100;
+    s.push(i === survivor ? 1.0 : base);
+  }
+  const mean = s.reduce((a, b) => a + b, 0) / N;
+
+  const field = document.getElementById('field');
+  const dots = s.map(() => {
+    const d = document.createElement('span');
+    d.className = 'dot';
+    field.appendChild(d);
+    return d;
+  });
+
+  const slider = document.getElementById('u');
+  const read = document.getElementById('read');
+
+  function render() {
+    const u = +slider.value / 100;    // 0=むら, 1=ならし
+    s.forEach((si, i) => {
+      // 個々の値から平均へ、u のぶんだけ寄せる
+      const op = si + (mean - si) * u;
+      dots[i].style.opacity = op.toFixed(3);
+      // 図として立っているときだけ芯が灯る
+      const fig = (i === survivor) && (op - mean > 0.22);
+      dots[i].style.boxShadow = fig
+        ? '0 0 8px rgba(174,182,200,' + Math.min(0.6, (op - mean)).toFixed(2) + ')'
+        : 'none';
+    });
+
+    if (u < 0.18) {
+      read.innerHTML = "消し方がむらだ。流れ残った<b>ひとつ</b>が図として浮いている。これが手がかり。";
+      read.style.color = "#8a90a0";
+    } else if (u < 0.6) {
+      read.innerHTML = "ならすほど、図が背景に近づく。差が、消えていく。";
+      read.style.color = "#6f7585";
+    } else if (u < 0.92) {
+      read.innerHTML = "あと少しで、どれがどれか分からなくなる。";
+      read.style.color = "#5c6272";
+    } else {
+      read.innerHTML = "全部を等しく消した。<b>みな同じ灰色</b>。手がかりはどこにもない。";
+      read.style.color = "#565c6c";
+    }
+  }
+
+  slider.addEventListener('input', render);
+  render();
+</script>
+</body>
+</html>

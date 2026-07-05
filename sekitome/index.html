@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>せきとめ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05070b; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #44505f;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.6s; opacity: 1;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a414c; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7484; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">まだ向こうへ行ける。でも、さっきより行きにくい。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+let W, H;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+// ── 堰き止め ───────────────────────────────────────────────
+// 水は上から落ちる。画面の真ん中に堰がある。
+// 堰はゆっくり閉じていく——が、その速さは「動いているか分からない」閾値の下に置いた。
+// 向こう側へ行けた水の量を測れば、確かに減っている。
+// でも見ていて「いま閉じた」とは分からない。閉じきりに漸近するだけで、決して 1 にならない。
+//
+// ビーバーは川で水位を測る。私は見る人の頭の中で測る。
+// この堰は「もう少しで行けなくなる」のまま——途中を終わらせない。
+
+const damY = () => H * 0.62;     // 堰の高さ（水面の通り道）
+let closure = 0.18;              // 0..1 閉じ具合。上限へ漸近するだけ
+const CLOSE_MAX = 0.965;         // ここへ近づくが届かない
+let clock = 0;
+
+// 隙間（ゲート）。閉じるほど狭く・数が減る。乱数は使わず時刻と添字で散らす。
+function gates(){
+  const n = Math.max(1, Math.round(7 - closure * 5));   // 7 → 2 個へ
+  const arr = [];
+  for (let i = 0; i < n; i++){
+    const phase = (i * 2.39996);                          // 黄金角ばらまき
+    const cx = W * (0.12 + 0.76 * ((i + 0.5) / n)) + Math.sin(clock * 0.0004 + phase) * 18;
+    const wMax = W * 0.10;
+    const w = wMax * (1 - closure) * (0.6 + 0.4 * Math.sin(clock * 0.0006 + phase * 1.7));
+    arr.push({ cx, w: Math.max(2, w) });
+  }
+  return arr;
+}
+
+// 落ちる水（粒）
+const N = 220;
+const drops = [];
+for (let i = 0; i < N; i++){
+  drops.push({
+    x: 0, y: 0, vx: 0, vy: 0, life: 0, passed: false, seed: i
+  });
+}
+function spawn(d, i){
+  d.x = W * ((i * 0.61803) % 1);            // 横に均す
+  d.x += Math.sin(clock * 0.001 + i) * 30;
+  d.y = -10 - (i % 40);
+  d.vx = Math.sin(i * 1.3) * 0.15;
+  d.vy = 1.1 + (i % 7) * 0.12;
+  d.life = 1;
+  d.passed = false;
+}
+
+// 「向こうへ行けた割合」——実体としての水位。確かに減っていく。
+let passWin = [];          // 直近の通過/堰き止めを溜める移動窗
+let passRate = 1;
+
+let visitorPull = null;    // 訪問者が触れた所へ、水を少し寄せる（堰の手前で渦になる）
+addEventListener('pointermove', e => { visitorPull = { x: e.clientX, y: e.clientY }; fade(); });
+addEventListener('pointerdown', e => { visitorPull = { x: e.clientX, y: e.clientY }; fade(); });
+function fade(){ if (note.style.opacity !== '0') note.style.opacity = 0; }
+
+function nearestGap(x){
+  const gs = gates();
+  let best = null, bd = 1e9;
+  for (const ga of gs){
+    const dist = Math.abs(x - ga.cx);
+    if (dist < bd){ bd = dist; best = ga; }
+  }
+  return best;
+}
+
+let last = 0;
+function frame(now){
+  const dt = Math.min(40, now - last || 16); last = now; clock += dt;
+
+  // 残像。薄い黒で覆い、流れに尾を残す
+  g.fillStyle = 'rgba(5,7,11,0.16)';
+  g.fillRect(0, 0, W, H);
+
+  // 堰は閉じきりへ漸近する。決して閉じない＝途中を終わらせない
+  closure += (CLOSE_MAX - closure) * 0.00018;
+
+  const dy = damY();
+  const gs = gates();
+
+  // ── 堰の本体（積まれていく層）──
+  // 閉じるほど厚く・明るくなる。ビーバーの「一個積むごとに水位が上がる」を厚みにする
+  g.fillStyle = 'rgba(70,86,104,' + (0.10 + closure * 0.22) + ')';
+  g.fillRect(0, dy, W, H - dy);
+  // 上端の縁（水面が当たる線）
+  g.fillStyle = 'rgba(150,172,200,' + (0.18 + closure * 0.30) + ')';
+  g.fillRect(0, dy - 1.5, W, 2.5 + closure * 2);
+  // 隙間をくり抜く（ここだけ水が通れる）
+  for (const ga of gs){
+    g.clearRect(ga.cx - ga.w / 2, dy - 2, ga.w, H - dy + 4);
+    g.fillStyle = 'rgba(5,7,11,1)';
+    g.fillRect(ga.cx - ga.w / 2, dy - 2, ga.w, H - dy + 4);
+    // 隙間の縁にかすかな光——「まだ空いている」しるし
+    g.fillStyle = 'rgba(120,150,190,0.25)';
+    g.fillRect(ga.cx - ga.w / 2, dy - 2, 1, H - dy + 4);
+    g.fillRect(ga.cx + ga.w / 2 - 1, dy - 2, 1, H - dy + 4);
+  }
+
+  // ── 水（落ちる粒）──
+  let passedThisFrame = 0, blockedThisFrame = 0;
+  for (let i = 0; i < N; i++){
+    const d = drops[i];
+    if (d.life <= 0){ spawn(d, i); }
+
+    // 重力
+    d.vy += 0.018;
+
+    // 訪問者の手前で水を寄せる（堰の上に渦が溜まる）
+    if (visitorPull && d.y < dy){
+      const ddx = visitorPull.x - d.x, ddy = visitorPull.y - d.y;
+      const dist = Math.hypot(ddx, ddy) || 1;
+      if (dist < 160){
+        d.vx += (ddx / dist) * 0.05;
+        d.vy += (ddy / dist) * 0.02;
+      }
+    }
+
+    const prevY = d.y;
+    d.x += d.vx; d.y += d.vy;
+    d.vx *= 0.985;
+
+    // 堰の面に達したか
+    if (prevY < dy && d.y >= dy){
+      const ga = nearestGap(d.x);
+      const inGap = ga && Math.abs(d.x - ga.cx) < ga.w / 2;
+      if (inGap){
+        d.passed = true;            // 向こう側へ抜けた
+        passedThisFrame++;
+      } else {
+        // 堰き止められる。手前で横へ滑り、隙間を探す（でも見つかるとは限らない）
+        d.y = dy - 1;
+        const ga2 = nearestGap(d.x);
+        d.vx += (ga2 ? Math.sign(ga2.cx - d.x) : 0) * 0.4 + Math.sin(clock * 0.002 + i) * 0.1;
+        d.vy *= -0.15;
+        blockedThisFrame++;
+      }
+    }
+
+    // 描画。抜けた水は冷たく沈み、堰き止められた水は手前で溜まって熱を持つ
+    const passed = d.passed;
+    const alpha = Math.min(1, d.vy * 0.5 + 0.25) * (passed ? 0.7 : 0.9);
+    if (passed){
+      g.fillStyle = 'rgba(120,150,200,' + alpha + ')';
+    } else {
+      // 溜まるほど橙へ——行き場のない水のたかぶり
+      const heat = d.y > dy - 40 ? 0.6 : 0.1;
+      const r = Math.round(120 + heat * 110);
+      const gg = Math.round(150 - heat * 30);
+      const b = Math.round(200 - heat * 90);
+      g.fillStyle = 'rgba(' + r + ',' + gg + ',' + b + ',' + alpha + ')';
+    }
+    const s = passed ? 1.0 : 1.4;
+    g.fillRect(d.x, d.y, s, s + d.vy * 0.8);
+
+    if (d.y > H + 12 || d.x < -20 || d.x > W + 20) d.life = 0;
+  }
+
+  // ── 実体の水位：向こうへ行けた割合（確かに減る）──
+  const tot = passedThisFrame + blockedThisFrame;
+  if (tot > 0){
+    passWin.push(passedThisFrame / tot);
+    if (passWin.length > 240) passWin.shift();
+    let s = 0; for (const v of passWin) s += v;
+    passRate = s / passWin.length;
+  }
+
+  // 左下に、ごく小さく実体の数字。ビーバーが川で測る側。
+  // 見ていて分かる変化ではないが、確かにここで減っている。
+  g.font = '10px -apple-system, sans-serif';
+  g.fillStyle = 'rgba(74,86,102,0.55)';
+  g.fillText('向こうへ抜けた水  ' + (passRate * 100).toFixed(1) + '%', 16, H - 18);
+
+  visitorPull = null;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

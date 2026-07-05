@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>うらはら — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  #touch { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%);
+    background: none; border: 1px solid #2a2f3a; color: #7a8298; font-size: 13px;
+    letter-spacing: .14em; padding: 11px 26px; border-radius: 2px; cursor: pointer;
+    font-family: inherit; z-index: 9; -webkit-appearance: none; }
+  #touch:hover { border-color: #454c5b; color: #9aa2b6; }
+  #touch:active { background: #10131a; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 16px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .1em; line-height: 1.85;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<button id="touch">手を触れる</button>
+<div class="sub">
+  ふたつのカウンタ。左は<b>送信枠</b>——使って初めて「在った」ことになる。放っておくと予約は使われないまま死ぬ。<b>消費で生きる</b>。<br>
+  右は<b>座標</b>——動かさぬ限り在る。手を触れて意味を足すたび、古びて痩せる。<b>消費されないことで生きる</b>。<br>
+  同じ一押しが、左を生かし右を削る。両方が生きているのは、<b>まだ手を触れていない今</b>だけ。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── 左：送信枠。消費で生きる。 ──────────────────────
+// pool=まだ確定していない共通プール（潜在・生きている）
+// alive=使った（在ったと確定した）  dead=予約したまま使われず死んだ
+let leftPool = 24;   // 犬の運用に寄せた小さな枠
+let leftAlive = 0;
+let leftDead = 0;
+let leftDecay = 0;   // プール放置の進み（一定たまるとpool→deadへ1つ）
+
+// ── 右：座標。消費されないことで生きる。 ──────────────
+// lum=光度（1=無傷）。触れるたびに痩せる。放置では減らない。
+let rightLum = 1.0;
+let rightThinned = 0;
+
+const COORD = "34.6, 135.5";  // 動かさない限り読める一行
+
+let lastTouch = 0;
+let t = 0;
+
+function touch(){
+  // 左：プールから1つ「使う」＝在ったと確定。消費で生きる。
+  if (leftPool > 0){ leftPool--; leftAlive++; }
+  // 右：触れると意味が古びて痩せる。消費されないことで生きる。
+  if (rightLum > 0.06){ rightLum = Math.max(0.06, rightLum - 0.07); rightThinned++; }
+  lastTouch = t;
+  leftDecay = 0; // 触った瞬間は放置カウンタが戻る
+}
+document.getElementById('touch').addEventListener('click', touch);
+
+function step(){
+  t++;
+  // 左だけが放置で死ぬ。触れないあいだ、プールの予約が使われず腐っていく。
+  if (leftPool > 0){
+    leftDecay += 1;
+    if (leftDecay >= 150){ leftDecay = 0; leftPool--; leftDead++; }
+  }
+  // 右は放置しても一切変わらない（動かさないことで在る）。
+}
+
+function drawLeft(cx){
+  const colW = 34, gap = 6, perRow = 6;
+  const total = leftAlive + leftPool + leftDead;
+  // タイトル
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#4a505e';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillText('送信枠 — 消費で生きる', cx, 92);
+  // マス（上から：使った＝暖色 / プール＝薄い中間 / 死んだ＝冷たい灰）
+  const startY = 120;
+  for (let i = 0; i < total; i++){
+    const r = Math.floor(i / perRow), c = i % perRow;
+    const x = cx - (perRow*(colW+gap)-gap)/2 + c*(colW+gap);
+    const y = startY + r*(colW+gap);
+    let col;
+    if (i < leftAlive)                 col = '#c98a52';           // 使った＝在った
+    else if (i < leftAlive + leftPool){                          // プール＝潜在
+      const decayHint = (i === leftAlive) ? leftDecay/150 : 0;   // 次に死ぬ一枠が滲む
+      const g = 0x30 + Math.round(decayHint*0x18);
+      col = 'rgba('+(g)+','+(g+4)+','+(g+12)+',1)';
+    } else                              col = '#20242c';          // 死んだ
+    ctx.fillStyle = col;
+    ctx.fillRect(x, y, colW, colW);
+    if (i >= leftAlive + leftPool){ // 死枠に×
+      ctx.strokeStyle = '#171a20'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x+8,y+8); ctx.lineTo(x+colW-8,y+colW-8);
+      ctx.moveTo(x+colW-8,y+8); ctx.lineTo(x+8,y+colW-8); ctx.stroke();
+    }
+  }
+  // 数字
+  ctx.fillStyle = '#545a6a'; ctx.font = '11px -apple-system, sans-serif';
+  const ny = startY + Math.ceil(total/perRow)*(colW+gap) + 16;
+  ctx.fillText('使った '+leftAlive+'　残 '+leftPool+'　死んだ '+leftDead, cx, ny);
+}
+
+function drawRight(cx){
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#4a505e';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillText('座標 — 消費されないことで生きる', cx, 92);
+  // 墓標の一行。光度が下がるほど薄く、痩せる（字間が縮み、末尾から欠ける）。
+  const y = 160;
+  const lum = rightLum;
+  const shown = Math.max(1, Math.round(COORD.length * (0.35 + 0.65*lum)));
+  const text = COORD.slice(0, shown);
+  const g = Math.round(0x30 + lum*0x88);
+  ctx.fillStyle = 'rgba('+g+','+(g+6)+','+(g+16)+','+(0.25+0.75*lum)+')';
+  ctx.font = Math.round(15 + lum*7)+'px -apple-system, sans-serif';
+  ctx.fillText(text, cx, y);
+  // 台座（動かない）
+  ctx.strokeStyle = 'rgba(70,76,90,'+(0.15+0.35*lum)+')';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx-52, y+18); ctx.lineTo(cx+52, y+18); ctx.stroke();
+  // 数字
+  ctx.fillStyle = '#545a6a'; ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillText('触れた '+rightThinned+'　光度 '+lum.toFixed(2), cx, y+52);
+}
+
+function loop(){
+  step();
+  ctx.clearRect(0,0,W,H);
+  // 中央の仕切り
+  ctx.strokeStyle = '#12151c'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W/2, 78); ctx.lineTo(W/2, H-150); ctx.stroke();
+  drawLeft(W*0.27);
+  drawRight(W*0.73);
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

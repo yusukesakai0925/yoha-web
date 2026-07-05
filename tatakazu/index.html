@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>たたかず — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 16px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .1em; line-height: 1.85;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .toggle { position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
+    font-size: 12px; letter-spacing: .12em; color: #5a6172; background: #0c0e14;
+    border: 1px solid #1c2030; border-radius: 20px; padding: 8px 16px; cursor: pointer;
+    z-index: 9; transition: all .3s ease; white-space: nowrap; }
+  .toggle:hover { border-color: #2a3040; color: #7a8294; }
+  .toggle.on { color: #c8a0a0; border-color: #5a2e30; background: #140c0e; }
+  .stat { position: fixed; left: 0; right: 0; top: 56px; text-align: center;
+    font-size: 10px; letter-spacing: .14em; color: #3a4050; pointer-events: none;
+    opacity: 0; transition: opacity .4s ease; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="toggle" id="tg">締めに〈叩いた痕〉を要求する：いま要求しない</div>
+<div class="stat" id="stat"></div>
+<canvas id="c"></canvas>
+<div class="sub">
+  どの升も<b>「0」</b>と出している——何も無かった、と。同じ顔で並ぶ。<br>
+  けれど二種類ある。<b>叩いて確かめた0</b>と、<b>叩かずに閉じた0</b>だ。見分けはつかない。<br>
+  上のボタンで、締めに〈叩いた痕〉を要求してみて。痕のある0は静かに通る。痕の無い0は赤くなる——0じゃなく、確かめてない。<br>
+  升を叩くと痕がつく。0の意味を問うんじゃない、<b>往復が起きたか</b>を問う。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const tg = document.getElementById('tg');
+const statEl = document.getElementById('stat');
+let W, H, DPR;
+const COLS = 5, ROWS = 4;
+let cells = [];
+let requireTrace = false;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layout();
+}
+
+function layout(){
+  // 盤を中央に。升の大きさは画面に合わせる。
+  const margin = Math.min(W, H) * 0.10;
+  const availW = W - margin*2, availH = H*0.62 - margin*0.5;
+  const gap = Math.min(availW/COLS, availH/ROWS) * 0.18;
+  const cw = (availW - gap*(COLS-1)) / COLS;
+  const ch = (availH - gap*(ROWS-1)) / ROWS;
+  const size = Math.min(cw, ch);
+  const gridW = size*COLS + gap*(COLS-1);
+  const gridH = size*ROWS + gap*(ROWS-1);
+  const ox = (W - gridW)/2;
+  const oy = (H - gridH)/2 - H*0.03;
+
+  // 初回だけ scanned 状態を決める。以降は配置だけ更新。
+  const first = cells.length === 0;
+  let idx = 0;
+  const next = [];
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const x = ox + c*(size+gap);
+      const y = oy + r*(size+gap);
+      if(first){
+        // だいたい半分が「叩いて確かめた」痕あり。残りは叩かずに閉じた。
+        const scanned = Math.random() < 0.45;
+        next.push({ x, y, s:size, scanned, knockT:-9, traceA: scanned ? 0.5+Math.random()*0.3 : 0 });
+      } else {
+        const o = cells[idx];
+        o.x = x; o.y = y; o.s = size;
+        next.push(o);
+      }
+      idx++;
+    }
+  }
+  cells = next;
+}
+
+let last = performance.now();
+let tNow = 0;
+
+function hit(px, py){
+  for(const cl of cells){
+    if(px>=cl.x && px<=cl.x+cl.s && py>=cl.y && py<=cl.y+cl.s) return cl;
+  }
+  return null;
+}
+function knock(px, py){
+  const cl = hit(px, py);
+  if(!cl) return;
+  cl.knockT = tNow;            // 波紋アニメ
+  if(!cl.scanned){
+    cl.scanned = true;         // 叩いた＝往復が起きた＝痕がつく
+    cl.traceA = 0.55;
+  }
+  updateStat();
+}
+cv.addEventListener('click', e=> knock(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{
+  const t=e.touches[0]; knock(t.clientX, t.clientY);
+}, {passive:true});
+
+tg.addEventListener('click', ()=>{
+  requireTrace = !requireTrace;
+  tg.classList.toggle('on', requireTrace);
+  tg.textContent = '締めに〈叩いた痕〉を要求する：' + (requireTrace ? 'いま要求している' : 'いま要求しない');
+  updateStat();
+});
+
+function updateStat(){
+  if(!requireTrace){ statEl.style.opacity = 0; return; }
+  const missing = cells.filter(c=>!c.scanned).length;
+  if(missing === 0){
+    statEl.textContent = 'すべての0に痕がある。締めてよい。';
+  } else {
+    statEl.textContent = missing + ' 升が叩かれていない——0じゃなく、確かめてない。';
+  }
+  statEl.style.opacity = 1;
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function frame(now){
+  const dt = Math.min((now-last)/1000, 0.1); last = now;
+  tNow += dt;
+  ctx.clearRect(0,0,W,H);
+
+  for(const cl of cells){
+    const cx = cl.x + cl.s/2, cy = cl.y + cl.s/2;
+    const r = cl.s*0.14;
+
+    // 叩いた痕の波紋
+    const since = tNow - cl.knockT;
+    if(since < 1.1){
+      const p = since/1.1;
+      ctx.strokeStyle = `rgba(150,170,200,${(1-p)*0.4})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cl.s*0.3 + p*cl.s*0.5, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    const broken = requireTrace && !cl.scanned;
+
+    // 升の枠
+    if(broken){
+      const pulse = 0.55 + 0.25*Math.sin(tNow*3);
+      ctx.strokeStyle = `rgba(180,70,72,${pulse})`;
+      ctx.lineWidth = 1.4;
+    } else {
+      ctx.strokeStyle = 'rgba(60,68,84,0.55)';
+      ctx.lineWidth = 1;
+    }
+    roundRect(cl.x, cl.y, cl.s, cl.s, r);
+    ctx.stroke();
+
+    // 痕：叩いて確かめた升にだけ、ごく薄い往復の輪。
+    // ただし「要求していない」あいだは伏せる——同じ顔で並ばせるため。
+    if(cl.scanned && requireTrace && cl.traceA>0){
+      ctx.strokeStyle = `rgba(120,140,170,${cl.traceA*0.5})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cl.s*0.34, -Math.PI*0.15, Math.PI*1.15);
+      ctx.stroke();
+    }
+
+    // 中身の文字
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${Math.round(cl.s*0.32)}px -apple-system, sans-serif`;
+    if(broken){
+      ctx.fillStyle = `rgba(190,90,92,${0.7+0.2*Math.sin(tNow*3)})`;
+      ctx.fillText('?', cx, cy+cl.s*0.01);
+    } else {
+      ctx.fillStyle = requireTrace ? 'rgba(150,166,196,0.78)' : 'rgba(96,104,122,0.7)';
+      ctx.fillText('0', cx, cy+cl.s*0.01);
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

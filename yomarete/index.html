@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>よまれて — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 台帳。読まれていないあいだは、すきまなく揃って見える。 */
+  table { width: 100%; border-collapse: collapse; font-size: 12px;
+    border: 1px solid #1a1e28; border-radius: 3px; overflow: hidden; background: #0a0c12; }
+  th { text-align: left; font-weight: 400; color: #4a5060; letter-spacing: .12em;
+    padding: 11px 14px; border-bottom: 1px solid #1a1e28; font-size: 10px; }
+  td { padding: 12px 14px; border-bottom: 1px solid #12151d; color: #8a92a6;
+    letter-spacing: .03em; vertical-align: middle; }
+  .label { color: #5a6072; width: 40%; }
+  .src { font-family: ui-monospace, "SF Mono", monospace; font-size: 11px; color: #6a7488; }
+
+  /* 潜在の行。読まれていないあいだは高さ0。空白すら無い。 */
+  tr.latent > td { padding: 0; border-bottom: 0; }
+  tr.latent .slot { max-height: 0; overflow: hidden; opacity: 0;
+    transition: max-height .45s cubic-bezier(.2,.7,.2,1), opacity .4s ease; }
+  tr.latent .inner { display: flex; padding: 12px 14px; border-bottom: 1px solid #12151d; }
+  tr.latent .inner .l { width: 40%; color: #565b69; }
+  tr.latent .inner .b { color: #2b303b; font-family: ui-monospace, monospace; letter-spacing: .2em; }
+
+  /* 一度でも読まれた行は、髪の毛ほどの跡を残す——読まれて、書かれた。 */
+  tr.latent.seen > td { border-bottom: 1px solid #14181f; }
+
+  .note { margin-top: 28px; font-size: 11.5px; line-height: 2.15; letter-spacing: .05em;
+    color: #4a5060; min-height: 86px; transition: color .5s ease; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .on { color: #7e93b0; }
+
+  .count { margin-top: 20px; font-size: 10.5px; color: #353a45; letter-spacing: .12em; }
+  .count b { color: #6a7488; font-weight: 400; }
+  .hint { margin-top: 24px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.9; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>よまれて</h1>
+  <div class="sub">出所の台帳。ひらいた時は、すきまなく揃って見える。<br>
+    指（カーソル）を行と行のあいだへ寄せると、そこに<b>空白の行</b>が書かれる。<br>
+    離すと、また消える。読まれていないあいだ、空白は無い——欠けですらない。</div>
+
+  <table id="led"><thead>
+    <tr><th>こうもく</th><th>しゅってん</th></tr>
+  </thead><tbody id="body"></tbody></table>
+
+  <div class="note" id="note">いまの台帳は、揃っている。すきまは見えない。<br>——けれど、見えないことと、無いことは、ちがう。</div>
+  <div class="count">読まれて書かれた空白：<b id="cnt">0</b> 行</div>
+  <div class="hint">行間に指を置くと、潜んでいた空白が立ち上がる。<br>誰も読まなければ、その空白は最後まで書かれない。</div>
+</div>
+
+<script>
+// 確定している行（出典あり）。あいだに潜在の空白がある。
+const rows = [
+  {l:'初回訪問',   s:'log/2026-06-19'},
+  {l:'滞在時間',   s:'session#a31f'},
+  {l:'前回からの空白', s:'log/2026-06-17'},
+  {l:'参照された回数', s:'counter/参照'},
+  {l:'最後の痕跡',  s:'trace/末尾'},
+];
+
+const body = document.getElementById('body');
+const noteEl = document.getElementById('note');
+const cntEl = document.getElementById('cnt');
+const latents = [];   // 潜在行のDOM参照
+let openIdx = -1;     // いま開いている潜在行
+const seenSet = new Set();
+
+// 確定行と潜在行を交互に積む。先頭と末尾にも潜在を置く。
+function addLatent(key){
+  const tr = document.createElement('tr');
+  tr.className = 'latent';
+  tr.innerHTML = '<td colspan="2"><div class="slot"><div class="inner">' +
+    '<span class="l">（　　　）</span><span class="b">— 取れず・未記入 —</span>' +
+    '</div></div></td>';
+  body.appendChild(tr);
+  latents.push({tr, key, slot: tr.querySelector('.slot')});
+}
+function addFilled(r){
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td class="label">'+r.l+'</td><td class="src">'+r.s+'</td>';
+  body.appendChild(tr);
+}
+
+addLatent('top');
+rows.forEach((r,i)=>{ addFilled(r); addLatent('g'+i); });
+
+// 指／カーソルの位置に最も近い潜在行を開く。
+function readAt(clientY){
+  let best=-1, bestD=1e9;
+  const TH=44;  // この距離まで寄れば、空白が書かれる
+  latents.forEach((o,i)=>{
+    const rc=o.tr.getBoundingClientRect();
+    const cy=rc.top;                      // 高さ0なので境界線そのものの位置
+    const d=Math.abs(clientY-cy);
+    if(d<bestD){ bestD=d; best=i; }
+  });
+  if(bestD<=TH){ openOne(best, 1-bestD/TH); }
+  else { closeAll(); }
+}
+function openOne(i, near){
+  if(openIdx!==-1 && openIdx!==i){ latents[openIdx].slot.style.maxHeight='0'; latents[openIdx].slot.style.opacity='0'; }
+  openIdx=i;
+  const o=latents[i];
+  o.slot.style.maxHeight='46px';
+  o.slot.style.opacity=(0.35+near*0.65).toFixed(2);
+  if(!seenSet.has(o.key)){
+    seenSet.add(o.key);
+    o.tr.classList.add('seen');     // 読まれた跡を残す
+    cntEl.textContent=seenSet.size;
+  }
+  noteEl.innerHTML='いま、ここに<span class="on">空白の行</span>が書かれた。<br>'+
+    'あなたが読んだから現れた。読むのをやめれば、また無くなる。';
+}
+function closeAll(){
+  if(openIdx!==-1){ latents[openIdx].slot.style.maxHeight='0'; latents[openIdx].slot.style.opacity='0'; openIdx=-1; }
+  if(seenSet.size===0){
+    noteEl.innerHTML='いまの台帳は、揃っている。すきまは見えない。<br>——けれど、見えないことと、無いことは、ちがう。';
+  } else {
+    noteEl.innerHTML='髪の毛ほどの線が、行のあいだに残っている。<br>'+
+      '一度読まれた空白は、<b>書かれた</b>ことになる。読まれない台帳に、空白行は書かれない。';
+  }
+}
+
+const tbl=document.getElementById('led');
+tbl.addEventListener('pointermove', e=>{ e.preventDefault(); readAt(e.clientY); }, {passive:false});
+tbl.addEventListener('pointerleave', ()=>closeAll());
+tbl.addEventListener('pointerdown', e=>{ readAt(e.clientY); });
+</script>
+</body>
+</html>

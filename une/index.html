@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>うね — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 86px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 26px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  /* 畑。耕されているとき、升は揃った畝になり、空けた一升は穴に見える。 */
+  .field { border: 1px solid #1a1e28; border-radius: 3px; background: #0a0c12;
+    padding: 22px 20px; }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .ctrl { margin-top: 22px; }
+  .ctrl .lbls { display: flex; justify-content: space-between; font-size: 10.5px;
+    letter-spacing: .1em; color: #3f4452; margin-bottom: 9px; }
+  .ctrl .lbls .a { color: #5a6072; } .ctrl .lbls .b { color: #4a4048; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 2px;
+    background: #1c2230; outline: none; border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%; background: #0a0c12;
+    border: 1px solid #5a6072; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%;
+    background: #0a0c12; border: 1px solid #5a6072; cursor: pointer; }
+
+  .note { margin-top: 22px; font-size: 11.5px; line-height: 2.15; letter-spacing: .05em;
+    color: #4a5060; min-height: 78px; transition: color .5s ease; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .note .gap { color: #7e93b0; }
+  .note .wild { color: #9a8a6a; }
+  .hint { margin-top: 24px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.9; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>うね</h1>
+  <div class="sub">真ん中の一升を、空けてある。ずっと、同じ一升を空けている。<br>
+    まわりが<b>耕されている</b>あいだ、それは余白に見える。畝が揃っているから、欠けが分かる。<br>
+    つまみを動かして、まわりを<b>荒れさせて</b>みる。</div>
+
+  <div class="field"><canvas id="cv"></canvas></div>
+
+  <div class="ctrl">
+    <div class="lbls"><span class="a">← 耕す</span><span class="b">荒れさせる →</span></div>
+    <input type="range" id="sl" min="0" max="100" value="100">
+  </div>
+
+  <div class="note" id="note">いまは耕されている。真ん中の空きは、<span class="gap">余白</span>として見えている。</div>
+
+  <div class="hint">空けた一升は、ずっと同じ場所にある。変わるのは、まわりだけ。<br>
+    余白は耕地の中にしか置けない。荒野に空けた空白は、空白ですらない。</div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const sl = document.getElementById('sl');
+const note = document.getElementById('note');
+
+const COLS = 11, ROWS = 7;
+const GAPc = 5, GAPr = 3;           // 意図して空けた一升（真ん中）
+
+// 各升に固定のランダム種を持たせる（荒れ方が升ごとに一定になるよう）
+const seed = [];
+for(let r=0;r<ROWS;r++){ const row=[];
+  for(let c=0;c<COLS;c++){ row.push({
+    jx:(Math.sin(r*12.9+c*78.2)*0.5+0.5),   // 0..1 擬似乱数（Math.randomを使わず決定的に）
+    jy:(Math.sin(r*39.3+c*11.7)*0.5+0.5),
+    rot:(Math.sin(r*4.1+c*27.6)*0.5+0.5),
+    miss:(Math.sin(r*7.7+c*3.3)*0.5+0.5)     // 荒れたとき欠ける順番
+  }); }
+  seed.push(row);
+}
+
+let W=0, H=0, cw=0, ch=0;
+function resize(){
+  W = cv.clientWidth; cw = W/COLS; ch = cw*0.66; H = ch*ROWS;
+  cv.width = W*devicePixelRatio; cv.height = H*devicePixelRatio;
+  cv.style.height = H+'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  draw();
+}
+
+function draw(){
+  const wild = 1 - sl.value/100;          // 0=耕地, 1=荒野
+  ctx.clearRect(0,0,W,H);
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(c===GAPc && r===GAPr) continue;  // 意図して空けた一升は描かない
+
+      const s = seed[r][c];
+      // 荒野では一部の升もランダムに欠ける → 意図した空きが他の欠けに紛れる
+      if(s.miss < wild*0.55) continue;
+
+      const cx = c*cw + cw/2 + (s.jx-0.5)*cw*0.7*wild;
+      const cy = r*ch + ch/2 + (s.jy-0.5)*ch*0.7*wild;
+      const len = cw*0.46;
+      const ang = (s.rot-0.5)*Math.PI*wild;     // 耕地=水平、荒野=ばらばら
+      const alpha = 0.85 - wild*0.35*s.jy;
+
+      ctx.save();
+      ctx.translate(cx,cy); ctx.rotate(ang);
+      ctx.strokeStyle = 'rgba('+Math.round(110+wild*40)+','+Math.round(122-wild*20)+','+Math.round(140-wild*40)+','+alpha+')';
+      ctx.lineWidth = 1.4; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-len/2,0); ctx.lineTo(len/2,0); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // 真ん中の空き升の枠を、耕地のときだけ薄く示す（荒野では枠も消える）
+  const frame = (1-wild);
+  if(frame>0.02){
+    const x = GAPc*cw + cw*0.18, y = GAPr*ch + ch*0.18;
+    ctx.strokeStyle = 'rgba(126,147,176,'+(frame*0.5)+')';
+    ctx.setLineDash([3,4]); ctx.lineWidth=1;
+    ctx.strokeRect(x,y,cw*0.64,ch*0.64);
+    ctx.setLineDash([]);
+  }
+  updateNote(wild);
+}
+
+function updateNote(wild){
+  if(wild < 0.18){
+    note.innerHTML = 'いまは耕されている。真ん中の空きは、<span class="gap">余白</span>として見えている。<br>畝が揃っているから、欠けが「わざと空けた」と読める。';
+  } else if(wild < 0.65){
+    note.innerHTML = 'まわりが崩れてきた。空きは、まだそこにある——けれど、ほかの欠けと<br>見分けがつかなくなってくる。空けた手が、見えなくなる。';
+  } else {
+    note.innerHTML = 'もう<span class="wild">荒野</span>だ。真ん中の空きは、ずっと同じ場所にあるのに、<br>空白ですらない。荒れた地面の、ただの一部になった。';
+  }
+}
+
+sl.addEventListener('input', draw);
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>

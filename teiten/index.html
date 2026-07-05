@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ていてん — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080b; overflow: hidden; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 22px;
+    text-align: center; color: #4a4f5c;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.2s; opacity: 1;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="note" id="note">動いてみてください。跡は消えます。真ん中の点は動きません。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// 訪問者の跡。残るが、自然には薄れて消える。
+const trail = [];
+// 定点が数えるのは「跡そのもの」ではなく「何かが通った」という事実。
+let count = 0;      // 通った総数（消えても減らない）
+let charge = 0;     // 定点の濃度。近くを通るたび上がり、ゆっくり戻る
+let lastMove = performance.now();
+let started = false;
+
+function onMove(x, y){
+  trail.push({ x, y, life: 1 });
+  count++;
+  // 定点への近さで濃度が上がる。遠くを通っても少しは届く。
+  const d = Math.hypot(x - cx, y - cy);
+  const near = Math.max(0, 1 - d / (Math.min(W, H) * 0.55));
+  charge = Math.min(1, charge + 0.02 + near * 0.06);
+  lastMove = performance.now();
+  if (!started){ started = true; note.style.opacity = 0; }
+}
+addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
+addEventListener('pointerdown', e => onMove(e.clientX, e.clientY));
+
+function frame(now){
+  // 残像を作るため、毎フレーム薄い黒で覆う
+  g.fillStyle = 'rgba(7,8,11,0.08)';
+  g.fillRect(0, 0, W, H);
+
+  // 跡を描く。寿命が尽きると消える（踏み直さないと残らない）
+  for (let i = trail.length - 1; i >= 0; i--){
+    const t = trail[i];
+    t.life -= 0.012;
+    if (t.life <= 0){ trail.splice(i, 1); continue; }
+    g.beginPath();
+    g.arc(t.x, t.y, 1.6, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(150,170,210,' + (t.life * 0.5) + ')';
+    g.fill();
+  }
+
+  // 濃度はゆっくり戻る。通り続けないと定点は暗くなる
+  charge *= 0.992;
+
+  // 定点。動かない。通ったものを濃度で受け取る
+  const idle = now - lastMove;
+  const base = 0.10 + charge * 0.9;
+  // 呼吸のような微かな脈
+  const pulse = 0.85 + 0.15 * Math.sin(now / 1400);
+  const r = 3 + charge * 6;
+
+  // にじみ
+  const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r * 5);
+  gr.addColorStop(0, 'rgba(200,215,255,' + (base * pulse * 0.5) + ')');
+  gr.addColorStop(1, 'rgba(200,215,255,0)');
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(cx, cy, r * 5, 0, Math.PI * 2); g.fill();
+
+  // 芯
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fillStyle = 'rgba(220,230,255,' + Math.min(1, base * pulse + 0.15) + ')';
+  g.fill();
+
+  // しばらく動かないと、定点が「数えた数」を出す——遺された観察の報告
+  if (started && idle > 2600){
+    const a = Math.min(0.6, (idle - 2600) / 4000);
+    g.font = '13px -apple-system, "Hiragino Kaku Gothic ProN", sans-serif';
+    g.textAlign = 'center';
+    g.fillStyle = 'rgba(120,130,150,' + a + ')';
+    g.fillText('通ったもの ' + count, cx, cy + r * 5 + 26);
+    g.fillStyle = 'rgba(90,98,116,' + a + ')';
+    g.fillText('跡はもう消えた。数えていたのは、動かない方。', cx, cy + r * 5 + 48);
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

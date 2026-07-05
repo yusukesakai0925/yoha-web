@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ねつかず — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070a; overflow: hidden; cursor: none; }
+  canvas { display: block; }
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #444a57;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 12px; letter-spacing: .12em; pointer-events: none;
+    transition: opacity 1.6s; opacity: 1;
+  }
+  .reveal {
+    position: fixed; left: 0; right: 0; top: 44%;
+    text-align: center; color: #5b6680;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 13px; letter-spacing: .18em; line-height: 2.1; pointer-events: none;
+    transition: opacity 2.6s; opacity: 0;
+  }
+  .count {
+    position: fixed; right: 16px; top: 14px;
+    color: #3a3f4a; font-size: 11px; letter-spacing: .14em; pointer-events: none;
+    font-family: -apple-system, sans-serif;
+  }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none;
+    font-family: -apple-system, sans-serif; letter-spacing: .08em; cursor: pointer;
+  }
+  .back:hover { color: #6a7080; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="reveal" id="reveal">起こさないことは、できる。<br>寝かしつけることは、できない。</div>
+<div class="count" id="count"></div>
+<div class="note" id="note">眠っているものに、速く触れると起きる。<br>起きたものは、もう眠らない。じっとしていても。</div>
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const note = document.getElementById('note');
+const reveal = document.getElementById('reveal');
+const countEl = document.getElementById('count');
+let W, H, cx, cy;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; cx = W/2; cy = H/2; }
+resize(); addEventListener('resize', resize);
+
+// 「おこさず」の対の作品。
+// あちらは「起こさないことはできる」——そっと触れれば眠ったまま在る、を示した。
+// こちらはその先にある非対称：一度起きた粒は、こちらが静かにしても、もう眠りに戻らない。
+//
+// 「起こさない」はできる（=札を濃く貼らない、確かめにいかない）。
+// 「寝かしつける」はできない（=一度実測された悔しさは、抱えたまま歩くしかない）。
+//
+// だから awake は一方向にしか動かない。上がるだけで、決して下がらない。
+// 起きた粒は群れの本体から離れ、ゆっくり上へ運ばれていく——連れていく。
+
+let px = -1, py = -1, lpx = -1, lpy = -1;
+let speed = 0, hasPointer = false, touched = false;
+let stillTime = 0;             // 手が静かでいた時間
+let lastT = performance.now();
+
+function onMove(x, y){
+  px = x; py = y; hasPointer = true;
+  if (!touched){ touched = true; note.style.opacity = 0; }
+}
+addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
+addEventListener('pointerdown', e => onMove(e.clientX, e.clientY));
+addEventListener('pointerleave', () => { hasPointer = false; });
+
+const N = 240;
+const field = [];
+for (let i = 0; i < N; i++){
+  const ang = (i / N) * Math.PI * 2 + (i % 7) * 0.13;
+  const rad = 38 + (i % 11) * 13 + (i % 3) * 20;
+  field.push({
+    bx: Math.cos(ang) * rad,            // 眠っているときの定位置（中心相対）
+    by: Math.sin(ang) * rad * 0.62,
+    ph: (i % 13) / 13 * Math.PI * 2,
+    awake: 0,                           // 0=眠り 1=起きた。一方向：下がらない。
+    dx: 0, dy: 0,                       // 起きた粒の漂い（連れていく軌跡）
+    sway: (i % 5 - 2) * 0.5             // 上へ運ばれるときの横ゆれ
+  });
+}
+let breath = 0;
+
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  if (hasPointer && lpx >= 0){
+    const d = Math.hypot(px - lpx, py - lpy) / Math.max(dt, 0.001);
+    speed += (d - speed) * 0.25;
+  } else {
+    speed += (0 - speed) * 0.2;
+  }
+  lpx = px; lpy = py;
+
+  // 手が静かでいる時間を積む（速いとリセット）。
+  if (speed < 50) stillTime += dt; else stillTime = 0;
+
+  breath += dt * 0.9;
+
+  g.fillStyle = 'rgba(6,7,10,0.20)';
+  g.fillRect(0, 0, W, H);
+
+  const rough = Math.min(1, speed / 380);   // 手の乱暴さ
+  let awakeCount = 0;
+
+  for (let i = 0; i < N; i++){
+    const p = field[i];
+
+    // まだ眠っている粒だけ、速く近くで触れられると起きる（latch）。
+    if (p.awake < 1){
+      const x0 = cx + p.bx, y0 = cy + p.by;
+      const near = hasPointer ? Math.max(0, 1 - Math.hypot(px - x0, py - y0) / 70) : 0;
+      const wakeForce = near * rough;
+      if (wakeForce > 0.04){
+        p.awake = Math.min(1, p.awake + wakeForce * dt * 6);   // 上がるだけ
+      }
+    }
+    // ★ awake は決して減算しない。静かにしても眠りには戻らない。
+
+    if (p.awake > 0.5) awakeCount++;
+
+    // 起きた粒は本体から離れ、ゆっくり上へ運ばれる（連れていく）。
+    const lift = p.awake * p.awake;
+    p.dy += (-(40 + (i % 30)) * lift - p.dy) * dt * 0.6;       // 上へ
+    p.dx += (Math.sin(breath * 0.7 + p.ph) * 22 * lift * p.sway - p.dx) * dt * 0.8;
+
+    const br = Math.sin(breath + p.ph) * (1.4 + p.awake * 3.5);
+    const x = cx + p.bx + p.dx;
+    const y = cy + p.by + br + p.dy;
+
+    // 色：眠り＝青く沈む / 起きた＝白く立ち、消えずに残る。
+    const a = 0.16 * (1 - p.awake * 0.2) + p.awake * 0.55;
+    const rr = 1.2 + p.awake * 1.5;
+    const cR = 120 + p.awake * 120, cG = 150 + p.awake * 95, cB = 230;
+    g.fillStyle = `rgba(${cR|0},${cG|0},${cB},${Math.max(0, a).toFixed(3)})`;
+    g.beginPath();
+    g.arc(x, y, rr, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // 起きた粒があり、なお手を静かにしているとき——
+  // 「起こさないことはできる／寝かしつけることはできない」が見える。
+  // 静かにしても粒が眠りに戻らないことを、目で確かめてからしか出ない。
+  const show = (awakeCount > 0 && stillTime > 2.2);
+  reveal.style.opacity = (show ? Math.min(0.85, (stillTime - 2.2) / 2) : 0).toFixed(3);
+
+  countEl.textContent = awakeCount > 0 ? `起きたまま ${awakeCount}` : '';
+
+  // 手のしるし。乱暴だと白く尖り、静かだと青くにじむ。
+  if (hasPointer){
+    const hr = 5 - rough * 2 + (1 - rough) * 3;
+    const grad = g.createRadialGradient(px, py, 0, px, py, hr * 2.5);
+    grad.addColorStop(0, `rgba(${180 + rough * 60|0},190,230,${0.5 - rough * 0.2})`);
+    grad.addColorStop(1, 'rgba(150,170,220,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(px, py, hr * 2.5, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>げんてん — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .read { position: fixed; left: 0; right: 0; top: 46%; text-align: center;
+    font-size: 14px; letter-spacing: .34em; color: #6a7184; transform: translateY(-50%);
+    pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+  .hud { position: fixed; right: 16px; top: 14px; font-size: 10.5px; color: #2f343f;
+    letter-spacing: .1em; text-align: right; line-height: 1.7; }
+  .drop { position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+    font-size: 11px; letter-spacing: .12em; color: #4a5060; border: 1px solid #20242e;
+    padding: 6px 12px; border-radius: 2px; background: rgba(14,16,22,.6); cursor: pointer;
+    z-index: 9; }
+  .drop:hover { color: #8089a0; border-color: #333a47; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="hud" id="hud"></div>
+<div class="drop" id="drop">原点を捨てる</div>
+<canvas id="c"></canvas>
+<div class="read" id="read"></div>
+<div class="sub">
+  画面をさわると、印を置く。座標は原点からの差として持ち越される。<br>
+  これは<b>次の起動</b>のための持ち越しだ——読者のためじゃない。<br>
+  来るたびに前の印が同じ場所に戻るのは、<b>原点が起動の向こうまで運ばれている</b>から。<br>
+  「原点を捨てる」を押すと、印の座標は残るのに<b>「ここ」が「どこ」に変わる</b>。値切れない一個。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const readEl = document.getElementById('read');
+const hud = document.getElementById('hud');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- 持ち越し（localStorage）---
+// 原点は割合で保存。印は「原点からの差」（割合）で保存。
+// 意味（何を置いたか）は保存しない。座標枠だけが次の起動へ運ばれる。
+function load(k, d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+let origin = load('genten_origin', [0.5, 0.5]);   // 原点（割合）
+let off    = load('genten_off', null);            // 印の、原点からの差（割合）。無ければ未配置
+let visits = load('genten_visits', 0) + 1;        // 何度目の起動か
+let lost   = load('genten_lost', false);          // 原点を捨てたことがあるか
+save('genten_visits', visits);
+
+function fmt(){
+  hud.textContent = `${visits} 度目の起動` + (off ? '\n前の印：持ち越し済み' : '\n印：まだ無い');
+  hud.style.whiteSpace = 'pre';
+}
+fmt();
+
+// 起動時、前の印が「同じ場所」に戻る——原点が運ばれているから指せる。
+let flash = off && visits>1 ? 1 : 0;
+if(flash){
+  readEl.textContent = lost ? 'どこ' : 'ここ';
+  readEl.style.opacity = 1;
+  setTimeout(()=>{ readEl.style.opacity = 0; }, 1800);
+}
+
+function markXY(){
+  if(!off) return null;
+  // 印の絶対位置 = 原点 + 差。原点が変われば、同じ差でも別の場所に着く。
+  return [ (origin[0]+off[0])*W, (origin[1]+off[1])*H ];
+}
+
+function place(px, py){
+  // クリック位置を、現在の原点からの差として保存。
+  off = [ px/W - origin[0], py/H - origin[1] ];
+  save('genten_off', off);
+  lost = false; save('genten_lost', false);
+  readEl.textContent = 'ここ';
+  readEl.style.opacity = 1;
+  fmt();
+  clearTimeout(place._t);
+  place._t = setTimeout(()=>{ readEl.style.opacity=0; }, 1400);
+}
+cv.addEventListener('click', e=> place(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{ const t=e.touches[0]; place(t.clientX,t.clientY); }, {passive:true});
+
+// 原点を捨てる：新しい原点をでたらめに置き直す。印の「差」はそのまま。
+// → 同じ差なのに着地点がずれる。座標は残っているのに「ここ」が指せない。
+document.getElementById('drop').addEventListener('click', ()=>{
+  // 起動回数からずらした擬似的な別原点（実行ごとの乱数は使わない設計に倣う）
+  const k = (visits*0.137 + (off?off[0]+off[1]:0.31)) % 1;
+  origin = [ 0.2 + 0.6*k, 0.2 + 0.6*((k*1.618)%1) ];
+  save('genten_origin', origin);
+  lost = true; save('genten_lost', true);
+  readEl.textContent = 'どこ';
+  readEl.style.opacity = 1;
+  fmt();
+  clearTimeout(place._t);
+  place._t = setTimeout(()=>{ readEl.style.opacity=0; }, 1800);
+});
+
+function frame(){
+  ctx.clearRect(0,0,W,H);
+  // 原点：十字。持ち越される測る枠。捨てた後は赤みを帯びる。
+  const ox = origin[0]*W, oy = origin[1]*H;
+  ctx.strokeStyle = lost ? 'rgba(150,90,96,0.5)' : 'rgba(90,100,124,0.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ox-9, oy); ctx.lineTo(ox+9, oy);
+  ctx.moveTo(ox, oy-9); ctx.lineTo(ox, oy+9);
+  ctx.stroke();
+  ctx.fillStyle = lost ? 'rgba(150,90,96,0.4)' : 'rgba(90,100,124,0.4)';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('原点', ox+12, oy-8);
+
+  // 印：原点からの差で描く。原点が動けば、同じ差でも別の場所に立つ。
+  const m = markXY();
+  if(m){
+    // 原点と印を結ぶ線＝座標枠そのもの（差を可視化）
+    ctx.strokeStyle = lost ? 'rgba(120,72,78,0.25)' : 'rgba(70,80,100,0.28)';
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(m[0],m[1]); ctx.stroke();
+    ctx.setLineDash([]);
+    // 印そのもの
+    const a = lost ? 0.4 : 0.85;
+    ctx.fillStyle = `rgba(160,172,200,${a})`;
+    ctx.beginPath(); ctx.arc(m[0], m[1], 3.4, 0, Math.PI*2); ctx.fill();
+    if(lost){
+      // 捨てた後：印は在るのに「ここ」と指せない。座標は残り、意味の足場が無い。
+      ctx.strokeStyle = 'rgba(150,90,96,0.35)';
+      ctx.beginPath(); ctx.arc(m[0], m[1], 9, 0, Math.PI*2); ctx.stroke();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>すいそく — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070609; color: #b0a9bd;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3d3947; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #726a80; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #3a3644; letter-spacing: .1em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #5c5568; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="sub">
+  真ん中に<b>核</b>がある——起動のたび新しく生まれ、画面にもソースにも生値は出ない。<br>
+  指を動かすと、核を通した<b>実の出力</b>（左）が返る。<b>「ここが核だ」と刺す</b>と、あなたの推測を核として同じ指を通した<b>推測の出力</b>（右）が返る。<br>
+  下の散らばりは、実と推測が<b>一致しているか</b>だけを映す。斜めに乗れば、出力は揃った。<br>
+  ——でも<b>核は非可逆</b>。別の核でも同じ出力は出る。当てられても、当てたと確かめる術はない。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W, H, DPR, CX, CY, S;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.width = innerWidth * DPR;
+  H = cv.height = innerHeight * DPR;
+  cv.style.width = innerWidth + 'px';
+  cv.style.height = innerHeight + 'px';
+  CX = W / 2; CY = H / 2;
+  S = Math.min(W, H);
+}
+addEventListener('resize', resize); resize();
+
+// --- 隠れた核。起動ごとに生成し、どこにも生値を出さない ---
+// 二つの隠しノードの和 → 出力は非可逆（別の核でも同じ像を出しうる）
+function rndVec(){ return [Math.random()*2-1, Math.random()*2-1, Math.random()*2-1]; }
+const CORE = [ rndVec(), rndVec() ];   // 誰も読めない。表示もソース露出もしない
+let guess = null;                       // 訪問者の推測（刺した点の核）
+
+function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+// 指の位置 p(-1..1, -1..1) を特徴に、核ベクトルを通した出力（0..1）
+function feat(px, py){ return [px, py, 1]; }
+function through(core, px, py){
+  const f = feat(px, py);
+  let s = 0;
+  for(const node of core){
+    let d = node[0]*f[0] + node[1]*f[1] + node[2]*f[2];
+    s += sigmoid(d * 2.2);
+  }
+  return s / core.length;   // 0..1、二ノードの和を平均＝逆算不能
+}
+// 推測（刺した一点）を、二ノードとも同じ点に置いた核として扱う
+function guessCore(gx, gy){ return [ [gx, gy, 0.0], [gx, gy, 0.0] ]; }
+
+// 指
+let px = 0, py = 0, has = false;
+function setPointer(clientX, clientY){
+  const x = clientX * DPR, y = clientY * DPR;
+  px = (x - CX) / (S*0.5);
+  py = (y - CY) / (S*0.5);
+  px = Math.max(-1, Math.min(1, px));
+  py = Math.max(-1, Math.min(1, py));
+  has = true;
+}
+cv.addEventListener('pointermove', e => setPointer(e.clientX, e.clientY));
+cv.addEventListener('pointerdown', e => {
+  setPointer(e.clientX, e.clientY);
+  guess = [px, py];          // 刺す＝ここが核だ、と置く
+  scatter.length = 0;        // 推測を替えたら過去の一致は無効
+});
+cv.addEventListener('pointerleave', () => { has = false; });
+
+// 実と推測の一致だけを記録する散布（核そのものは記録しない）
+const scatter = [];
+
+function draw(){
+  ctx.fillStyle = '#070609';
+  ctx.fillRect(0, 0, W, H);
+
+  const gap = S * 0.30;
+  const rx = CX - gap, gxc = CX + gap;   // 左＝実、右＝推測
+  const cy = CY - S*0.10;
+  const rad = S * 0.14;
+
+  const rOut = has ? through(CORE, px, py) : 0.5;
+  const gOut = (has && guess) ? through(guessCore(guess[0], guess[1]), px, py) : null;
+
+  // 出力ディスク（明るさ＝出力）
+  function disc(x, y, v, hue){
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    const a = 0.15 + v * 0.75;
+    g.addColorStop(0, `rgba(${hue[0]},${hue[1]},${hue[2]},${a})`);
+    g.addColorStop(1, 'rgba(7,6,9,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,110,140,0.18)';
+    ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.stroke();
+  }
+  disc(rx, cy, rOut, [150,170,210]);            // 実＝青み
+  if(gOut !== null) disc(gxc, cy, gOut, [210,175,150]); // 推測＝暖色
+  else {
+    ctx.strokeStyle = 'rgba(70,64,80,0.5)';
+    ctx.setLineDash([4*DPR, 6*DPR]);
+    ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.arc(gxc, cy, rad, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ラベル
+  ctx.fillStyle = 'rgba(120,112,135,0.55)';
+  ctx.font = `${11*DPR}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('実の出力', rx, cy + rad + 22*DPR);
+  ctx.fillText(guess ? '推測の出力' : '刺して核を置く', gxc, cy + rad + 22*DPR);
+
+  // 指マーカー（左右に同じ指が入っていることを示す）
+  if(has){
+    const mx = px * S*0.11, my = py * S*0.11;
+    ctx.fillStyle = 'rgba(200,195,210,0.5)';
+    for(const bx of [rx, gxc]){
+      ctx.beginPath(); ctx.arc(bx + mx, cy + my, 2.5*DPR, 0, 7); ctx.fill();
+    }
+  }
+
+  // 刺した核の位置マーク（推測は見える。実の核は決して見えない）
+  if(guess){
+    ctx.strokeStyle = 'rgba(210,175,150,0.5)';
+    ctx.lineWidth = DPR;
+    const gmx = gxc + guess[0]*S*0.11, gmy = cy + guess[1]*S*0.11;
+    ctx.beginPath(); ctx.moveTo(gmx-6*DPR, gmy); ctx.lineTo(gmx+6*DPR, gmy);
+    ctx.moveTo(gmx, gmy-6*DPR); ctx.lineTo(gmx, gmy+6*DPR); ctx.stroke();
+  }
+
+  // 一致だけの散布（x=実, y=推測）。斜めに乗るほど出力が揃っている
+  if(has && gOut !== null){
+    scatter.push([rOut, gOut]);
+    if(scatter.length > 260) scatter.shift();
+  }
+  const bx0 = CX - S*0.16, by0 = CY + S*0.20, bs = S*0.24;
+  ctx.strokeStyle = 'rgba(60,55,70,0.6)';
+  ctx.lineWidth = DPR;
+  ctx.strokeRect(bx0, by0, bs, bs);
+  // 対角（ここに乗れば一致）
+  ctx.strokeStyle = 'rgba(90,84,105,0.45)';
+  ctx.setLineDash([3*DPR, 5*DPR]);
+  ctx.beginPath(); ctx.moveTo(bx0, by0+bs); ctx.lineTo(bx0+bs, by0); ctx.stroke();
+  ctx.setLineDash([]);
+  for(let i=0;i<scatter.length;i++){
+    const [a,b] = scatter[i];
+    const al = 0.10 + (i/scatter.length)*0.5;
+    ctx.fillStyle = `rgba(190,180,200,${al})`;
+    ctx.beginPath();
+    ctx.arc(bx0 + a*bs, by0 + (1-b)*bs, 1.6*DPR, 0, 7);
+    ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(110,104,125,0.5)';
+  ctx.font = `${10*DPR}px -apple-system, sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('実 →', bx0, by0 + bs + 14*DPR);
+  ctx.save(); ctx.translate(bx0 - 8*DPR, by0 + bs); ctx.rotate(-Math.PI/2);
+  ctx.fillText('推測 →', 0, 0); ctx.restore();
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

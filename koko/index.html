@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ここ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .read { position: fixed; left: 0; right: 0; top: 50%; text-align: center;
+    font-size: 13px; letter-spacing: .3em; color: #6a7184; transform: translateY(-50%);
+    pointer-events: none; opacity: 0; transition: opacity .5s ease; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="read" id="read"></div>
+<div class="sub">
+  ちいさな印が散っている。ほとんどは<b>「ここに在った」</b>と言っている——意味だ。<br>
+  意味は読む者が来て確かめないと保たない。誰も来ないあいだ、少しずつ痩せていく。<br>
+  ひとつだけ<b>「ここ」</b>とだけ言う印がある。座標しか主張していないから、痩せない。<br>
+  触れてみて。意味の印は「——？」を返す（確かめる原本が無い）。座標の印は、ただ在る。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const readEl = document.getElementById('read');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layout();
+}
+// 印の座標は決め打ち（読者と無関係に、その場所に在る）
+const SEEDS = [
+  [0.18,0.22],[0.34,0.16],[0.52,0.27],[0.69,0.19],[0.84,0.30],
+  [0.24,0.40],[0.44,0.46],[0.61,0.38],[0.79,0.48],[0.13,0.55],
+  [0.30,0.63],[0.50,0.58],[0.66,0.66],[0.86,0.62],[0.21,0.74],
+  [0.40,0.80],[0.57,0.74],[0.74,0.82],[0.90,0.76],[0.47,0.34]
+];
+// 真ん中あたりの一つだけ「座標の印」にする
+const COORD_INDEX = 11;
+let marks = [];
+function layout(){
+  marks = SEEDS.map((s,i)=>({
+    x: s[0]*W, y: s[1]*H,
+    isCoord: i===COORD_INDEX,
+    // 意味の印は満タンから始まり、放置で痩せる。座標の印は一定。
+    life: 1
+  }));
+}
+let last = performance.now();
+let hovered = -1;
+function nearest(px, py){
+  let best=-1, bd=28*28;
+  for(let i=0;i<marks.length;i++){
+    const dx=marks[i].x-px, dy=marks[i].y-py, d=dx*dx+dy*dy;
+    if(d<bd){bd=d;best=i;}
+  }
+  return best;
+}
+function touch(px, py){
+  const i = nearest(px, py);
+  if(i<0){ readEl.style.opacity=0; return; }
+  const m = marks[i];
+  if(m.isCoord){
+    readEl.textContent = 'ここ';
+    // 座標は確かめられる。触れても痩せない。
+  } else {
+    readEl.textContent = '——？';
+    // 意味の印は触れられても原本が無い。確かめられず、痩せは止まらない。
+  }
+  readEl.style.opacity = 1;
+  clearTimeout(touch._t);
+  touch._t = setTimeout(()=>{ readEl.style.opacity=0; }, 1400);
+}
+cv.addEventListener('mousemove', e=>{ hovered = nearest(e.clientX, e.clientY); });
+cv.addEventListener('click', e=> touch(e.clientX, e.clientY));
+cv.addEventListener('touchstart', e=>{
+  const t=e.touches[0]; touch(t.clientX, t.clientY);
+}, {passive:true});
+
+function frame(now){
+  const dt = Math.min((now-last)/1000, 0.1); last = now;
+  ctx.clearRect(0,0,W,H);
+  for(let i=0;i<marks.length;i++){
+    const m = marks[i];
+    if(!m.isCoord){
+      // 放置で痩せる。読者（照合）が来ないあいだ意味は保てない。
+      m.life -= dt * 0.012;
+      if(m.life < 0.05) m.life = 0.05; // 完全には消えない=座標は残る、意味だけ薄れる
+    }
+    const isHover = (i===hovered);
+    if(m.isCoord){
+      // 座標の印：痩せない。素っ気ない一筆。十字だけ。
+      const a = isHover ? 0.95 : 0.7;
+      ctx.strokeStyle = `rgba(150,166,196,${a})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(m.x-6, m.y); ctx.lineTo(m.x+6, m.y);
+      ctx.moveTo(m.x, m.y-6); ctx.lineTo(m.x, m.y+6);
+      ctx.stroke();
+    } else {
+      // 意味の印：満タンで光るが、痩せると薄れる。点。
+      const a = m.life * (isHover ? 0.9 : 0.6);
+      ctx.fillStyle = `rgba(120,130,150,${a})`;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 2.6 + m.life*1.6, 0, Math.PI*2);
+      ctx.fill();
+      // 痩せた残骸は座標だけ残す（極薄の点）。場所のついた欠けは形になる。
+      if(m.life < 0.2){
+        ctx.fillStyle = 'rgba(90,96,110,0.18)';
+        ctx.fillRect(m.x-0.5, m.y-0.5, 1, 1);
+      }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

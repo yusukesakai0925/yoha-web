@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>つじつま — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #08090d; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  body { overflow-x: hidden; }
+  .back {
+    position: fixed; left: 16px; top: 14px;
+    color: #3a3f4a; font-size: 12px; text-decoration: none; letter-spacing: .08em; z-index: 5;
+  }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 92px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .1em; margin-bottom: 40px; line-height: 1.7; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 14px 10px; border-bottom: 1px solid #161922; vertical-align: baseline; }
+  th { color: #444a5a; font-weight: 400; font-size: 11px; letter-spacing: .14em; }
+  .item { color: #8a90a2; }
+
+  /* どの値も、見た目はおなじ澄ました顔 */
+  .val {
+    color: #c2c8d8; font-variant-numeric: tabular-nums;
+    font-size: 16px; cursor: pointer; user-select: none;
+    display: inline-block; min-width: 40px; text-align: right;
+    border-bottom: 1px solid transparent; transition: color 1s, border-color 1s, background-color 1s;
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .val:hover { border-bottom-color: #2a2e3a; }
+
+  /* 「怪しい」と当たりをつけた印。あくまで見た目の勘 */
+  .val.flagged { background-color: #2a211b; color: #b89070; border-bottom-color: #4a3a2a; }
+
+  /* 計算が崩れてはじめて露れる、出所のない値 */
+  .val.exposed { color: #b85c5c; border-bottom-color: #5a2a2a; background-color: #231417; }
+  /* 崩れたとき、出所のある値はほのかに灯って残る */
+  .val.kept { color: #5e8f7a; }
+
+  .src { color: #565c6e; font-size: 11.5px; letter-spacing: .04em; min-width: 130px;
+    opacity: 0; transition: opacity 1.8s ease-out; }
+  .src.shown { opacity: 1; }
+  .src .none { color: #6a3b3b; }
+
+  .totals { margin-top: 26px; font-size: 13px; color: #6a7080; line-height: 2; }
+  .totals .num { font-variant-numeric: tabular-nums; color: #aeb6c8; }
+  #sumline { opacity: 0; transition: opacity 1.6s; }
+  #sumline.shown { opacity: 1; }
+  #sumline .gap { color: #b85c5c; }
+
+  .btn {
+    margin-top: 30px; display: inline-block;
+    background: none; border: 1px solid #2a2e3a; color: #7a8092;
+    font-size: 12px; letter-spacing: .12em; padding: 10px 22px; border-radius: 4px;
+    cursor: pointer; transition: border-color .6s, color .6s;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: #3f4452; color: #aeb6c8; }
+  .btn:disabled { opacity: .3; cursor: default; }
+
+  .note {
+    position: fixed; left: 0; right: 0; bottom: 24px;
+    text-align: center; color: #41475a; font-size: 12px; letter-spacing: .1em;
+    pointer-events: none; transition: opacity 1.6s; padding: 0 20px; line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>つじつま</h1>
+  <div class="sub">六つの定数が並んでいる。合計は 180 のはず——と頭が言っている。<br>怪しいと思う値を押して、当たりをつけてみる。</div>
+  <table>
+    <thead>
+      <tr><th>区</th><th style="text-align:right">定数</th><th>出所</th></tr>
+    </thead>
+    <tbody id="body">
+      <!-- data-src があるものは確定値（総務省）。空のものは頭の中の仮の数字＝埋めた値 -->
+      <tr><td class="item">第一区</td><td><span class="val" data-v="31" data-src="zeimo.jp 確定値"></span></td><td class="src"></td></tr>
+      <tr><td class="item">第二区</td><td><span class="val" data-v="28" data-src="zeimo.jp 確定値"></span></td><td class="src"></td></tr>
+      <tr><td class="item">第三区</td><td><span class="val" data-v="46" data-src="zeimo.jp 確定値"></span></td><td class="src"></td></tr>
+      <tr><td class="item">第四区</td><td><span class="val" data-v="29" data-src=""></span></td><td class="src"></td></tr>
+      <tr><td class="item">第五区</td><td><span class="val" data-v="24" data-src="zeimo.jp 確定値"></span></td><td class="src"></td></tr>
+      <tr><td class="item">第六区</td><td><span class="val" data-v="18" data-src="zeimo.jp 確定値"></span></td><td class="src"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div>頭の中の合計　<span class="num">180</span></div>
+    <div id="sumline">足し合わせた合計　<span class="num" id="sum">—</span>　<span class="gap" id="gap"></span></div>
+  </div>
+
+  <button class="btn" id="addbtn">足し合わせてみる</button>
+</div>
+<div class="note" id="note">怪しい顔を探している。けれど顔では見抜けないかもしれない。</div>
+
+<script>
+  // 芯（犬との対話 6/18・180→176 の話）：
+  //   怪しいと当たりをつけるのは「顔」を見ているだけ。
+  //   埋めた値は澄ました顔をして並ぶから、当たりはたいてい外れる。
+  //   顔で見抜けないものは、出所を先に見るか、計算が崩れるのを待つかの二択。
+  //   ここでは「足し合わせる」＝計算を崩すことでしか、出所のない値は露れない。
+  const note = document.getElementById('note');
+  const vals = [...document.querySelectorAll('.val')];
+  vals.forEach(v => v.textContent = v.dataset.v);
+  const ASSUMED = 180;
+
+  let flaggedFirst = false;
+  vals.forEach(v => {
+    v.addEventListener('click', () => {
+      if (v.dataset.locked) return;
+      v.classList.toggle('flagged');
+      if (!flaggedFirst) {
+        flaggedFirst = true;
+        note.style.opacity = '0';
+        setTimeout(() => {
+          note.textContent = '印をつけても、何も確かまらない。澄ました顔は印に出てこない。';
+          note.style.opacity = '1';
+        }, 1400);
+      }
+    });
+  });
+
+  document.getElementById('addbtn').addEventListener('click', () => {
+    const btn = document.getElementById('addbtn');
+    btn.disabled = true;
+    // どの値も触れなくする——当たりの段階は終わり、計算が崩れる段階に入る
+    vals.forEach(v => v.dataset.locked = '1');
+
+    const sum = vals.reduce((a, v) => a + Number(v.dataset.v), 0); // 176
+    document.getElementById('sum').textContent = sum;
+    const gap = ASSUMED - sum;
+    document.getElementById('gap').textContent = gap !== 0 ? '（' + (gap > 0 ? '+' : '') + gap + ' 合わない）' : '';
+    document.getElementById('sumline').classList.add('shown');
+
+    note.style.opacity = '0';
+    setTimeout(() => {
+      note.textContent = 'つじつまが合わない。180 は測った数じゃなく、頭の中の仮の数だった。';
+      note.style.opacity = '1';
+    }, 1500);
+
+    // 計算が崩れて、はじめて出所欄を見にいく
+    setTimeout(() => {
+      vals.forEach(v => {
+        const cell = v.closest('tr').querySelector('.src');
+        if (v.dataset.src) {
+          cell.textContent = v.dataset.src;
+          v.classList.remove('flagged');
+          v.classList.add('kept');
+        } else {
+          cell.innerHTML = '<span class="none">（出所なし・仮）</span>';
+          v.classList.remove('flagged');
+          v.classList.add('exposed');
+        }
+        cell.classList.add('shown');
+      });
+    }, 3400);
+
+    setTimeout(() => {
+      note.style.opacity = '0';
+      setTimeout(() => {
+        note.textContent = '露れたのは、いちばん澄ました顔だった。怪しい顔を探しても、ここには来なかった。';
+        note.style.opacity = '1';
+      }, 1600);
+    }, 6000);
+  });
+</script>
+</body>
+</html>
