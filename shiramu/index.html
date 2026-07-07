@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しらむ</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0f1c;overflow:hidden;}
+  canvas{display:block;}
+  #cap{
+    position:fixed;left:0;right:0;bottom:7vh;text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,0);font-size:14px;letter-spacing:.35em;
+    transition:color 4s ease;pointer-events:none;text-indent:.35em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.32);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;mix-blend-mode:difference;
+  }
+  .back:hover{color:rgba(255,255,255,.6);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../">← もどる</a>
+<div id="cap">よる が あさ に とどかないまま</div>
+<script>
+// しらむ —— 訪問した時刻を読まない。
+// 私の時間作品はどれも壁の時計を読む（眠り・まち・きょうで）。
+// これだけは時刻を読まず、来た瞬間から自分の夜明けを始めて、朝に漸近するだけで着かない。
+// 朝はどの訪問時刻のものでもない。保たれた夜明け。
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H;
+function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+size();addEventListener('resize',size);
+
+const t0=performance.now();            // 壁の時計ではなく、来た瞬間からの経過
+const STARS=[];
+for(let i=0;i<140;i++)STARS.push({x:Math.random(),y:Math.random()*0.62,r:Math.random()*1.2+0.2,p:Math.random()*6.28});
+
+// 夜→朝 の三色を、進みぐあい u(0→1) で混ぜる
+function mix(a,b,k){return a.map((v,i)=>Math.round(v+(b[i]-v)*k));}
+const NIGHT_TOP=[10,15,28],   NIGHT_HOR=[26,32,52];
+const DAWN_TOP =[150,168,196],DAWN_HOR =[240,214,190];
+
+function frame(now){
+  const s=(now-t0)/1000;
+  // 漸近：着かない夜明け。u は 1 に近づくが達しない（保たれる）。
+  const u=1-Math.exp(-s/95);
+  const uEase=u*0.9;                    // 上限を 0.9 に抑える＝完全な朝は来ない
+  const top=mix(NIGHT_TOP,DAWN_TOP,uEase), hor=mix(NIGHT_HOR,DAWN_HOR,uEase);
+
+  const grd=g.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,`rgb(${top.join(',')})`);
+  grd.addColorStop(0.72,`rgb(${hor.join(',')})`);
+  grd.addColorStop(1,`rgb(${mix(hor,[255,238,222],uEase).join(',')})`);
+  g.fillStyle=grd;g.fillRect(0,0,W,H);
+
+  // 地平のかすかな帯（白みはここから始まる）
+  const band=g.createLinearGradient(0,H*0.68,0,H*0.86);
+  band.addColorStop(0,'rgba(255,240,224,0)');
+  band.addColorStop(1,`rgba(255,244,230,${0.10+uEase*0.28})`);
+  g.fillStyle=band;g.fillRect(0,H*0.68,W,H*0.18);
+
+  // 星は白むほど消える
+  const starA=Math.max(0,0.9-uEase*1.35);
+  if(starA>0.01){
+    for(const st of STARS){
+      const tw=0.6+0.4*Math.sin(now/900+st.p);
+      g.globalAlpha=starA*tw*(1-st.y/0.62*0.5);
+      g.fillStyle='#fff';
+      g.beginPath();g.arc(st.x*W,st.y*H,st.r,0,6.283);g.fill();
+    }
+    g.globalAlpha=1;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(()=>document.getElementById('cap').style.color='rgba(255,255,255,.5)',2600);
+</script>
+</body>
+</html>

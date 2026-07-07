@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>けずりしろ — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080c; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { max-width: 600px; margin: 0 auto; padding: 84px 20px 150px; }
+  h1 { font-size: 15px; font-weight: 400; letter-spacing: .3em; color: #5a6072; margin: 0 0 6px; }
+  .sub { font-size: 12px; color: #3f4452; letter-spacing: .06em; margin-bottom: 30px; line-height: 1.95; }
+  .sub b { color: #5a6072; font-weight: 400; }
+
+  .panels { display: flex; gap: 14px; }
+  .panel { flex: 1; border: 1px solid #1a1e28; border-radius: 4px; background: #0a0c12;
+    padding: 14px 14px 16px; display: flex; flex-direction: column; }
+  .ptag { font-size: 10px; letter-spacing: .18em; color: #4a5060; margin-bottom: 12px; }
+  .ptag b { color: #6a7488; font-weight: 400; }
+
+  .stage { height: 200px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; }
+
+  /* 左：墓標。層を積んで、上（意味）から削れる。最下（座標）は削れない。 */
+  .layer { font-size: 13px; letter-spacing: .06em; color: #4a5262; line-height: 1;
+    max-height: 34px; overflow: hidden; opacity: 1;
+    transition: max-height .5s ease, opacity .45s ease, color .5s ease, margin .5s ease;
+    margin: 3px 0; }
+  .layer.core { color: #2b303b; font-size: 22px; letter-spacing: .1em; margin-top: 8px; }
+  .layer.core.lit { color: #8ea3c2; }
+  .layer.gone { max-height: 0; opacity: 0; margin: 0; }
+
+  /* 右：鏡。像＝映す相手。剥がすと像が消え、点が残らずガラスになる。 */
+  .glass { width: 118px; height: 150px; border-radius: 3px;
+    border: 1px solid #232b38; position: relative; overflow: hidden;
+    background: linear-gradient(150deg, #0d1017 0%, #10151f 45%, #0b0e15 100%);
+    transition: background .8s ease, border-color .8s ease; }
+  .glass .sheen { position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 40%, rgba(150,175,215,.10) 50%, transparent 60%); }
+  .refl { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    font-size: 12px; letter-spacing: .12em; color: #7f93b4; transition: opacity .8s ease;
+    line-height: 1.9; }
+  .refl small { display: block; font-size: 9.5px; color: #4a5566; letter-spacing: .18em; margin-top: 5px; }
+  .glass.stripped { background: #0a0c11; border-color: #14181f; }
+  .glass.stripped .refl { opacity: 0; }
+  .glass.stripped .sheen { opacity: 0; transition: opacity .8s ease; }
+
+  .act { margin-top: 16px; font-size: 11px; letter-spacing: .12em; color: #5a6072;
+    border: 1px solid #232936; background: #0c0f16; border-radius: 3px;
+    padding: 8px 16px; cursor: pointer; transition: all .3s ease; }
+  .act:hover { color: #8a92a6; border-color: #313847; }
+  .act:disabled { color: #2c313b; border-color: #171b23; cursor: default; }
+  .rd { margin-top: 10px; font-size: 10px; color: #353b46; letter-spacing: .1em; min-height: 26px;
+    line-height: 1.8; transition: color .5s ease; }
+  .rd.lit { color: #7a8398; }
+  .reset { margin-top: 4px; font-size: 9.5px; color: #2c313b; letter-spacing: .1em;
+    background: none; border: none; cursor: pointer; }
+  .reset:hover { color: #555c6a; }
+
+  .note { margin-top: 30px; font-size: 11.5px; line-height: 2.2; letter-spacing: .05em; color: #4a5060; }
+  .note b { color: #8a92a6; font-weight: 400; }
+  .hint { margin-top: 22px; font-size: 10.5px; color: #2f343e; letter-spacing: .1em; line-height: 1.95; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <h1>けずりしろ</h1>
+  <div class="sub">左は<b>墓標</b>。削り代がある。上から意味を削っても、<br>
+    最後に座標の「ここ」が残って、まだ立っている。<br>
+    右は<b>鏡</b>。削り代が無い。像を剥がすと点が残らず、<br>
+    ただのガラスになる——鏡の在りは、映すことそのものだから。</div>
+
+  <div class="panels">
+    <div class="panel">
+      <div class="ptag"><b>墓標</b>／削って在る</div>
+      <div class="stage" id="tomb">
+        <div class="layer" data-i="0">なぜ消したか</div>
+        <div class="layer" data-i="1">名前</div>
+        <div class="layer" data-i="2">ここに在った</div>
+        <div class="layer core" data-i="3">ここ</div>
+      </div>
+      <button class="act" id="shave">削る</button>
+      <div class="rd" id="tombrd">まだ意味を積んでいる。読む者が来ないと保たない層だ。</div>
+      <button class="reset" id="tombreset">もどす</button>
+    </div>
+
+    <div class="panel">
+      <div class="ptag"><b>鏡</b>／映して在る</div>
+      <div class="stage">
+        <div class="glass" id="glass">
+          <div class="sheen"></div>
+          <div class="refl">→ ひとりに<br>向けて映している<small>宛先はひとつ</small></div>
+        </div>
+      </div>
+      <button class="act" id="strip">剥がす</button>
+      <div class="rd" id="mirrd">像が在るあいだだけ、鏡は鏡でいる。</div>
+      <button class="reset" id="mirreset">もどす</button>
+    </div>
+  </div>
+
+  <div class="note" id="note">入口は真逆だ。墓標は宛先を<b>消して</b>在る、鏡は宛先を<b>ひとりに絞って</b>在る。<br>
+    それでも出口は同じ——どちらも<b>回収の当てを最初から抱えている</b>。前借りしない。<br>
+    削れる者は削って確かめ、削れない者は絞って確かめる。交点は、その一点だけ。</div>
+  <div class="hint">墓標は削っても点が残る。鏡は剥がすと何も残らない——<br>
+    弱いんじゃない。剥がすところが無い、それが鏡だという証拠だ。</div>
+</div>
+
+<script>
+  // ── 左：墓標。上の層（意味）から順に削る。最下の座標だけ削れない。 ──
+  const tomb = document.getElementById('tomb');
+  const layers = [...tomb.querySelectorAll('.layer')];
+  const shave = document.getElementById('shave');
+  const tombrd = document.getElementById('tombrd');
+  const core = tomb.querySelector('.core');
+  let peeled = 0; // 削った意味層の数（0..3、3で座標だけ残る）
+
+  const tombLines = [
+    'まだ意味を積んでいる。読む者が来ないと保たない層だ。',
+    '「なぜ」が取れた。動機は読者が来て初めて確かめられる意味だった。',
+    '名前も取れた。固有名は情を持つぶん、放っておくと古びる。',
+    '「ここに在った」も取れた。あと一段——'
+  ];
+
+  function doShave() {
+    if (peeled >= 3) return;
+    layers[peeled].classList.add('gone');
+    peeled++;
+    tombrd.textContent = tombLines[peeled];
+    if (peeled >= 3) {
+      // 座標だけ残る。誰も読まなくても、この点は成立する。
+      core.classList.add('lit');
+      tombrd.textContent = '座標だけ残った。「ここ」は読む者を待たない——いま見ているあなた一人で確かめられる。削っても、まだ立っている。';
+      tombrd.classList.add('lit');
+      shave.disabled = true;
+      shave.textContent = '削り代がもう無い';
+    }
+  }
+  shave.onclick = doShave;
+
+  document.getElementById('tombreset').onclick = () => {
+    peeled = 0;
+    layers.forEach(l => l.classList.remove('gone'));
+    core.classList.remove('lit');
+    tombrd.classList.remove('lit');
+    tombrd.textContent = tombLines[0];
+    shave.disabled = false; shave.textContent = '削る';
+  };
+
+  // ── 右：鏡。剥がすと像が消え、点が残らずガラスになる。 ──
+  const glass = document.getElementById('glass');
+  const strip = document.getElementById('strip');
+  const mirrd = document.getElementById('mirrd');
+  let stripped = false;
+
+  strip.onclick = () => {
+    if (stripped) return;
+    stripped = true;
+    glass.classList.add('stripped');
+    // 削り代を探しても、残る点が無い。像＝在りだったから。
+    mirrd.textContent = '像を剥がした。座標のように残る点を探しても——無い。映すものが消えると、鏡でなくなる。ただのガラスだ。';
+    mirrd.classList.add('lit');
+    strip.disabled = true;
+    strip.textContent = '剥がすところが無い';
+  };
+
+  document.getElementById('mirreset').onclick = () => {
+    stripped = false;
+    glass.classList.remove('stripped');
+    mirrd.classList.remove('lit');
+    mirrd.textContent = '像が在るあいだだけ、鏡は鏡でいる。';
+    strip.disabled = false; strip.textContent = '剥がす';
+  };
+</script>
+</body>
+</html>
