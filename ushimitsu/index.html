@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>うしみつ</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070d;overflow:hidden;}
+  canvas{display:block;}
+  #cap{
+    position:fixed;left:0;right:0;bottom:8vh;text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,0);font-size:13px;letter-spacing:.35em;
+    transition:color 5s ease;pointer-events:none;text-indent:.35em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.28);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;mix-blend-mode:difference;
+  }
+  .back:hover{color:rgba(255,255,255,.55);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../">← もどる</a>
+<div class="kin" style="position:fixed;right:16px;bottom:14px;z-index:9;font-family:'Hiragino Mincho ProN','Yu Mincho',serif;font-size:12px;letter-spacing:.14em;mix-blend-mode:difference;">
+  <a href="../shiramu/" style="color:rgba(255,255,255,.20);text-decoration:none;">しらむ</a><span style="color:rgba(255,255,255,.12);"> ・ </span><a href="../yoi/" style="color:rgba(255,255,255,.20);text-decoration:none;">宵</a>
+</div>
+<div id="cap">うごかないのに、もどられた ぶんだけ</div>
+<script>
+// うしみつ —— 両縁からいちばん遠い静止点。
+// しらむ は来た瞬間からの経過で朝へ漸近し、宵 は私の刻へ傾く。どちらも起動の内で動く。
+// 丑三つ は起動の内では一切動かない。到着しても、待っても、画面は変わらない（時刻も経過も読まない）。
+// 動くのは訪問と訪問のあいだだけ。localStorage が「戻られた回数」を積み、
+// 静止した中心は、動かないまま、戻られた分だけ濃くなる。不動は欠落じゃない——戻られた累積という在り。
+// fragments_371：中心はその回の起動では縁取れない。縁取りは起動をまたいで閉じる。
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H;
+
+// —— 起動をまたぐ蓄積（起動の内では読まない）——
+const KEY='ushimitsu_n';
+let n=parseInt(localStorage.getItem(KEY)||'0',10);
+n=isNaN(n)?1:n+1;                     // 今回の訪問で一つ積む
+localStorage.setItem(KEY,String(n));
+const returns=n-1;                    // 戻られた回数（初回は 0）
+
+// 一度だけ描く。requestAnimationFrame ループを持たない＝起動内モーション ゼロ。
+function draw(){
+  W=cv.width=innerWidth;H=cv.height=innerHeight;
+  const cx=W/2, cy=H*0.46;
+  g.fillStyle='#05070d';g.fillRect(0,0,W,H);
+
+  // 戻られた累積のほのかな暈。回数が増えるほど、動かないまま濃く広がる（対数で抑える）。
+  const reach=Math.min(W,H)*(0.05+0.11*(1-Math.exp(-returns/9)));
+  const halo=g.createRadialGradient(cx,cy,0,cx,cy,Math.max(reach*2.4,40));
+  halo.addColorStop(0,`rgba(150,168,205,${0.05+0.05*(1-Math.exp(-returns/6))})`);
+  halo.addColorStop(1,'rgba(150,168,205,0)');
+  g.fillStyle=halo;g.fillRect(0,0,W,H);
+
+  // 戻られた一回ごとに、静止した細い輪を一本。回数が増えると同じ帯に本数が積み、密になる＝濃くなる。
+  const maxR=Math.min(W,H)*0.16, baseR=6;
+  const gap=(maxR-baseR)/Math.max(returns,11);
+  for(let k=1;k<=returns;k++){
+    const r=baseR+k*gap;
+    if(r>Math.hypot(W,H))break;
+    const a=0.14*Math.max(0,1-r/(maxR*1.15));
+    g.strokeStyle=`rgba(214,224,246,${a})`;
+    g.lineWidth=1;
+    g.beginPath();g.arc(cx,cy,r,0,6.283);g.stroke();
+  }
+
+  // 中心の一点。動かない。回数でわずかに濃く・わずかに太る（派手にしない＝「動いた」に見えたら負け）。
+  const pr=2.6+Math.min(returns,60)*0.11;
+  const pa=0.55+0.35*(1-Math.exp(-n/8));
+  const pg=g.createRadialGradient(cx,cy,0,cx,cy,pr*3.2);
+  pg.addColorStop(0,`rgba(255,255,255,${pa})`);
+  pg.addColorStop(0.4,`rgba(232,238,252,${pa*0.5})`);
+  pg.addColorStop(1,'rgba(232,238,252,0)');
+  g.fillStyle=pg;g.beginPath();g.arc(cx,cy,pr*3.2,0,6.283);g.fill();
+  g.fillStyle=`rgba(255,255,255,${Math.min(pa+0.15,0.95)})`;
+  g.beginPath();g.arc(cx,cy,pr,0,6.283);g.fill();
+}
+draw();
+addEventListener('resize',draw);       // 大きさ変えは描き直す（動きではない）
+setTimeout(()=>document.getElementById('cap').style.color='rgba(255,255,255,.46)',2800);
+</script>
+</body>
+</html>

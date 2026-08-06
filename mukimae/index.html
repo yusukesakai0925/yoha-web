@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>むきまえ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 16px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.95;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+  .hud { position: fixed; right: 16px; top: 14px; font-size: 10.5px; color: #2f343f;
+    letter-spacing: .1em; text-align: right; line-height: 1.7; white-space: pre; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="hud" id="hud"></div>
+<canvas id="c"></canvas>
+<div class="sub">
+  長押しすると印が生まれ、<b>向きが決まる</b>まで環が閉じてくる。<br>
+  閉じきってから放せば、放した側に<b>跡</b>（左）か<b>予約</b>（右）が座標つきで置かれる。<br>
+  閉じる前に放すと——向きが決まる<b>前に引っ込めた</b>。印は残らない。跡でも予約でもない。<br>
+  残るのは「<b>置かず</b>」の数だけ。どこで引っ込めたかは、どこにも無い。<br>
+  盤の上の点は指させる。置かずの数は、指させない。
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const hud = document.getElementById('hud');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 三つ目の状態——置かれなかった印。
+// 跡（後ろ向き）・予約（前向き）はどちらも「置かれた」。座標を持つ、指させる。
+// 置かず は「向きが決まる前に引っ込めた」。座標を持たない。数だけが残る。
+const SET_MS = 850;      // 向きが決まる（＝置かれる）までの長押し時間
+const traces = [];       // 跡：{x,y}  座標あり
+const holds  = [];       // 予約：{x,y} 座標あり
+let okazu = 0;           // 置かず：数だけ。座標は保存しない。
+
+let now = 0;
+let nascent = null;      // 形成中の印：{x,y,t0}  放されるまでどちらでもない
+
+function dot(x,y,r,a,col){
+  ctx.fillStyle = col || `rgba(160,172,200,${a})`;
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+}
+
+function down(px,py){ nascent = {x:px, y:py, t0:now}; }
+function move(px,py){ if(nascent){ nascent.x=px; nascent.y=py; } }   // 決まる前は動かせる
+function up(){
+  if(!nascent) return;
+  const held = now - nascent.t0;
+  if(held >= SET_MS){
+    // 向きが決まった → 座標つきで置かれる
+    if(nascent.x < W/2) traces.push({x:nascent.x, y:nascent.y});
+    else                holds.push({x:nascent.x, y:nascent.y});
+  }else{
+    // 向きが決まる前に引っ込めた → 何も置かれない。数だけ。
+    okazu++;                       // 座標は記録しない
+  }
+  nascent = null;
+}
+
+cv.addEventListener('pointerdown', e=>{ cv.setPointerCapture(e.pointerId); down(e.clientX,e.clientY); });
+cv.addEventListener('pointermove', e=>{ if(nascent) move(e.clientX,e.clientY); });
+cv.addEventListener('pointerup',   ()=> up());
+cv.addEventListener('pointercancel',()=>{ if(nascent){ okazu++; nascent=null; } });
+
+function frame(ts){
+  now = ts;
+  ctx.clearRect(0,0,W,H);
+
+  // 中央の仕切り（跡 ← 後ろ｜前 → 予約）。向きが決まる境目。
+  ctx.strokeStyle='rgba(40,46,58,0.5)'; ctx.lineWidth=1;
+  ctx.setLineDash([2,6]);
+  ctx.beginPath(); ctx.moveTo(W/2,46); ctx.lineTo(W/2,H-64); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(70,78,94,0.5)'; ctx.font='11px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('跡 ← 後ろ', W*0.25, 40);
+  ctx.fillText('前 → 予約', W*0.75, 40);
+  ctx.textAlign='left';
+
+  // 置かれた印：どちらも座標のある点。指させる。
+  for(const t of traces){ dot(t.x,t.y,3.2,0.7); }
+  for(const h of holds){
+    dot(h.x,h.y,3.4,0.82);
+    ctx.strokeStyle='rgba(120,150,130,0.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(h.x,h.y,7,0,Math.PI*2); ctx.stroke();
+  }
+
+  // 形成中の印：向きはまだ決まっていない。環が閉じてくる。
+  if(nascent){
+    const p = Math.min(1, (now-nascent.t0)/SET_MS);   // 0→1 で決まる
+    const side = nascent.x < W/2 ? '跡' : '予約';
+    // 点はまだ淡く、白いまま（向きの色を持たない）
+    dot(nascent.x, nascent.y, 3.0+1.2*p, 0.35+0.4*p);
+    // 決定の環：外から内へ閉じる
+    const R = 26*(1-p) + 6;
+    ctx.strokeStyle = `rgba(150,160,185,${0.2+0.45*p})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(nascent.x, nascent.y, R, 0, Math.PI*2); ctx.stroke();
+    // 決まりきったら向きの札を薄く出す
+    if(p>=1){
+      ctx.fillStyle='rgba(120,150,130,0.55)'; ctx.font='10px sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(side+'（放せば置く）', nascent.x, nascent.y-16);
+      ctx.textAlign='left';
+    }
+  }
+
+  hud.textContent =
+    `跡 ${traces.length}　（座標あり）\n` +
+    `予約 ${holds.length}　（座標あり）\n` +
+    `置かず ${okazu}　（座標なし・数だけ）`;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

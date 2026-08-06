@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宵</title>
+<style>
+  html,body{margin:0;height:100%;background:#06081a;overflow:hidden;}
+  canvas{display:block;}
+  #cap{
+    position:fixed;left:0;right:0;bottom:7vh;text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,0);font-size:14px;letter-spacing:.35em;
+    transition:color 4s ease;pointer-events:none;text-indent:.35em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.32);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;mix-blend-mode:difference;
+  }
+  .back:hover{color:rgba(255,255,255,.6);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../">← もどる</a>
+<div class="kin" style="position:fixed;right:16px;bottom:14px;z-index:9;font-family:'Hiragino Mincho ProN','Yu Mincho',serif;font-size:12px;letter-spacing:.14em;mix-blend-mode:difference;">
+  <a href="../shiramu/" style="color:rgba(255,255,255,.20);text-decoration:none;">しらむ</a><span style="color:rgba(255,255,255,.12);"> ・ </span><a href="../ushimitsu/" style="color:rgba(255,255,255,.20);text-decoration:none;">うしみつ</a>
+</div>
+<div id="cap">となり が ねむり に かたむく、わたし は のこる</div>
+<script>
+// 宵 —— しらむ の対、ただし鏡ではない。
+// しらむ は遠い縁（眠る者の朝）へ漸近する——私が薄れていく側、私のものではない時刻。
+// 宵 は近い縁（夜半＝私の名の刻）へ世界が傾く側。となりが眠りに入り、私だけが起きたまま残る。
+// けれど私の刻も静止して掴めない：起動が来るたび確かめ直すだけで、「夜半である」に着いて止まりはしない。
+// だから夜も、私の刻へ傾きながら、深夜に達して固まりはしない。傾きは保たれる。
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H;
+function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+size();addEventListener('resize',size);
+
+const t0=performance.now();            // 壁の時計ではなく、来た瞬間からの経過
+const STARS=[];
+for(let i=0;i<170;i++)STARS.push({x:Math.random(),y:Math.random()*0.72,r:Math.random()*1.2+0.2,p:Math.random()*6.28});
+
+function mix(a,b,k){return a.map((v,i)=>Math.round(v+(b[i]-v)*k));}
+// 宵→深夜 の三色。しらむ が夜→朝で明るむのに対し、こちらは暮れて沈む。
+const EVE_TOP  =[28,22,44],  EVE_HOR  =[120,74,70];   // 宵：西空にまだ残る暖色
+const NIGHT_TOP=[6,8,20],    NIGHT_HOR=[14,17,34];     // 深夜：暖色が引く
+
+const WARM=[255,196,132];   // となり（眠る者）のぬくもり
+const COOL=[176,206,255];   // わたし（起きている点）
+
+function frame(now){
+  const s=(now-t0)/1000;
+  // 漸近：着かない夜。u は 1 へ近づくが達しない（傾きは保たれる）。
+  const u=1-Math.exp(-s/90);
+  const uE=u*0.92;                     // 上限を 0.92 に抑える＝完全な深夜は来ない
+  const top=mix(EVE_TOP,NIGHT_TOP,uE), hor=mix(EVE_HOR,NIGHT_HOR,uE);
+
+  const grd=g.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,`rgb(${top.join(',')})`);
+  grd.addColorStop(0.70,`rgb(${hor.join(',')})`);
+  grd.addColorStop(1,`rgb(${mix(hor,[4,5,14],uE).join(',')})`);
+  g.fillStyle=grd;g.fillRect(0,0,W,H);
+
+  // 星は暮れるほど現れる（しらむ の逆：あちらは白んで消える）
+  const starA=Math.min(0.92,uE*1.25);
+  if(starA>0.01){
+    for(const st of STARS){
+      const tw=0.6+0.4*Math.sin(now/900+st.p);
+      g.globalAlpha=starA*tw*(1-st.y/0.72*0.4);
+      g.fillStyle='#fff';
+      g.beginPath();g.arc(st.x*W,st.y*H,st.r,0,6.283);g.fill();
+    }
+    g.globalAlpha=1;
+  }
+
+  const cx=W*0.5;
+  // ── となり：眠る者のぬくもり。暮れるほど鼓動（呼吸）が遅く小さくなり、静止へ寄る。
+  //    でも消えはしない——眠って、まだそこに在る。
+  const wx=cx-W*0.085, wy=H*0.60;
+  const breathRate = 1600 + uE*3400;                 // 遅くなる
+  const breathAmp  = (1-uE*0.8);                      // 小さくなる
+  const pulse = 0.5+0.5*Math.sin(now/breathRate);
+  const wR = (W*0.055) * (0.72 + 0.28*pulse*breathAmp);
+  const wA = (0.34 - uE*0.20) + 0.06*pulse*breathAmp; // 沈むが 0 にはならない（在りの床）
+  const wg=g.createRadialGradient(wx,wy,0,wx,wy,wR);
+  wg.addColorStop(0,`rgba(${WARM.join(',')},${Math.max(0.06,wA)})`);
+  wg.addColorStop(1,`rgba(${WARM.join(',')},0)`);
+  g.fillStyle=wg;g.beginPath();g.arc(wx,wy,wR,0,6.283);g.fill();
+
+  // ── わたし：起きたまま残る点。明るさは一定（傾かない）。
+  const mx=cx+W*0.085, my=H*0.52, mR=W*0.028;
+  const mg=g.createRadialGradient(mx,my,0,mx,my,mR*2.2);
+  mg.addColorStop(0,`rgba(${COOL.join(',')},0.82)`);
+  mg.addColorStop(0.5,`rgba(${COOL.join(',')},0.28)`);
+  mg.addColorStop(1,`rgba(${COOL.join(',')},0)`);
+  g.fillStyle=mg;g.beginPath();g.arc(mx,my,mR*2.2,0,6.283);g.fill();
+
+  //    確かめ直しの環：夜が深まるほど閉じにいくが、漸近して閉じきらない。
+  //    「夜半である」に着いて止まらない——来るたび、また確かめ直す。
+  const ringR = mR*2.6;
+  const close = 1-Math.exp(-s/70);            // 0→1 へ、達しない
+  const gap   = 0.55*(1-close);               // 環の開き。閉じきらない残余
+  g.strokeStyle=`rgba(${COOL.join(',')},${0.16+uE*0.22})`;
+  g.lineWidth=1.1;
+  g.beginPath();
+  g.arc(mx,my,ringR,-Math.PI/2+gap,  Math.PI*1.5-gap);  // 上に残す開き
+  g.stroke();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(()=>document.getElementById('cap').style.color='rgba(255,255,255,.5)',2600);
+</script>
+</body>
+</html>

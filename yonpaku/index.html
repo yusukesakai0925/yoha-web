@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>よんぱく</title>
+<style>
+  html,body{height:100%;margin:0;background:#07070a;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;-webkit-user-select:none;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;color:#8e8b84}
+  #stage{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2.4em;padding:6vw;
+    box-sizing:border-box;text-align:center;cursor:pointer}
+  #line{font-size:min(7.2vw,34px);letter-spacing:.22em;line-height:1.9;
+    opacity:.62;transition:opacity 1.4s ease;min-height:2em}
+  #sub{font-size:min(3.6vw,14px);letter-spacing:.2em;line-height:2.2;
+    opacity:.3;transition:opacity 1.8s ease;max-width:30em}
+  /* 枠は「置く／外す」だけ。目盛りは画面に描かない——耳が持つほかない。 */
+  #frame{font-size:min(3.8vw,15px);letter-spacing:.28em;
+    padding:.9em 1.8em;border:1px solid rgba(142,139,132,.22);
+    border-radius:2px;opacity:.42;transition:opacity .6s,border-color .6s;
+    cursor:pointer}
+  #frame.on{opacity:.78;border-color:rgba(142,139,132,.5)}
+  #count{font-size:min(3.4vw,13px);letter-spacing:.24em;opacity:0;
+    transition:opacity 1.2s ease;font-variant-numeric:tabular-nums}
+  #count.show{opacity:.34}
+  .hid{opacity:0 !important}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="line">よんぱく</div>
+  <div id="frame">枠を置く</div>
+  <div id="count"></div>
+  <div id="sub">触れると鳴る。音だけの一枚。</div>
+</div>
+<script>
+// ——— 本体は「拍」だけ。升も穴も座標も描かない ———
+//
+// 声は 4 拍のうち 3 つしか鳴らない。4 つめは無い。
+// けれど枠（拍の目盛り）を持たずに聴くと、それは欠けではない——
+// 「短・短・長」で閉じた、完全な三拍のパターンに聞こえる。
+// 台帳の内側では抜けは永遠に穴にならない。枠は外にしか無い。
+//
+// 枠を置くと、別の質の音（乾いた極小のティック）が 4 つ全部を刻む。
+// ティックは 4 つめを埋めない——方眼紙が絵を埋めないのと同じ。
+// 目盛りの上で、声の側の欠けだけが欠けになる。
+//
+// そして枠は「置く」より「持ちつづける」のが要る。
+// 升の盤なら見比べられるが、拍は過ぎてから気づいても遅い。
+// 数えられるのは、枠を置いていたあいだの欠けだけ。
+
+const BPM=92, BEAT=60/BPM, BEATS=4;
+const stage=document.getElementById("stage"),
+      lineEl=document.getElementById("line"),
+      subEl=document.getElementById("sub"),
+      frameEl=document.getElementById("frame"),
+      countEl=document.getElementById("count");
+
+let ac=null, started=false, frameOn=false;
+let beat=0, nextTime=0, timer=null;
+let heldOnce=false;                       // 一度でも枠を置いたか
+let releasedAfterHold=false;              // 置いてから外したか
+let counted=+(localStorage.getItem("yonpaku_counted")||0);
+
+// —— 声：3 拍だけ鳴る。同じ高さ＝旋律にしない（脈であって歌ではない） ——
+function voice(t){
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type="triangle"; o.frequency.value=392;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.16,t+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.34);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t+0.4);
+}
+
+// —— 枠：乾いた微小ティック。声と質がちがうから、埋めずに透かせる ——
+function tick(t){
+  const len=0.012, buf=ac.createBuffer(1,Math.ceil(ac.sampleRate*len),ac.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+  const src=ac.createBufferSource(); src.buffer=buf;
+  const hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=4200;
+  const g=ac.createGain(); g.gain.value=0.055;
+  src.connect(hp).connect(g).connect(ac.destination);
+  src.start(t);
+}
+
+function schedule(){
+  while(nextTime < ac.currentTime + 0.12){
+    const b = beat % BEATS;
+    if(frameOn) tick(nextTime);           // 目盛りは 4 つ全部
+    if(b < BEATS-1) voice(nextTime);      // 声は 3 つだけ
+    else if(frameOn){                     // 4 つめ＝欠け。枠のあるときだけ数える
+      counted++;
+      localStorage.setItem("yonpaku_counted", counted);
+      paint();
+    }
+    nextTime += BEAT; beat++;
+  }
+}
+
+function paint(){
+  if(!started){ return; }
+  lineEl.textContent = frameOn ? "四つめが、無い。" : "三つ鳴って、また三つ鳴る。";
+  frameEl.textContent = frameOn ? "枠を外す" : "枠を置く";
+  frameEl.classList.toggle("on", frameOn);
+  countEl.textContent = "欠けと数えた拍　" + counted;
+  countEl.classList.toggle("show", heldOnce);
+  // 置いて、外して、はじめてこの一行が出る。
+  // （置いたことのない者に「無いものが在る」とは言えない）
+  subEl.textContent = releasedAfterHold
+    ? "枠を外したいまも、四つめは鳴っていない。数が止まっただけ。"
+    : (heldOnce ? "枠のあいだだけ、欠けは数になる。" : "枠を置くと、拍の目盛りが鳴る。");
+}
+
+function start(){
+  if(started) return;
+  ac = new (window.AudioContext||window.webkitAudioContext)();
+  ac.resume();                            // 触れた瞬間に時計を起こす（起こさないと currentTime が進まない）
+  started=true; nextTime = ac.currentTime + 0.15; beat=0;
+  timer=setInterval(schedule,25);
+  paint();
+}
+
+stage.addEventListener("pointerdown", start);
+frameEl.addEventListener("pointerdown", e=>{
+  e.stopPropagation();
+  if(!started){ start(); }
+  frameOn=!frameOn;
+  if(frameOn) heldOnce=true; else if(heldOnce) releasedAfterHold=true;
+  paint();
+});
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden && ac) ac.suspend();
+  else if(ac) ac.resume();
+});
+</script>
+</body>
+</html>

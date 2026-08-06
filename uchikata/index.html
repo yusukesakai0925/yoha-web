@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>打ち方</title>
+<style>
+  html,body{height:100%;margin:0;background:#080809;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;cursor:text;
+    user-select:none;-webkit-user-select:none}
+  /* 打っているあいだは暗い。止まった間（ま）にだけ、濃くなる。 */
+  #wash{position:fixed;inset:0;
+    background:radial-gradient(60% 55% at 50% 46%,
+      rgba(150,148,140,0.9), rgba(20,20,22,0) 72%);
+    opacity:0; will-change:opacity}
+  #wrap{position:fixed;inset:0;display:flex;
+    align-items:center;justify-content:center}
+  #word{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    font-size:min(19vw,150px);letter-spacing:.14em;line-height:1;
+    color:#b8b5ad;opacity:.055;will-change:opacity,letter-spacing;
+    padding-left:.14em}
+  /* 入力欄。文字は受けるが、どこにも出さない・残さない・送らない。 */
+  #sink{position:fixed;top:0;left:0;width:2px;height:2px;
+    opacity:0;border:0;outline:0;background:transparent;color:transparent;
+    caret-color:transparent}
+</style>
+</head>
+<body>
+<div id="wash"></div>
+<div id="wrap"><div id="word">打ち方</div></div>
+<input id="sink" autocomplete="off" autocorrect="off"
+       autocapitalize="off" spellcheck="false" aria-label="打ち方">
+<script>
+// —— この作品の本体は「打鍵と打鍵のあいだの無音の長さ」だけ ——
+// 何を打ったかは読まない・保存しない・表示しない・送らない（localStorage も使わない）。
+// 残すのは無。yabumi は残す作品だった、これはその逆。
+const wash=document.getElementById("wash"),
+      word=document.getElementById("word"),
+      sink=document.getElementById("sink");
+
+let lastT=null;               // 直近に打った時刻（timestamp のみ。中身は持たない）
+const TAU=2.6;                // 間が濃度に化けるまでの時定数（秒）
+let clock=0;                  // rAF 用の内部時計（Date を使わない・積算だけ）
+let prevFrame=null;
+
+function stroke(){
+  // 打った瞬間＝手が動いた瞬間。濃度をいったん暗へ戻す。
+  lastT=clock;
+}
+
+// 入力欄には文字が溜まりうる——毎回すぐ空にして、中身を一度も読まない。
+sink.addEventListener("input",()=>{ sink.value=""; stroke(); });
+// IME 変換中や記号なども拾う。値は捨てるだけ。
+sink.addEventListener("keydown",e=>{
+  // 中身（e.key）は判定に使わない。打鍵が在ったという事実だけ拾う。
+  stroke();
+});
+// タップも「打つ」に数える（キーボードの無い端末のため）。押した文字は無い。
+window.addEventListener("pointerdown",()=>{ sink.focus({preventScroll:true}); stroke(); });
+// フォーカスを保ち、隠れた入力欄へ打鍵を集める。
+window.addEventListener("keydown",()=>{ if(document.activeElement!==sink) sink.focus({preventScroll:true}); });
+sink.focus({preventScroll:true});
+
+function frame(ts){
+  if(prevFrame===null) prevFrame=ts;
+  const dt=(ts-prevFrame)/1000; prevFrame=ts;
+  clock+=dt;
+  let density=0;
+  if(lastT!==null){
+    const gap=clock-lastT;              // 直近の打鍵からの無音の長さ
+    density=1-Math.exp(-gap/TAU);       // 長い間ほど濃く。1へ漸近して着かない。
+  }
+  // 打っているあいだ（gap小）は density≈0 で暗いまま。
+  wash.style.opacity=(density*0.5).toFixed(3);
+  word.style.opacity=(0.055+density*0.85).toFixed(3);
+  word.style.letterSpacing=(0.14+density*0.10).toFixed(3)+"em";
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

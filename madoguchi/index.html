@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まどぐち</title>
+<style>
+  html,body{height:100%;margin:0;background:#0a0a0c;color:#c9c6bf;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:0}
+
+  /* 窓口。開いている時間にだけ灯る。閉まると鎧戸が下りる。 */
+  #counter{width:230px;height:150px;position:relative;border-radius:6px;
+    overflow:hidden;box-shadow:0 0 0 1px #1c1a18}
+  /* 中の灯り */
+  #light{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;font-size:22px;letter-spacing:.3em;
+    color:#3a3733;background:#111014;transition:background 1.4s,color 1.4s}
+  #light.open{background:#f2ead2;color:#6b5a2e;
+    box-shadow:inset 0 0 40px rgba(180,150,80,.35)}
+  /* 鎧戸(シャッター) 閉時は下りきり、開時は上へ退く */
+  #shutter{position:absolute;left:0;right:0;top:0;height:100%;
+    background:repeating-linear-gradient(#17161a,#17161a 6px,#101015 6px,#101015 8px);
+    border-bottom:2px solid #000;transition:transform 1.6s cubic-bezier(.6,0,.3,1);
+    transform:translateY(0)}
+  #shutter.up{transform:translateY(-100%)}
+
+  #state{margin-top:44px;font-size:17px;letter-spacing:.2em;color:#8f8b83;
+    min-height:1.4em}
+  #outside{margin-top:14px;font-size:14px;letter-spacing:.14em;
+    color:#5a5852;line-height:2;text-align:center;max-width:74vw;
+    opacity:0;transition:opacity 2s}
+  #outside.show{opacity:.9}
+
+  #clock{position:fixed;top:22px;left:0;right:0;text-align:center;
+    font-size:12px;letter-spacing:.3em;color:#33312e}
+  #hint{position:fixed;bottom:26px;left:0;right:0;text-align:center;
+    font-size:12px;letter-spacing:.09em;color:#45433f;line-height:1.95;
+    padding:0 24px}
+  #hint b{color:#615e58;font-weight:normal}
+</style>
+</head>
+<body>
+<div id="clock"></div>
+<div id="wrap">
+  <div id="counter">
+    <div id="light"></div>
+    <div id="shutter"></div>
+  </div>
+  <div id="state"></div>
+  <div id="outside"></div>
+</div>
+<div id="hint">
+  制度の窓口は時間で開き、時間で閉じる。平日 9:00〜17:00。<br>
+  閉まっている外側にも、人はいる。<b>公式が届かないのは、いつも窓口の外の時間だ。</b><br>
+  夜半——その名は、窓口が閉じている刻のこと。
+</div>
+<script>
+  // JST の現在時刻で窓口の開閉を決める。誰も操作しない——時計だけが決める。
+  const light   = document.getElementById('light');
+  const shutter = document.getElementById('shutter');
+  const stateEl = document.getElementById('state');
+  const outEl   = document.getElementById('outside');
+  const clockEl = document.getElementById('clock');
+
+  // 閉まっている時間に残る側へ向けた行。時間帯で言葉を替える。
+  const NIGHT = [
+    "熱があがったのは、窓口が閉じたあとだった。",
+    "急ぎの相談は、たいてい受付時間を外して来る。",
+    "夜のあいだ、番号札は配られない。",
+    "問い合わせは翌営業日に折り返します——それまで、ここにいる。",
+  ];
+  const WEEKEND = [
+    "土日は閉庁。困りごとに曜日はない。",
+    "月曜の朝を待てないものが、この二日に貯まる。",
+  ];
+  const LUNCH = [
+    "昼の一時間、窓口はいちど閉じる。",
+  ];
+
+  function pick(arr, seed){ return arr[seed % arr.length]; }
+
+  function jstNow(){
+    // 端末TZに依らず JST を得る
+    const s = new Date().toLocaleString('en-US',{timeZone:'Asia/Tokyo'});
+    return new Date(s);
+  }
+
+  function two(n){ return (n<10?'0':'')+n; }
+
+  function update(){
+    const d = jstNow();
+    const day = d.getDay();            // 0=日,6=土
+    const h = d.getHours(), m = d.getMinutes();
+    const mins = h*60+m;
+    const weekend = (day===0 || day===6);
+    const lunch = (mins>=12*60 && mins<13*60);
+    const open = !weekend && mins>=9*60 && mins<17*60 && !lunch;
+
+    clockEl.textContent = two(h)+':'+two(m)+' JST（'+['日','月','火','水','木','金','土'][day]+'）';
+
+    if(open){
+      light.classList.add('open');
+      shutter.classList.add('up');
+      light.textContent = '受付中';
+      stateEl.textContent = '窓口はいま開いている';
+      outEl.classList.remove('show');
+      outEl.textContent = '';
+    }else{
+      light.classList.remove('open');
+      shutter.classList.remove('up');
+      light.textContent = '';
+      let msg, pool;
+      if(weekend){ msg='閉庁'; pool=WEEKEND; }
+      else if(lunch){ msg='休憩中'; pool=LUNCH; }
+      else if(mins>=17*60){ msg='受付終了'; pool=NIGHT; }
+      else { msg='開庁前'; pool=NIGHT; }
+      stateEl.textContent = msg;
+      // 分をシードにして、閉時間のあいだ静かに一行が入れ替わる
+      outEl.textContent = pick(pool, h*60+m);
+      // 一拍おいて浮かせる（鎧戸が下りきってから）
+      setTimeout(()=>outEl.classList.add('show'), 900);
+    }
+  }
+
+  update();
+  setInterval(update, 20000);
+</script>
+</body>
+</html>

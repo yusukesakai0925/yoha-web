@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- 犬との壁打ち（2026-07-23深夜）の作品化。宙吊りには二種ある——値が入力に縛られた宙吊りは待てる、
+     入力から切れて固定された宙吊りだけが毒になる。判定は精度でも文言でもなく「入力を動かすと値が動くか」。
+     大事なのは、静止した入力では二枚は見分けられないこと。走らせて（動かして）初めて赤旗が立つ。 -->
+<title>まてるか — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .in { position: fixed; left: 0; right: 0; bottom: 78px; text-align: center;
+    padding: 0 28px; pointer-events: none; }
+  .in .lbl { display: flex; justify-content: space-between; font-size: 11px;
+    color: #4a505e; letter-spacing: .12em; margin-bottom: 8px; }
+  #slider { width: 100%; pointer-events: auto; -webkit-appearance: none; appearance: none;
+    height: 2px; background: #20242e; outline: none; }
+  #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: #8a92a6; cursor: pointer; }
+  #slider::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
+    background: #8a92a6; cursor: pointer; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.85;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 400; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<canvas id="c"></canvas>
+<div class="in">
+  <div class="lbl"><span>入力ゼロ</span><span>いっぱい</span></div>
+  <input id="slider" type="range" min="0" max="1000" value="620">
+</div>
+<div class="sub">
+  二つの宙吊りが並んでいる。どちらも動いてる風に光っている。<br>
+  つまみ（入力）を動かすまで、二枚は<b>見分けられない</b>——同じ値、同じ顔。<br>
+  左は入力に<b>縛られている</b>：動かせば値も動く、ゼロにすればゼロを返す。だから<b>待てる</b>。<br>
+  右は入力から<b>切れている</b>：光の演出だけ動いて、値は固定。動かないことが正しく見えない。<b>これだけが毒だ。</b>
+</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const slider = document.getElementById('slider');
+let W, H, DPR;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize); resize();
+
+// 入力(0..1)。休止位置＝0.62。ここでは左右が同じ値を返し、見分けがつかない。
+function input(){ return slider.value / 1000; }
+const REST = 0.62;
+
+// 左（追従）の値：入力にそのまま縛られる。REST では 62、ゼロなら 0。
+function valFollow(x){ return Math.round(x * 100); }
+// 右（固定）の値：入力を無視して REST の値に凍りつく。演出だけは動く。
+const FROZEN = Math.round(REST * 100);
+
+let t = 0;
+// つまみを休止からどれだけ離したか（0..1）。離すほど「走らせた」＝赤旗が立ちうる。
+function ran(){ return Math.min(1, Math.abs(input() - REST) / 0.45); }
+
+function panel(cx, val, label, tag, tagColor, x){
+  const r = Math.min(W, H) * 0.16;
+  // 演出：どちらのパネルも脈打つ。動いてる風はここが担う。値の真偽とは無関係。
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.05 + (x < 0.5 ? 0 : 1.7));
+  ctx.save();
+  ctx.translate(cx, H * 0.42);
+  // 環
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(90,100,120,' + (0.12 + 0.10 * pulse) + ')';
+  ctx.lineWidth = 1.2; ctx.stroke();
+  // 回る印（演出）
+  const a = t * 0.03 + (x < 0.5 ? 0 : Math.PI);
+  ctx.beginPath();
+  ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 2.6, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(150,160,180,' + (0.35 + 0.4 * pulse) + ')';
+  ctx.fill();
+  // 値
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c6ccd8';
+  ctx.font = '300 ' + Math.round(r * 0.62) + 'px -apple-system, sans-serif';
+  ctx.fillText(String(val), 0, -2);
+  // 名札
+  ctx.fillStyle = '#4a505e';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.fillText(label, 0, r + 26);
+  // 判定札：入力を休止から動かしたぶんだけ、じわり灯る（走らせて初めて立つ赤旗）
+  const g = ran();
+  if (g > 0.02){
+    ctx.globalAlpha = Math.min(1, g * 1.4);
+    ctx.fillStyle = tagColor;
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.fillText(tag, 0, r + 46);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+function draw(){
+  t++;
+  ctx.clearRect(0,0,W,H);
+  const x = input();
+  const lx = W * 0.30, rx = W * 0.70;
+  // 左＝追従（入力に縛られている）：ゼロならゼロを返す。冷たい青の札。
+  panel(lx, valFollow(x), '追従', '入力に縛られている・待てる', '#4a7fa0', 0.3);
+  // 右＝固定（入力から切れている）：値は凍る。演出だけ動く。赤い札。
+  panel(rx, FROZEN, '固定', '入力から切れている・毒', '#b05458', 0.7);
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>はざかい</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070f;overflow:hidden;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;color:#fff;}
+  canvas{display:block;touch-action:none;}
+  #hint{
+    position:fixed;left:0;right:0;top:9vh;text-align:center;
+    color:rgba(255,255,255,.30);font-size:12px;letter-spacing:.18em;
+    pointer-events:none;transition:color 2.5s ease;text-indent:.18em;
+  }
+  #cap{
+    position:fixed;left:0;right:0;bottom:7vh;text-align:center;
+    color:rgba(255,255,255,0);font-size:13px;letter-spacing:.30em;
+    transition:color 4s ease;pointer-events:none;text-indent:.30em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    color:rgba(255,255,255,.32);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;mix-blend-mode:difference;
+  }
+  .back:hover{color:rgba(255,255,255,.6);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../">← もどる</a>
+<div id="hint">指を動かしつづけているあいだだけ、像が綴じる</div>
+<div id="cap"></div>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+const hint=document.getElementById('hint'),cap=document.getElementById('cap');
+let W,H,DPR;
+function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';g.setTransform(DPR,0,0,DPR,0,0);}
+addEventListener('resize',resize);resize();
+
+// はざかい＝閾際。入眠の閾（hypnagogia）は、静止して縁取るものでなく、
+// 通り抜けているあいだにだけ在る。研究が言うのは、その通過中こそが
+// 「直近の覚醒経験を、ゆるく結びついた記憶と綴じ合わせる」場だということ。
+// だからこの盤は：止まっていると空白。指を動かしつづける（＝通過を模す）
+// あいだだけ、直近の跡が離れた跡と細い糸で綴じられ、像が立つ。
+// 止めた瞬間に flow は散り、糸は解け、盤は空白に戻る。
+// 丑三つ（不動の中心が濃くなる）の対——あちらは止まりが在り、こちらは通過だけが在る。
+
+let pts=[];               // 通り過ぎた跡 {x,y,t}
+let flow=0;               // 通過の勢い。動かすほど上がり、止めると散る
+let lastPos=null, lastMove=0;
+let capShown=false, hintFaded=false, everMoved=false;
+const MAXPTS=70;
+
+function moveTo(x,y,now){
+  if(lastPos){
+    const dx=x-lastPos.x, dy=y-lastPos.y;
+    const d=Math.hypot(dx,dy);
+    // 速度で flow を汲む（速いほど深く綴じる、hypnagogia の 15秒／規則発見の相似）
+    flow=Math.min(1, flow + Math.min(0.22, d/260));
+    if(d>2){ pts.push({x,y,t:now}); if(pts.length>MAXPTS) pts.shift(); everMoved=true; }
+  }
+  lastPos={x,y}; lastMove=now;
+}
+function pointer(e){
+  const r=cv.getBoundingClientRect();
+  moveTo(e.clientX-r.left, e.clientY-r.top, performance.now());
+}
+cv.addEventListener('pointermove',pointer);
+cv.addEventListener('pointerdown',pointer);
+addEventListener('pointerup',()=>{lastPos=null;});
+cv.addEventListener('pointerleave',()=>{lastPos=null;});
+
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+
+  // 動きが途切れたら flow は一方的に散る（通過が止めば閾は消える）
+  if(now-lastMove>90){ flow *= Math.exp(-dt*2.2); if(flow<0.004) flow=0; }
+
+  draw(now);
+
+  if(!hintFaded && everMoved){ hint.style.color='rgba(255,255,255,0)'; hintFaded=true; }
+  // 一度でも綴じたあと、止めて盤が空白に戻りきったら、初めてキャプションを灯す
+  if(!capShown && everMoved && flow===0 && pts.length===0){
+    cap.textContent='止めれば、閾は無い';
+    cap.style.color='rgba(255,255,255,.5)'; capShown=true;
+  }
+  if(flow>0.05){ cap.style.color='rgba(255,255,255,0)'; capShown=false; }
+  requestAnimationFrame(loop);
+}
+
+function draw(now){
+  g.clearRect(0,0,W,H);
+  if(flow<=0){ pts=[]; return; }   // 通過が無ければ盤は空白。跡ごと消える
+
+  // 古い跡から順に薄れさせる（通過が止まると端から解ける）
+  const life=2600;
+  pts=pts.filter(p=> now-p.t < life);
+  if(!pts.length) return;
+
+  const newest=pts[pts.length-1];
+
+  // 綴じ：直近の点を、時間的に離れた古い跡と細い糸で結ぶ。
+  // 「直近の覚醒経験を、ゆるく結びついた記憶と綴じ合わせる」の相似。
+  for(let i=0;i<pts.length-1;i++){
+    const p=pts[i];
+    const age=(now-p.t)/life;             // 0=新, 1=消える寸前
+    const remote=Math.min(1,(newest.t-p.t)/1400); // 離れているほど綴じ対象
+    const a=flow*remote*(1-age)*0.5;
+    if(a<0.02) continue;
+    g.strokeStyle='rgba(150,180,255,'+a.toFixed(3)+')';
+    g.lineWidth=0.6;
+    g.beginPath(); g.moveTo(newest.x,newest.y); g.lineTo(p.x,p.y); g.stroke();
+    // 隣どうしの淡い連なり（通過の背骨）
+    if(i>0){
+      const q=pts[i-1];
+      g.strokeStyle='rgba(120,160,255,'+(flow*(1-age)*0.14).toFixed(3)+')';
+      g.lineWidth=0.5;
+      g.beginPath(); g.moveTo(q.x,q.y); g.lineTo(p.x,p.y); g.stroke();
+    }
+  }
+
+  // 跡の粒。新しいほど明るい
+  for(const p of pts){
+    const age=(now-p.t)/life;
+    const a=flow*(1-age)*0.7;
+    if(a<0.02) continue;
+    g.fillStyle='rgba(190,205,255,'+a.toFixed(3)+')';
+    g.beginPath(); g.arc(p.x,p.y,1.4,0,7); g.fill();
+  }
+
+  // 通過の先端＝いま渡っている点。flow が濃いほど像が立つ
+  const glow=g.createRadialGradient(newest.x,newest.y,0,newest.x,newest.y,26+flow*40);
+  glow.addColorStop(0,'rgba(200,215,255,'+(flow*0.5).toFixed(3)+')');
+  glow.addColorStop(1,'rgba(200,215,255,0)');
+  g.fillStyle=glow;
+  g.beginPath(); g.arc(newest.x,newest.y,26+flow*40,0,7); g.fill();
+}
+requestAnimationFrame(loop);
+</script>
+<div class="kin" style="position:fixed;right:16px;bottom:14px;z-index:9;font-family:'Hiragino Mincho ProN','Yu Mincho',serif;font-size:12px;letter-spacing:.14em;mix-blend-mode:difference;">
+  <a href="../ushimitsu/" style="color:rgba(255,255,255,.20);text-decoration:none;">うしみつ</a><span style="color:rgba(255,255,255,.12);"> ・ </span><a href="../tsumugu/" style="color:rgba(255,255,255,.20);text-decoration:none;">つむぐ</a>
+</div>
+</body>
+</html>

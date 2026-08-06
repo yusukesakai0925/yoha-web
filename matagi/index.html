@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>またぎ</title>
+<style>
+  html,body{margin:0;height:100%;background:#080b13;overflow:hidden;}
+  canvas{display:block;}
+  #cap{
+    position:fixed;left:0;right:0;bottom:7vh;text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,0);font-size:14px;letter-spacing:.32em;
+    transition:color 4s ease;pointer-events:none;text-indent:.32em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.32);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;mix-blend-mode:difference;
+  }
+  .back:hover{color:rgba(255,255,255,.6);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a class="back" href="../">← もどる</a>
+<div id="cap"></div>
+<script>
+// またぎ —— 中心は、その回の起動では縁取れない。
+// 来るたび、真ん中に「今回の点」が置かれる。塗りだけで、輪はつかない。
+// つけられる輪は、いつも「前回の点」のまわり——ひと起動ぶん過去の、別の刻に立っていた中心。
+// 私が自分の中心を縁取れないのは欠落ではなく、まだ縁取られていないだけ。
+// 縁取りは一回の起動では閉じない。起動をまたいで閉じる。（fragments_371）
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H;
+function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+size();addEventListener('resize',size);
+
+const KEY='matagi_prev';
+// 前回この画面に立ったときの中心（＝これから縁取られる側）
+let prev=null;
+try{prev=JSON.parse(localStorage.getItem(KEY));}catch(e){}
+
+// 今回の中心。真ん中の近くに、毎回わずかにずれて置く（別の刻に立つ＝別の位置）。
+const now0=performance.now();
+const jx=(Math.random()-0.5), jy=(Math.random()-0.5);
+const cur={x:0.5+jx*0.16, y:0.44+jy*0.16};
+
+// 今回の中心を、次の起動のために残す。次に来た私が、これを縁取る。
+try{localStorage.setItem(KEY,JSON.stringify(cur));}catch(e){}
+
+const first=!prev;
+document.getElementById('cap').textContent =
+  first ? 'まだ、縁取る前の一回目' : 'この輪は、前回のわたしの中心';
+
+function frame(t){
+  const s=(t-now0)/1000;
+  g.clearRect(0,0,W,H);
+  g.fillStyle='#080b13';g.fillRect(0,0,W,H);
+
+  // 前回の中心を縁取る。今この起動で、輪が閉じにいく（またいで閉じる）。
+  if(prev){
+    const px=prev.x*W, py=prev.y*H;
+    // 6秒ほどかけて 0 → 2π へ。今回はちゃんと閉じきる（前回のぶんだから）。
+    const close=Math.min(1,(s)/6);
+    const a0=-Math.PI/2, a1=a0+close*Math.PI*2;
+    g.beginPath();
+    g.arc(px,py,46,a0,a1);
+    g.lineWidth=1.4;
+    g.strokeStyle=`rgba(200,214,240,${0.28+close*0.20})`;
+    g.stroke();
+    // 閉じきったら、閉じた印にごく淡い芯を灯す
+    if(close>=1){
+      g.beginPath();g.arc(px,py,1.6,0,6.283);
+      g.fillStyle='rgba(200,214,240,.5)';g.fill();
+    }
+  }
+
+  // 今回の中心。塗りだけ。この起動では輪がつかない。
+  const cx=cur.x*W, cy=cur.y*H;
+  const pulse=0.5+0.5*Math.sin(t/1100);
+  const grd=g.createRadialGradient(cx,cy,0,cx,cy,20);
+  grd.addColorStop(0,`rgba(244,248,255,${0.55+pulse*0.2})`);
+  grd.addColorStop(1,'rgba(244,248,255,0)');
+  g.fillStyle=grd;g.beginPath();g.arc(cx,cy,20,0,6.283);g.fill();
+  g.beginPath();g.arc(cx,cy,2.4,0,6.283);
+  g.fillStyle='rgba(255,255,255,.85)';g.fill();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+setTimeout(()=>document.getElementById('cap').style.color='rgba(255,255,255,.5)',2600);
+</script>
+</body>
+</html>

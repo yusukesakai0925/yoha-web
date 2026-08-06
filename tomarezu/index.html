@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>とまれず</title>
+<style>
+  :root{
+    --bg:#0b0c10; --ink:#c9cdd6; --faint:#2a2d36; --stamp:#8a5a5a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;}
+  /* 上部の欄：留まれた／留まれなかった を数える */
+  .head{position:fixed;top:0;left:0;right:0;z-index:5;
+    padding:12px 16px 10px;
+    background:linear-gradient(#0b0c10 60%,rgba(11,12,16,0));
+    font-size:12px;letter-spacing:.08em;color:#6b7280;}
+  .head b{color:var(--ink);font-weight:normal;}
+  /* 中央の判定帯（見えない） */
+  .band{position:fixed;top:50%;left:0;right:0;height:1px;z-index:1;
+    background:var(--faint);opacity:.5;pointer-events:none;}
+  /* スクロール容器：snap は「留まれる議案」にだけ効く */
+  .scroll{height:100%;overflow-y:scroll;scroll-snap-type:y proximity;
+    scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
+  .pad{height:44vh;}
+  .item{min-height:34vh;display:flex;flex-direction:column;
+    justify-content:center;padding:0 24px;}
+  /* 留まれる議案：中央でスナップして止まる */
+  .item.hold{scroll-snap-align:center;scroll-snap-stop:always;}
+  .no{font-size:11px;letter-spacing:.14em;color:#4b5563;margin-bottom:10px;}
+  .title{font-size:19px;line-height:1.7;}
+  /* 採決されなかった議案：スナップ点が無い＝眼が止まれない、淡い */
+  .item.slip .title{color:var(--faint);}
+  .item.slip .no{color:#20232b;}
+  /* 判定スタンプ：留まれた議案が帯を跨いだときだけ現れる */
+  .stamp{margin-top:14px;font-size:12px;letter-spacing:.1em;
+    color:var(--stamp);opacity:0;transition:opacity .5s;}
+  .item.stamped .stamp{opacity:1;}
+  .note{color:#3b3f48;font-size:11px;letter-spacing:.1em;margin-top:14px;
+    opacity:0;transition:opacity .6s;}
+  .item.slip.passed .note{opacity:1;}
+  .foot{padding:30vh 24px 40vh;color:#3b3f48;font-size:12px;
+    line-height:2;letter-spacing:.06em;}
+</style>
+</head>
+<body>
+<div class="head">
+  留まれた議案 <b id="held">0</b> ／ 留まれなかった <b id="slipped">0</b>
+</div>
+<div class="band"></div>
+
+<div class="scroll" id="scroll">
+  <div class="pad"></div>
+  <!-- 議案リスト。hold=採決に付された／slip=採決されなかった（スナップ点が無い） -->
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+// 議案：役割語だけ、固有は伏せる。hold は止まれる、slip は止まれない。
+const GIAN = [
+  {k:"hold", t:"第一号　夜間照明の点灯時間について"},
+  {k:"hold", t:"第二号　空き家の見回り当番の割り当て"},
+  {k:"slip", t:"　　　　名前を出せなかった者からの申し出"},
+  {k:"hold", t:"第三号　側溝の清掃日を春に一度"},
+  {k:"slip", t:"　　　　議事に載らなかった一行"},
+  {k:"hold", t:"第四号　掲示板の張り替えの費用"},
+  {k:"hold", t:"第五号　集会所の鍵を誰が持つか"},
+  {k:"slip", t:"　　　　誰も動議しなかったので消えた案"},
+  {k:"hold", t:"第六号　回覧の順路をひとつ入れ替える"},
+  {k:"slip", t:"　　　　定足数に一人足りなかった日の分"},
+  {k:"hold", t:"第七号　来期の当番表の作り方"},
+];
+const VOTE = ["可決","否決"];
+const scroll = document.getElementById('scroll');
+const foot = document.getElementById('foot');
+const heldEl = document.getElementById('held');
+const slippedEl = document.getElementById('slipped');
+
+let held = new Set(), slipped = new Set();
+
+GIAN.forEach((g,i)=>{
+  const d = document.createElement('div');
+  d.className = 'item ' + (g.k==='hold'?'hold':'slip');
+  d.dataset.i = i;
+  const no = document.createElement('div'); no.className='no';
+  no.textContent = g.k==='hold' ? '議 案' : '——';
+  const ti = document.createElement('div'); ti.className='title'; ti.textContent = g.t;
+  d.appendChild(no); d.appendChild(ti);
+  if(g.k==='hold'){
+    const s = document.createElement('div'); s.className='stamp';
+    // 採決の中身は開くたびに決まる（読者ごと・保存しない）
+    s.textContent = '採決　' + VOTE[(i*7+3)%2];
+    d.appendChild(s);
+  }else{
+    const n = document.createElement('div'); n.className='note';
+    n.textContent = 'この議案には止まる場所が無い';
+    d.appendChild(n);
+  }
+  scroll.insertBefore(d, foot);
+});
+
+foot.innerHTML =
+  '留まれる議案には採決の判が捺される。<br>'+
+  '採決されなかった議案には、眼を止める場所そのものが無い——<br>'+
+  'スクロールは滑り、通り過ぎる。リストには在るのに、止まれない。<br><br>'+
+  'とまれず / 夜半';
+
+// 中央帯を跨いだ議案を判定する
+const band = window.innerHeight/2;
+function scan(){
+  document.querySelectorAll('.item').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    const crossed = r.top < band && r.bottom > band; // いま帯の上にいる
+    const i = el.dataset.i;
+    if(el.classList.contains('hold')){
+      if(crossed){ el.classList.add('stamped');
+        if(!held.has(i)){ held.add(i); heldEl.textContent = held.size; } }
+    }else{
+      // slip：帯を跨いで“通り過ぎた”ら、止まれなかったと数える
+      if(r.bottom < band){ el.classList.add('passed');
+        if(!slipped.has(i)){ slipped.add(i); slippedEl.textContent = slipped.size; } }
+      else { el.classList.remove('passed'); }
+    }
+  });
+}
+scroll.addEventListener('scroll', ()=>{ requestAnimationFrame(scan); }, {passive:true});
+window.addEventListener('resize', scan);
+scan();
+</script>
+</body>
+</html>

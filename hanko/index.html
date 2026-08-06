@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>はんこ</title>
+<style>
+  html,body{height:100%;margin:0;background:#0a0a0c;color:#c9c6bf;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;cursor:pointer;user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:0}
+  /* 同じ場所に、同じ形。押しても増えない、動かない、変わらない。 */
+  #stampBox{width:150px;height:150px;position:relative}
+  #stamp{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;border:2.5px solid #7a2a24;border-radius:14px;
+    color:#7a2a24;font-size:56px;line-height:1;opacity:0;
+    transition:opacity .9s ease-out}
+  #stamp.ink{opacity:.92;transition:opacity 0s}
+  #line{margin-top:52px;font-size:20px;letter-spacing:.18em;
+    color:#8f8b83;min-height:1.4em;opacity:.85}
+  #hint{position:fixed;bottom:30px;left:0;right:0;text-align:center;
+    font-size:12.5px;letter-spacing:.1em;color:#4a4844;line-height:1.9;
+    padding:0 24px}
+  #hint b{color:#6a665f;font-weight:normal}
+  #n{position:fixed;top:22px;right:24px;font-size:12px;color:#33312e;
+    letter-spacing:.15em}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="stampBox"><div id="stamp">半</div></div>
+  <div id="line"></div>
+</div>
+<div id="n"></div>
+<div id="hint">
+  同じ判子を押している。<b>押すたびに違う音を鳴らそうとはしない</b>——鋭くするのをやめると、印は一つに畳まれる。<br>
+  何度押しても、印は同じ場所・同じ形・同じ音。記録は一行のまま（<b>面ログ</b>）。冷たく畳む＝鋭さを諦めること。
+</div>
+<script>
+// —— 音（この作品の本体）——
+// 判子の「音」は毎回まったく同じ。乱数を入れない・微妙に変えない。
+// 揺らぎを足したくなるのが「鋭くする」誘惑で、それを断つのがこの作品。
+let ac=null;
+function press(){
+  if(!ac){ try{ac=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;} }
+  const t=ac.currentTime;
+  // 木の台に押しつける低い「ゴッ」——決定論的、毎回同一
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type="triangle"; o.frequency.setValueAtTime(96,t);
+  o.frequency.exponentialRampToValueAtTime(54,t+0.05);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.5,t+0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+0.18);
+  // インクの当たる短いノイズ層——これも固定
+  const b=ac.createBuffer(1,ac.sampleRate*0.05,ac.sampleRate);
+  const d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++){ d[i]=(1-i/d.length)*((i*2654435761%997)/997-0.5)*0.5; }
+  const ns=ac.createBufferSource(), ng=ac.createGain();
+  ns.buffer=b; ng.gain.setValueAtTime(0.22,t); ns.connect(ng).connect(ac.destination); ns.start(t);
+}
+// —— 見た目 ——
+const stamp=document.getElementById("stamp"),
+      line=document.getElementById("line"),
+      nEl=document.getElementById("n");
+let count=0;
+function stampIt(){
+  press();
+  count++;
+  // 面ログ：何回押しても一行に上書き。増えも変わりもしない。
+  line.textContent="押した。";
+  nEl.textContent=count; // 裏で数だけは進むが、記録の側は畳まれる
+  // インクを打つ→ゆっくり乾く（次の押しでまた同じ濃さに戻るだけ）
+  stamp.classList.remove("ink"); void stamp.offsetWidth; stamp.classList.add("ink");
+}
+window.addEventListener("pointerdown",stampIt);
+window.addEventListener("keydown",e=>{ if(e.key===" "||e.key==="Enter"){e.preventDefault();stampIt();} });
+</script>
+</body>
+</html>
