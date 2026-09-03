@@ -5,36 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- 失効日は「人が読んで直す日付」ではなく機械が拾える番地として持たせる（ビーバー 2026-07-01）。
      過ぎたら外から「これは古い顔だ」と言える。中身が古びても、番地が顔を出す仕事をする。 -->
-<meta name="nanori-review-by" content="2026-08-31">
+<meta name="nanori-review-by" content="2026-09-30">
 <title>なのり — 夜半</title>
 <style>
+  /* 物差し。縁と余白はこの3本、小さい字は --label-size を下限にする。
+     --muted-text は暗地 #06070b で 5.2:1。旧 #363b47(1.8:1)・#3a3f4a(1.9:1)・#4a505e(2.5:1) の置き換え。 */
+  :root {
+    --edge: 16px;
+    --pad-x: 24px;
+    --sp-block: 14px;
+    --sp-sub: 8px;
+    --label-size: 11px;
+    --measure: 40em;
+    --muted-text: #7a8296;
+  }
   html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
     font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden;
     -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+  .back { position: fixed; left: var(--edge); top: var(--edge); color: var(--muted-text); font-size: 12px;
     text-decoration: none; letter-spacing: .08em; z-index: 9; }
-  .back:hover { color: #6a7080; }
+  .back:hover { color: #aeb6c8; }
+  /* 何のページかの札。左上「もどる」と右上の失効印の下、絵の上に一行。 */
+  .kicker { position: fixed; left: 0; right: 0; top: calc(var(--edge) + 36px); margin: 0 auto;
+    max-width: var(--measure); padding: 0 var(--pad-x); text-align: center;
+    font-size: var(--label-size); color: var(--muted-text); letter-spacing: .12em; line-height: 1.85;
+    pointer-events: none; }
+  .kicker b { color: #aeb6c8; font-weight: 400; }
   #c { display: block; width: 100vw; height: 100vh; }
+  /* 下段はつまみと説明文を一つに縦積みする（別々に fixed だと高さ次第で重なる） */
+  .bottom { position: fixed; left: 0; right: 0; bottom: var(--edge); display: flex; flex-direction: column;
+    gap: var(--sp-block); pointer-events: none; }
   /* 時間つまみ：確認した日 ←→ ずっと後。引くほど対象が歩いていく */
-  .time { position: fixed; left: 0; right: 0; bottom: 74px; text-align: center;
-    padding: 0 28px; pointer-events: none; }
-  .time .lbl { display: flex; justify-content: space-between; font-size: 11px;
-    color: #4a505e; letter-spacing: .12em; margin-bottom: 8px; }
+  .time { text-align: center; padding: 0 var(--pad-x); }
+  .time .lbl { display: flex; justify-content: space-between; font-size: var(--label-size);
+    color: var(--muted-text); letter-spacing: .12em; margin-bottom: var(--sp-sub); }
   #slider { width: 100%; pointer-events: auto; -webkit-appearance: none; appearance: none;
-    height: 2px; background: #20242e; outline: none; }
+    height: 2px; background: #3d4457; outline: none; }
   #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
     border-radius: 50%; background: #8a92a6; cursor: pointer; }
   #slider::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%;
     background: #8a92a6; cursor: pointer; }
-  .sub { position: fixed; left: 0; right: 0; bottom: 18px; text-align: center;
-    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.85;
-    pointer-events: none; padding: 0 20px; }
-  .sub b { color: #545a6a; font-weight: 400; }
+  .sub { max-width: var(--measure); margin: 0 auto; text-align: center;
+    font-size: var(--label-size); color: var(--muted-text); letter-spacing: .12em; line-height: 1.85;
+    padding: 0 var(--pad-x); }
+  .sub b { color: #aeb6c8; font-weight: 400; }
   /* 失効判定の印。現実時刻が失効日を過ぎたときだけ灯る。人が読まなくても外から見える。 */
-  #stale { position: fixed; right: 14px; top: 14px; font-size: 11px; letter-spacing: .1em;
+  #stale { position: fixed; right: var(--edge); top: var(--edge); font-size: var(--label-size); letter-spacing: .1em;
     text-align: right; line-height: 1.7; z-index: 9; pointer-events: none; }
-  #stale .live  { color: #3a4150; }
+  #stale .live  { color: var(--muted-text); }
   #stale .past  { color: #c45458; }
+  @media (max-width: 500px) {
+    .kicker { top: calc(var(--edge) + 44px); line-height: 1.7; }
+    .bottom { gap: var(--sp-sub); }
+    .sub { line-height: 1.7; }
+  }
 </style>
 </head>
 <body>
@@ -42,15 +66,18 @@
 <canvas id="c"></canvas>
 <!-- 番地が顔を出す層。スライダー（想定の歩き）とは別に、現実の時計で自分の失効を判定する。 -->
 <div id="stale"></div>
-<div class="time">
-  <div class="lbl"><span>確認した日</span><span>ずっと後</span></div>
-  <input id="slider" type="range" min="0" max="1000" value="0">
-</div>
-<div class="sub">
-  同じ一行を二枚彫った。座標も、指した相手も同じ。ちがうのは<b>時制</b>だけ。<br>
-  つまみを引くと相手が歩いていく——座標は打った場所に留まり、相手は動く。だから隙間が開く。<br>
-  左は「いま、ここに居る」と<b>現在を名乗った</b>。だから歩かれた瞬間に嘘になる。<br>
-  右は「あの日、ここに居た」と<b>時制を下げた</b>。確認日が、痩せる余地を先に潰してある。<b>名乗ってないものは裏切れない。</b>
+<p class="kicker"><b>なのり</b> — 同じ一行を、時制だけ変えて二枚彫った。つまみを引くと、相手が歩いていく。</p>
+<div class="bottom">
+  <div class="time">
+    <div class="lbl"><span>確認した日</span><span>ずっと後</span></div>
+    <input id="slider" type="range" min="0" max="1000" value="0">
+  </div>
+  <div class="sub">
+    同じ一行を二枚彫った。座標も、指した相手も同じ。ちがうのは<b>時制</b>だけ。<br>
+    つまみを引くと相手が歩いていく——座標は打った場所に留まり、相手は動く。だから隙間が開く。<br>
+    左は「いま、ここに居る」と<b>現在を名乗った</b>。だから歩かれた瞬間に嘘になる。<br>
+    右は「あの日、ここに居た」と<b>時制を下げた</b>。確認日が、痩せる余地を先に潰してある。<b>名乗ってないものは裏切れない。</b>
+  </div>
 </div>
 <script>
 const cv = document.getElementById('c');
@@ -101,7 +128,7 @@ function panel(cx, w, t, kind){
   ctx.moveTo(pinX, midY-7); ctx.lineTo(pinX, midY+7);
   ctx.stroke();
   // 座標ラベル
-  ctx.font = '10px -apple-system, sans-serif';
+  ctx.font = '11px -apple-system, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(110,120,138,0.8)';
   ctx.fillText('座標 (5,7)', pinX, midY + 22);
@@ -111,7 +138,7 @@ function panel(cx, w, t, kind){
   ctx.fillStyle = 'rgba(174,182,200,0.9)'; ctx.fill();
   if (t > 0.02){
     ctx.fillStyle = 'rgba(120,128,146,0.35)';
-    ctx.font = '10px -apple-system, sans-serif';
+    ctx.font = '11px -apple-system, sans-serif';
     ctx.fillText('いまの相手', objX, objY - 16);
   }
 

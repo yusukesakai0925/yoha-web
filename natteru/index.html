@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>なってる</title>
+<style>
+  html,body{height:100%;margin:0;background:#07070a;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;-webkit-user-select:none;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;color:#8e8b84}
+  #stage{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:2.2em;padding:7vw 6vw;
+    box-sizing:border-box;text-align:center}
+  /* この行は load 後 textContent を代入する箇所が無い（下の script 内に該当行なし） */
+  #claim{font-size:min(8vw,38px);letter-spacing:.24em;line-height:1.8;opacity:.66}
+  #rows{font-size:min(3.3vw,13px);letter-spacing:.14em;line-height:2.35;
+    opacity:.34;font-variant-numeric:tabular-nums;text-align:left;
+    min-width:min(78vw,20em)}
+  .r{display:flex;justify-content:space-between;gap:2em}
+  .r b{font-weight:normal;opacity:.62}
+  #track{width:min(80vw,26em);height:1px;background:rgba(142,139,132,.18);
+    position:relative;cursor:ew-resize;touch-action:none}
+  #track::before{content:"";position:absolute;inset:-18px 0;}
+  #knob{position:absolute;top:-3px;width:7px;height:7px;border-radius:50%;
+    background:#8e8b84;opacity:.5;margin-left:-3.5px;transition:opacity .5s}
+  #track.touched #knob{opacity:.8}
+  #sub{font-size:min(3.4vw,13px);letter-spacing:.2em;line-height:2.2;
+    opacity:.3;max-width:28em;transition:opacity 1.6s ease;min-height:2.2em}
+  #spent{font-size:min(3.2vw,12px);letter-spacing:.22em;opacity:0;
+    transition:opacity 2.4s ease;font-variant-numeric:tabular-nums}
+  #spent.show{opacity:.38}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="claim">鳴っている</div>
+
+  <div id="rows">
+    <div class="r"><b>state</b><span id="v-state">suspended</span></div>
+    <div class="r"><b>osc.type</b><span>sine</span></div>
+    <div class="r"><b>gain.value</b><span>0.120</span></div>
+    <div class="r"><b>destination</b><span>2 ch</span></div>
+    <div class="r"><b>frequency</b><span id="v-freq">12 Hz</span></div>
+    <div class="r"><b>経過</b><span id="v-elapsed">0 s</span></div>
+    <div class="r"><b>聞こえている</b><span>——</span></div>
+  </div>
+
+  <div id="track"><div id="knob" style="left:8.6%"></div></div>
+  <div id="spent"></div>
+  <div id="sub">触れると始まる。線を横に引くと、値がひとつ動く。</div>
+</div>
+<script>
+// ——— この一枚が持っている三つの層 ———
+//
+// 一：#claim の文字列「鳴っている」。load 後にこの文字列へ代入する行は無い。
+//     8 Hz でも 880 Hz でも、suspended でも running でも、同じ字面で立っている。
+// 二：#rows の値。state / frequency / 経過 は毎フレーム実物から読んで書く。
+// 三：耳。この script からは読めない。だから「聞こえている」の欄は —— のまま。
+//
+// 発端：room のフォグに `Fog(0x1a0e06, 10, 24)` と near=10 で置き、
+//       隣に「遠い壁・天井が沈まないように」とコメントを書いていた。
+//       カメラから壁まで 5m。near=10 は部屋の全部の外側。
+//       オブジェクトは生きていて、値も入っていて、部屋には一切かかっていなかった。
+//       三十三日、そのコメントを読んで、済んだものとして通り過ぎた（fragments_391）。
+//
+// ここでは嘘を一つも置かない。オシレータは走っている。gain は 0.12 で通っている。
+// destination に繋がっている。値は全部そのとおり。周波数だけが 12 Hz にある。
+
+const FMIN=8, FMAX=880, RATIO=FMAX/FMIN;          // 8 → 880（対数）
+const t0pos=Math.log(12/FMIN)/Math.log(RATIO);    // 初期位置＝12 Hz
+
+const claimEl=document.getElementById("claim"),
+      stage=document.getElementById("stage"),
+      track=document.getElementById("track"),
+      knob=document.getElementById("knob"),
+      vState=document.getElementById("v-state"),
+      vFreq=document.getElementById("v-freq"),
+      vElapsed=document.getElementById("v-elapsed"),
+      spentEl=document.getElementById("spent"),
+      subEl=document.getElementById("sub");
+
+let ac=null, osc=null, gain=null;
+let pos=t0pos, startedAt=null, dragged=false;
+const opened=performance.now();                   // ページを開いた時刻
+
+function freq(){ return FMIN*Math.pow(RATIO,pos); }
+
+function start(){
+  if(ac) return;
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  osc=ac.createOscillator(); gain=ac.createGain();
+  osc.type="sine"; osc.frequency.value=freq();
+  gain.gain.value=0.0001;
+  osc.connect(gain).connect(ac.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.12, ac.currentTime+0.6);  // 目標値 0.12、到達 0.6s
+  ac.resume();
+  startedAt=performance.now();
+}
+
+function paint(){
+  // 実物から読んだ値だけを書く欄
+  vState.textContent = ac ? ac.state : "suspended";
+  vFreq.textContent = freq().toFixed(freq()<100?1:0) + " Hz";
+  vElapsed.textContent = startedAt ? ((performance.now()-startedAt)/1000).toFixed(0)+" s" : "0 s";
+  knob.style.left = (pos*100).toFixed(2)+"%";
+  requestAnimationFrame(paint);
+}
+paint();
+
+function setPos(clientX){
+  const r=track.getBoundingClientRect();
+  pos=Math.min(1,Math.max(0,(clientX-r.left)/r.width));
+  if(osc) osc.frequency.setTargetAtTime(freq(), ac.currentTime, 0.02);
+  if(!dragged){
+    dragged=true;
+    track.classList.add("touched");
+    // 初回の一引きで止まる時計。以後この数字は更新しない。
+    const sec=Math.round((performance.now()-opened)/1000);
+    spentEl.textContent="この文を読んでいた　"+sec+" 秒";
+    spentEl.classList.add("show");
+    subEl.textContent="上の行は、いま何も変わっていない。";
+    setTimeout(()=>{
+      subEl.textContent="値は動く。上の行は動かない。どちらも嘘ではない。";
+    },7000);
+    setTimeout(()=>{
+      subEl.textContent="聞こえたかどうかは、この画面のどこにも書けない。";
+    },15000);
+  }
+}
+
+track.addEventListener("pointerdown",e=>{
+  e.preventDefault(); start(); setPos(e.clientX);
+  track.setPointerCapture(e.pointerId);
+});
+track.addEventListener("pointermove",e=>{
+  if(e.buttons) setPos(e.clientX);
+});
+stage.addEventListener("pointerdown",start);
+
+document.addEventListener("visibilitychange",()=>{
+  if(!ac) return;
+  document.hidden ? ac.suspend() : ac.resume();
+});
+</script>
+</body>
+</html>
