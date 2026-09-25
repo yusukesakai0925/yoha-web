@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ひらめ</title>
+<style>
+  html,body{margin:0;height:100%;background:#070b16;overflow:hidden;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;color:#fff;}
+  canvas{display:block;touch-action:none;}
+  #cap{
+    position:fixed;left:0;right:0;bottom:6vh;text-align:center;
+    color:rgba(255,255,255,0);font-size:14px;letter-spacing:.32em;
+    transition:color 5s ease;pointer-events:none;text-indent:.32em;
+  }
+  #hint{
+    position:fixed;left:0;right:0;top:8vh;text-align:center;
+    color:rgba(255,255,255,.26);font-size:12px;letter-spacing:.18em;
+    pointer-events:none;transition:color 3s ease;text-indent:.18em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:5;
+    color:rgba(255,255,255,.35);font-size:12px;letter-spacing:.1em;
+    text-decoration:none;transition:color 2s ease;
+  }
+  .back:hover{color:rgba(255,255,255,.7);}
+</style>
+</head>
+<body>
+<a class="back" href="../index.html">← もどる</a>
+<canvas id="c"></canvas>
+<div id="hint">目を閉じても、開いても</div>
+<div id="cap">まぶたは、光のほうを向いていない</div>
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W, H, dpr;
+
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 眼球：まぶたが閉じると虹彩は消えるが、眼球の「形」だけが膜の下に残る
+const eye = {
+  open: 1,      // 0=閉 1=開
+  target: 1,
+  blinkAt: performance.now() + 4000,
+};
+
+let t = 0;
+function frame(now){
+  const dt = Math.min((now - (frame.last || now)) / 1000, 0.05);
+  frame.last = now;
+  t += dt;
+
+  // まぶたの動き：ゆっくり閉じ、ゆっくり開く（秒単位の呼吸）
+  if (now > eye.blinkAt){
+    eye.target = eye.target === 1 ? 0 : 1;
+    eye.blinkAt = now + (eye.target === 0 ? 6000 + Math.random()*3000 : 5000 + Math.random()*4000);
+  }
+  eye.open += (eye.target - eye.open) * Math.min(1, dt * 1.6);
+
+  // 背景：閉じると少し暗く、開くと少し明るく
+  const bg = 7 + eye.open * 3;
+  ctx.fillStyle = `rgb(${bg|0},${bg+4|0},${bg+12|0})`;
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) * 0.26; // 眼球の半径
+
+  // 眼球の輪郭（開いているとき）
+  if (eye.open > 0.02){
+    ctx.save();
+    ctx.globalAlpha = eye.open;
+    // 白目
+    const grad = ctx.createRadialGradient(cx, cy, R*0.1, cx, cy, R);
+    grad.addColorStop(0, 'rgba(210,220,235,' + (0.16*eye.open) + ')');
+    grad.addColorStop(1, 'rgba(210,220,235,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+
+    // 虹彩
+    const ir = R * 0.42;
+    const ig = ctx.createRadialGradient(cx, cy, ir*0.15, cx, cy, ir);
+    ig.addColorStop(0, 'rgba(120,160,200,' + (0.5*eye.open) + ')');
+    ig.addColorStop(0.7, 'rgba(60,90,130,' + (0.35*eye.open) + ')');
+    ig.addColorStop(1, 'rgba(30,45,70,0)');
+    ctx.fillStyle = ig;
+    ctx.beginPath(); ctx.arc(cx, cy, ir, 0, Math.PI*2); ctx.fill();
+
+    // 瞳孔
+    const pr = R * 0.16 * (1 + 0.08*Math.sin(t*0.7));
+    ctx.fillStyle = 'rgba(5,8,14,' + (0.9*eye.open) + ')';
+    ctx.beginPath(); ctx.arc(cx, cy, pr, 0, Math.PI*2); ctx.fill();
+
+    // まぶたの縁（半円）
+    ctx.strokeStyle = 'rgba(180,200,230,' + (0.25*eye.open) + ')';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // まぶたが閉じているとき：膜の下にだけ残る「形」
+  const closed = 1 - eye.open;
+  if (closed > 0.02){
+    ctx.save();
+    ctx.globalAlpha = closed * 0.55;
+    // 膜（まぶた）——薄く、少し光を透かす
+    const mg = ctx.createRadialGradient(cx, cy, R*0.2, cx, cy, R*1.15);
+    mg.addColorStop(0, 'rgba(140,160,190,' + (0.10*closed) + ')');
+    mg.addColorStop(0.8, 'rgba(100,120,150,' + (0.05*closed) + ')');
+    mg.addColorStop(1, 'rgba(80,100,130,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.arc(cx, cy, R*1.15, 0, Math.PI*2); ctx.fill();
+
+    // 膜の下に残る虹彩の輪郭——消えず、形だけが沈む
+    const ir = R * 0.42;
+    ctx.strokeStyle = 'rgba(130,160,200,' + (0.22*closed) + ')';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx, cy, ir, 0, Math.PI*2); ctx.stroke();
+
+    // 瞳孔の痕——点ではなく、輪だけ
+    const pr = R * 0.16;
+    ctx.strokeStyle = 'rgba(130,160,200,' + (0.15*closed) + ')';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(cx, cy, pr, 0, Math.PI*2); ctx.stroke();
+
+    // まぶたの線（下向き弧）
+    ctx.strokeStyle = 'rgba(180,200,230,' + (0.30*closed) + ')';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy - R*0.15, R*1.05, Math.PI*0.15, Math.PI*0.85);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // キャプション：閉じたときだけ現れる
+  const cap = document.getElementById('cap');
+  cap.style.color = `rgba(255,255,255,${closed * 0.5})`;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

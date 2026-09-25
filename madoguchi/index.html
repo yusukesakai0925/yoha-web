@@ -121,7 +121,9 @@
       else { msg='開庁前'; pool=NIGHT; }
       stateEl.textContent = msg;
       // 分をシードにして、閉時間のあいだ静かに一行が入れ替わる
-      outEl.textContent = pick(pool, h*60+m);
+      const line = pick(pool, h*60+m);
+      outEl.classList.remove('show');
+      outEl.textContent = line;
       // 一拍おいて浮かせる（鎧戸が下りきってから）
       setTimeout(()=>outEl.classList.add('show'), 900);
     }
