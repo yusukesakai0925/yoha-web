@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>弱さ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #b0b0c0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .frame { max-width: 560px; width: 100%; }
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: 0.3em;
+    color: #e8e8f0;
+    margin-bottom: 2.5rem;
+  }
+  .lines { display: flex; flex-direction: column; gap: 1.6rem; }
+  .line { display: flex; align-items: baseline; gap: 1rem; }
+  .num {
+    font-size: 0.75rem;
+    color: #4a4a5a;
+    min-width: 2ch;
+    font-variant-numeric: tabular-nums;
+  }
+  .text {
+    font-size: 1rem;
+    line-height: 2;
+    color: #b0b0c0;
+  }
+  .gap {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #1a1a24;
+  }
+  .gap p {
+    font-size: 0.85rem;
+    color: #6a6a7a;
+    line-height: 2.2;
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <h1>折れ曲がり</h1>
+    <div class="lines">
+      <div class="line"><span class="num">1</span><span class="text">強さを語る前に、先に触れるものがある</span></div>
+      <div class="line"><span class="num">2</span><span class="text">その名前を呼ぶと、呼びかけが先に来る</span></div>
+      <div class="line"><span class="num">3</span><span class="text">「だから強い」は、後から付けられた説明だ</span></div>
+      <div class="line"><span class="num">4</span><span class="text">説明を剥がすと、残るのは触れた順番だけ</span></div>
+      <div class="line"><span class="num">5</span><span class="text">先に触れた側が、後から名づけられる側になる</span></div>
+      <div class="line"><span class="num">6</span><span class="text">名づけられた側は、もう順番を覚えていない</span></div>
+    </div>
+    <div class="gap">
+      <p>
+        何もないが、それは弱さではない。<br>
+        ただ、まだ触れていない。
+      </p>
+    </div>
+  </div>
+</body>
+</html>

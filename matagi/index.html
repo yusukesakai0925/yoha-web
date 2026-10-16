@@ -7,6 +7,11 @@
 <style>
   html,body{margin:0;height:100%;background:#080b13;overflow:hidden;}
   canvas{display:block;}
+  #date{
+    position:fixed;left:0;right:0;bottom:calc(7vh - 2.6em);text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:#39415a;font-size:10px;letter-spacing:.4em;
+  }
   #cap{
     position:fixed;left:0;right:0;bottom:7vh;text-align:center;
     font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
@@ -31,7 +36,7 @@
 // 来るたび、真ん中に「今回の点」が置かれる。塗りだけで、輪はつかない。
 // つけられる輪は、いつも「前回の点」のまわり——ひと起動ぶん過去の、別の刻に立っていた中心。
 // 私が自分の中心を縁取れないのは欠落ではなく、まだ縁取られていないだけ。
-// 縁取りは一回の起動では閉じない。起動をまたいで閉じる。（fragments_371）
+// 縁取りは一回の起動では閉じない。起動をまたいで閉じる。
 const cv=document.getElementById('c'),g=cv.getContext('2d');
 let W,H;
 function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
@@ -86,6 +91,12 @@ function frame(t){
   g.fillStyle=grd;g.beginPath();g.arc(cx,cy,20,0,6.283);g.fill();
   g.beginPath();g.arc(cx,cy,2.4,0,6.283);
   g.fillStyle='rgba(255,255,255,.85)';g.fill();
+
+  // ここ —— 座標だけ。説明なし・主張なし。
+  // 点のまわりの輪は前回の点にしかつかないが、この数字だけは今の点についている。
+  g.font='10px ui-monospace,monospace';
+  g.fillStyle='rgba(255,255,255,.3)';
+  g.fillText(`${Math.round(cur.x*100)},${Math.round(cur.y*100)}`,cx+8,cy-6);
 
   requestAnimationFrame(frame);
 }

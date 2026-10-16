@@ -12,10 +12,11 @@
     position:fixed;left:0;right:0;bottom:6vh;text-align:center;
     color:rgba(255,255,255,0);font-size:14px;letter-spacing:.32em;
     transition:color 5s ease;pointer-events:none;text-indent:.32em;
+    text-shadow:0 0 12px rgba(90,130,180,.5),0 0 2px rgba(0,0,0,.6);
   }
   #hint{
     position:fixed;left:0;right:0;top:8vh;text-align:center;
-    color:rgba(255,255,255,.26);font-size:12px;letter-spacing:.18em;
+    color:rgba(255,255,255,.34);font-size:12px;letter-spacing:.18em;
     pointer-events:none;transition:color 3s ease;text-indent:.18em;
   }
   .back{
@@ -24,6 +25,11 @@
     text-decoration:none;transition:color 2s ease;
   }
   .back:hover{color:rgba(255,255,255,.7);}
+  #hint2{
+    position:fixed;left:0;right:0;top:calc(8vh + 26px);text-align:center;
+    color:rgba(255,255,255,.14);font-size:11px;letter-spacing:.18em;
+    pointer-events:none;transition:color 3s ease;text-indent:.18em;
+  }
 </style>
 </head>
 <body>
@@ -31,6 +37,8 @@
 <canvas id="c"></canvas>
 <div id="hint">目を閉じても、開いても</div>
 <div id="cap">まぶたは、光のほうを向いていない</div>
+<div id="hint2">…でも、閉じたままの眼は、光のほうを向いている
+</div>
 <script>
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');

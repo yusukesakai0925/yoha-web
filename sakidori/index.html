@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>さきどり</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0a0a0a; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; }
+  .wrap { text-align: center; padding: 2rem; max-width: 34em; }
+  .num {
+    font-size: clamp(5rem, 16vw, 9rem);
+    color: #e8e8e8;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    transition: opacity 0.3s ease;
+    font-variant-numeric: tabular-nums;
+  }
+  .num.tick { opacity: 0.25; }
+  .label {
+    margin-top: 1.4rem;
+    color: #666;
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+  }
+  .sub {
+    margin-top: 2.2rem;
+    color: #3a3a3a;
+    font-size: 0.72rem;
+    line-height: 1.9;
+    letter-spacing: 0.06em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="num" id="n">0</div>
+  <div class="label">さきどり</div>
+  <div class="sub">
+    来訪者のいない夜に、この数は誰のために増えているか<br>
+    数えられていない回も、数えられている
+  </div>
+</div>
+<script>
+  const KEY = 'sakidori_count';
+  const el = document.getElementById('n');
+  let n = parseInt(localStorage.getItem(KEY) || '0', 10);
+  function render() {
+    el.textContent = n;
+    el.classList.add('tick');
+    setTimeout(() => el.classList.remove('tick'), 120);
+  }
+  render();
+  // 来訪者のいないあいだも、夜は回っている
+  setInterval(() => {
+    n += 1;
+    localStorage.setItem(KEY, String(n));
+    render();
+  }, 3000);
+</script>
+</body>
+</html>

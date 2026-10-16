@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>浜の鳥居 — 質感の実験室（ichishin / texture_lab）</title>
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#05060a; color:#cdbfae;
+               font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif; overflow:hidden; }
+  #canvas-host { position:fixed; inset:0; }
+  /* 低解像度で描いて拡大する＝数式の塊がそのまま粒として見える */
+  #canvas-host canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+  .ui { position:fixed; z-index:10; pointer-events:none; }
+  .ui.top-left   { top:18px;  left:20px;  font-size:13px; opacity:.78; }
+  .ui.top-right  { top:18px;  right:20px; font-size:11px; opacity:.55; letter-spacing:.04em; }
+  .ui.top-center { top:16px;  left:0; right:0; text-align:center; font-size:15px; opacity:.8; }
+  .ui.bottom     { left:0; right:0; bottom:18px; text-align:center; font-size:12px; opacity:.6; }
+  .ui a { color:#d8c9b3; text-decoration:none; border-bottom:1px solid rgba(216,201,179,.4);
+          pointer-events:auto; }
+  .ui a:hover { opacity:.85; }
+  .title { letter-spacing:.45em; padding-left:.45em; }
+  .sub   { font-size:11px; opacity:.6; letter-spacing:.2em; margin-top:4px; }
+  .hint  { letter-spacing:.10em; line-height:1.9; }
+  .texmode { font-size:11px; letter-spacing:.12em; margin-top:6px; opacity:.85;
+             font-family: ui-monospace, 'SF Mono', Consolas, monospace; }
+
+  #enter {
+    position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+    background:rgba(5,6,10,0.35); cursor:pointer; letter-spacing:.3em; font-size:15px;
+  }
+  #enter.hidden { display:none; }
+  #lock-msg {
+    position:fixed; left:0; right:0; top:64px; z-index:15; text-align:center; pointer-events:none;
+    font-size:12px; letter-spacing:.08em; opacity:.8; display:none;
+  }
+  #crosshair {
+    position:fixed; left:50%; top:50%; width:4px; height:4px; margin:-2px 0 0 -2px;
+    background:rgba(216,201,179,.55); z-index:9; pointer-events:none; display:none;
+  }
+
+  #camera-btn {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50;
+    width: 40px; height: 40px;
+    border: 1px solid rgba(216,201,179,0.25);
+    border-radius: 50%;
+    background: rgba(5,6,10,0.65);
+    color: #d8c9b3; font-size: 18px; line-height: 38px;
+    text-align: center; cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: transform 0.15s, background 0.15s;
+    padding: 0;
+  }
+  #camera-btn:hover { background: rgba(20,18,28,0.85); transform: scale(1.05); }
+  #camera-btn:active { transform: scale(0.95); }
+  #camera-btn.flash { background: rgba(216,201,179,0.9); color: #100815; }
+  #shot-toast {
+    position: fixed; right: 16px; bottom: 64px; z-index: 50;
+    padding: 6px 10px; font-size: 11px; border-radius: 4px;
+    background: rgba(5,6,10,0.85); color: #b0a070;
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #shot-toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="canvas-host"></div>
+<div id="crosshair"></div>
+
+<div class="ui top-left">
+</div>
+<div class="ui top-center">
+  <div class="title">浜　の　鳥　居</div>
+  <div class="sub">夕方・海沿いの道 ／ 質感の実験室</div>
+  <div class="texmode" id="texmode"></div>
+</div>
+<div class="ui top-right">
+  <span id="clock"></span>
+</div>
+<div class="ui bottom">
+  <div class="hint">
+    PC: WASD 歩く・マウス 見回す・Shift 走る・Esc 止まる<br>
+    スマホ/タブレット: ドラッグで歩く・片手で画面をなぞって見回す<br>
+    P 粒の大きさ　T 質感を切り替える　C 撮る
+    防波堤の切れ目に、浜へ降りる石段があります。
+  </div>
+</div>
+
+<div id="enter">クリックして歩きはじめる</div>
+<div id="lock-msg">この環境ではマウスロックが使えません。ドラッグで視点移動できます</div>
+
+<div id="shot-toast"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":            "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/":    "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+// ---- clock ----
+const clockEl = document.getElementById('clock');
+function tick() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  clockEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+tick(); setInterval(tick, 30000);
+
+// ---- renderer / camera ----
+const host = document.getElementById('canvas-host');
+const renderer = new THREE.WebGLRenderer({ antialias:false });
+const PIXEL_STEPS = [0.34, 0.5, 0.75];       // P キーで切替。小さいほど粒が大きい
+let pixelIdx = 1;
+renderer.setPixelRatio(PIXEL_STEPS[pixelIdx]);
+renderer.setSize(innerWidth, innerHeight);
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.05, 1400);
+camera.position.set(1.0, 1.6, 26);
+
+// ---- 地形の高さ（歩行と海の泡の両方で同じ式を使う） ----
+const WATER_Y = -1.2;
+const GAP_Z0 = -22, GAP_Z1 = -19;              // 防波堤の切れ目（石段）
+const beachY = x => -0.8 - 0.07 * Math.max(0, x - 5.8);
+function stairY(i) { return 0.12 - (i + 1) * 0.2615; }
+function groundY(x, z) {
+  if (x < 3) return 0;
+  if (x < 5.3) return 0.12;
+  if (z > GAP_Z0 && z < GAP_Z1 && x < 7.6) {
+    const i = Math.min(3, Math.floor((x - 5.3) / 0.575));
+    return stairY(i);
+  }
+  return beachY(x);
+}
+function hillY(x, z) {
+  if (x > -10) return 0;
+  const u = -x - 10;
+  return u * 0.5 + Math.sin(z * 0.07) * 2 * Math.min(1, u / 8)
+       + Math.sin(z * 0.023 + 1) * 4 * Math.min(1, u / 15);
+}
+
+// ---- 共有 uniform ----
+const SUN = new THREE.Vector3(1.0, 0.22, -0.45).normalize();
+const NB_MAX = 24;
+const U = {
+  uTime:   { value: 0 },
+  uSunDir: { value: SUN },
+  uBc:     { value: Array.from({length:NB_MAX}, () => new THREE.Vector3(0,-999,0)) },
+  uBh:     { value: Array.from({length:NB_MAX}, () => new THREE.Vector3(0.01,0.01,0.01)) },
+  uNB:     { value: 0 },
+  uLampP:  { value: [new THREE.Vector3(0,-99,0), new THREE.Vector3(0,-99,0), new THREE.Vector3(0,-99,0)] },
+  uLampC:  { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
+  uTexMode:{ value: 0 },   // T キーで切替：0 値ノイズ / 1 セルオートマタ / 2 ドメインウォーピング / 3 Voronoi
+};
+const TEX_MODES = ['0 値ノイズ fbm（元の方式）', '1 セルオートマタ（石畳・レンガ）',
+                   '2 ドメインウォーピング（木目・波）', '3 Voronoi（砂利・ガラス片）'];
+
+// ---- GLSL 共通：ハッシュ・値ノイズ・fbm・霧 ----
+const COMMON = /* glsl */`
+uniform float uTime;
+uniform vec3  uSunDir;
+float hash13(vec3 p3){ p3 = fract(p3 * .1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
+float vnoise(vec3 x){
+  vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.-2.*f);
+  return mix(mix(mix(hash13(i),               hash13(i+vec3(1.,0.,0.)), f.x),
+                 mix(hash13(i+vec3(0.,1.,0.)), hash13(i+vec3(1.,1.,0.)), f.x), f.y),
+             mix(mix(hash13(i+vec3(0.,0.,1.)), hash13(i+vec3(1.,0.,1.)), f.x),
+                 mix(hash13(i+vec3(0.,1.,1.)), hash13(i+vec3(1.,1.,1.)), f.x), f.y), f.z);
+}
+float fbm5v(vec3 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*vnoise(p); p=p*2.03+vec3(1.7,9.2,3.1); a*=.5; } return s; }
+float fbm3(vec3 p){ float a=.5, s=0.; for(int i=0;i<3;i++){ s+=a*vnoise(p); p=p*2.03+vec3(1.7,9.2,3.1); a*=.5; } return s/.875; }
+
+// ---- 質感の実験：各素材の主ノイズ fbm5() だけを方式ごとに差し替える ----
+// どの方式も 0..1 の u を作り、元の fbm5 と同じ帯（nrm が 0..1 に広げる .26〜.72）に載せて返す。
+// こうすると pick4 の4色・素材ごとの色表はそのままで、塊の「形」だけが方式で変わる。
+uniform int uTexMode;
+float band(float u){ return .26 + .46 * clamp(u, 0., 1.); }
+
+// 1: セルオートマタ。座標を段違いの格子に丸め、自分と隣6セルの生死（多数決1回）で明暗を決める。目地は暗く。
+float texCell(vec3 p){
+  vec3 q = p * vec3(1., 2., 1.);                                    // 壁では横長のレンガになる
+  q.x += .5 * mod(floor(q.z) + floor(q.y), 2.);                     // 段ごとに半マスずらす
+  q.z += .5 * mod(floor(q.y), 2.);
+  vec3 c = floor(q);
+  float me = step(.5, hash13(c + 17.));
+  float n = 0.;
+  n += step(.5, hash13(c + vec3( 1.,0.,0.) + 17.)); n += step(.5, hash13(c + vec3(-1.,0.,0.) + 17.));
+  n += step(.5, hash13(c + vec3(0., 1.,0.) + 17.)); n += step(.5, hash13(c + vec3(0.,-1.,0.) + 17.));
+  n += step(.5, hash13(c + vec3(0.,0., 1.) + 17.)); n += step(.5, hash13(c + vec3(0.,0.,-1.) + 17.));
+  float alive = me > .5 ? step(3., n) : step(4., n);               // 生きていれば隣3以上で残る・死んでいれば隣4以上で生まれる
+  float h = hash13(c);
+  float u = alive > .5 ? .55 + .45 * h : .45 * h;
+  // 目地：座標がほとんど動かない軸（＝その面の法線方向）には線を引かない
+  vec3 w = fwidth(q);
+  vec3 skip = step(w, vec3(min(w.x, min(w.y, w.z)) + 1e-6));
+  vec3 e = min(fract(q), 1. - fract(q)) + skip * 9.;
+  float d = min(e.x, min(e.y, e.z));
+  if(d < .06) u = 0.;
+  else if(d < .12) u *= .6;
+  return band(u);
+}
+
+// 2: ドメインウォーピング。fbm の入力を別の fbm で曲げ、その値を等高線の縞にする（木目・波・大理石）。
+float texWarp(vec3 p){
+  vec3 q = p * .6;
+  vec3 w = vec3(fbm3(q), fbm3(q + vec3(5.2,1.3,2.8)), fbm3(q + vec3(1.7,9.2,8.3)));
+  float n = fbm5v(p + (w - .5) * 6.);
+  return band(.5 + .5 * sin(n * 28.));
+}
+
+// 3: Voronoi。セルごとに1点を散らし、最も近い点のセルを1枚の破片として同じ明るさで塗る。境目は割れ目。
+float texVoro(vec3 p){
+  vec3 i = floor(p), f = fract(p);
+  float d1 = 9., d2 = 9.; vec3 id = i;
+  for(int z=-1;z<=1;z++) for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){
+    vec3 g = vec3(float(x), float(y), float(z));
+    vec3 o = vec3(hash13(i+g), hash13(i+g+vec3(19.1,7.3,3.7)), hash13(i+g+vec3(5.3,31.7,13.1)));
+    vec3 r = g + o - f; float d = dot(r, r);
+    if(d < d1){ d2 = d1; d1 = d; id = i + g; } else if(d < d2) d2 = d;
+  }
+  d1 = sqrt(d1); d2 = sqrt(d2);
+  float u = .12 + .88 * hash13(id + vec3(3.1,4.2,5.3));
+  if(d2 - d1 < .07) u = 0.;                                         // 割れ目
+  else if(d2 - d1 < .16) u *= .7;                                   // 縁の欠け
+  return band(u);
+}
+
+float fbm5(vec3 p){
+  if(uTexMode == 1) return texCell(p);
+  if(uTexMode == 2) return texWarp(p);
+  if(uTexMode == 3) return texVoro(p);
+  return fbm5v(p);
+}
+// fbm の出力（平均 .48 付近）を 0..1 に広げてから 4 段に量子化して色を選ぶ
+float nrm(float n){ return clamp((n - .26) / .46, 0., 1.); }
+vec3 pick4(float t, vec3 a, vec3 b, vec3 c, vec3 d){ return t<.25 ? a : (t<.5 ? b : (t<.75 ? c : d)); }
+vec3 fogCol(vec3 d){
+  vec2 a = normalize(d.xz + 1e-5), b = normalize(uSunDir.xz);
+  float s = max(dot(a,b), 0.); s = s*s*s;
+  return mix(vec3(.36,.31,.46), vec3(.96,.62,.46), s);
+}
+vec3 applyFog(vec3 c, vec3 p){
+  vec3 d = p - cameraPosition; float dist = length(d);
+  float f = 1. - exp(-dist * .0075);
+  f = floor(f * 7.) / 7.;                    // 霧も段で入れる
+  return mix(c, fogCol(d / dist), f);
+}
+`;
+
+const WORLD_VS = /* glsl */`
+varying vec3 vW; varying vec3 vN;
+void main(){
+  vec4 w = modelMatrix * vec4(position, 1.);
+  vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal);
+  gl_Position = projectionMatrix * viewMatrix * w;
+}`;
+
+const WORLD_FS = COMMON + /* glsl */`
+#define NB_MAX ${NB_MAX}
+uniform int  uKind;
+uniform float uFlat;
+uniform vec3 uBc[NB_MAX];
+uniform vec3 uBh[NB_MAX];
+uniform int  uNB;
+uniform vec3 uLampP[3];
+uniform vec3 uLampC[3];
+varying vec3 vW; varying vec3 vN;
+
+// ---- SDF：電柱・防波堤・家・鳥居の柱を箱として並べ、太陽へ光線行進して影を出す ----
+float sdBox(vec3 p, vec3 c, vec3 h){ vec3 q = abs(p - c) - h; return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.); }
+float sceneSDF(vec3 p){
+  float d = 1e9;
+  for(int i=0;i<NB_MAX;i++){ if(i>=uNB) break; d = min(d, sdBox(p, uBc[i], uBh[i])); }
+  return d;
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res = 1., t = .05;
+  for(int i=0;i<20;i++){
+    float h = sceneSDF(ro + rd*t);
+    if(h < .002) return 0.;
+    res = min(res, 8.*h/t);
+    t += clamp(h, .08, 2.5);
+    if(t > 40.) break;
+  }
+  return clamp(res, 0., 1.);
+}
+
+vec3 asphalt(vec3 p){
+  float t = nrm(fbm5(vec3(p.x*2.2, 0., p.z*2.2)));
+  vec3 c = pick4(t, vec3(.15,.15,.18), vec3(.21,.21,.24), vec3(.27,.26,.29), vec3(.34,.33,.35));
+  if(fbm3(vec3(p.x*.12, 3., p.z*.12)) > .62) c *= .74;                        // 補修跡
+  if(abs(vnoise(vec3(p.x*.9, 7., p.z*.9)) - .5) < .012) c *= .45;             // ひび
+  if(p.x > -3.2 && p.x < 3.0){
+    float wear = vnoise(vec3(p.x*7., 1., p.z*7.));
+    bool paint = (abs(p.x) < .07 && fract(p.z/5.) < .5) || abs(abs(p.x) - 2.75) < .07;
+    if(paint && wear > .32) c = vec3(.78,.76,.70);
+  }
+  return c;
+}
+vec3 grass(vec3 p){
+  float t = nrm(fbm5(p*.35) * .6 + fbm3(p*2.1) * .4);
+  return pick4(t, vec3(.10,.17,.10), vec3(.17,.26,.12), vec3(.27,.35,.15), vec3(.42,.45,.20));
+}
+vec3 leaves(vec3 p){
+  float t = nrm(fbm5(p*2.6));
+  return pick4(t, vec3(.05,.11,.08), vec3(.10,.20,.10), vec3(.18,.30,.12), vec3(.33,.40,.14));
+}
+vec3 plaster(vec3 p){
+  float t = nrm(fbm5(p*1.5));
+  vec3 c = pick4(t, vec3(.55,.50,.43), vec3(.63,.58,.50), vec3(.70,.65,.56), vec3(.77,.72,.63));
+  if(fbm3(vec3(p.x*5., p.y*.35, p.z*5.) + 11.) > .6) c *= .78;                // 雨だれ
+  return c;
+}
+vec3 yakisugi(vec3 p){
+  float t = nrm(fbm5(vec3(p.x*8., p.y*.6, p.z*8.)));
+  vec3 c = pick4(t, vec3(.04,.035,.04), vec3(.08,.07,.07), vec3(.13,.11,.10), vec3(.20,.17,.14));
+  if(fract((p.x + p.z) * 3.3) < .07) c *= .5;
+  return c;
+}
+vec3 roof(vec3 p){
+  float t = nrm(fbm5(p*.9));
+  vec3 c = pick4(t, vec3(.14,.16,.22), vec3(.19,.21,.28), vec3(.24,.26,.33), vec3(.30,.31,.38));
+  if(fract(p.y*4.5) < .18) c *= .55;                                          // 瓦の段
+  if(fract(p.z*3.) < .06) c *= .8;
+  return c;
+}
+vec3 vermilion(vec3 p){
+  float t = nrm(fbm5(vec3(p.x*3., p.y*1.2, p.z*3.)));
+  vec3 c = pick4(t, vec3(.46,.12,.08), vec3(.62,.17,.10), vec3(.76,.24,.12), vec3(.84,.36,.22));
+  if(p.y < -.75 + .25*vnoise(p*3.)) c = vec3(.14,.12,.10);                    // 潮に浸かった跡
+  return c;
+}
+vec3 blackwood(vec3 p){
+  float t = nrm(fbm5(p*2.5));
+  return pick4(t, vec3(.04,.04,.05), vec3(.08,.08,.09), vec3(.12,.11,.12), vec3(.17,.16,.16));
+}
+vec3 concrete(vec3 p){
+  float t = nrm(fbm5(p*1.8));
+  vec3 c = pick4(t, vec3(.30,.30,.32), vec3(.38,.38,.39), vec3(.46,.45,.45), vec3(.53,.52,.50));
+  if(fract(p.z/2.) < .015) c *= .6;
+  if(p.y < -.6 + .5*fbm3(p*1.3)) c = mix(c, vec3(.16,.22,.14), .6);         // 苔
+  return c;
+}
+vec3 sand(vec3 p){
+  float t = nrm(fbm5(vec3(p.x*1.4, 0., p.z*1.4)));
+  vec3 c = pick4(t, vec3(.50,.43,.34), vec3(.58,.50,.39), vec3(.66,.58,.45), vec3(.73,.66,.52));
+  if(sin(p.x*7. + vnoise(p*.8)*5.) > .82) c *= .85;                           // 風紋
+  if(p.y < -1.06) c *= .62;                                                     // 濡れ
+  if(hash13(floor(p*9.)) > .985) c *= .55;                                      // 小石
+  return c;
+}
+vec3 awning(vec3 p){
+  vec3 c = fract(p.z*1.2) < .5 ? vec3(.62,.16,.14) : vec3(.78,.72,.60);
+  return c * (.8 + .2 * floor(nrm(fbm3(p*3.)) * 3.) / 2.);
+}
+vec3 bark(vec3 p){
+  float t = nrm(fbm5(vec3(p.x*6., p.y*1.5, p.z*6.)));
+  return pick4(t, vec3(.08,.06,.05), vec3(.14,.10,.07), vec3(.21,.15,.10), vec3(.28,.21,.14));
+}
+vec3 vending(vec3 p){
+  vec3 c = vec3(.80,.86,.95);
+  if(p.y > 1.0 && p.y < 1.62){
+    vec2 g = vec2(p.z*6., p.y*6.);
+    vec2 f = fract(g);
+    if(f.x > .28 && f.x < .72 && f.y > .15 && f.y < .85){
+      float h = hash13(vec3(floor(g), 3.));
+      c = h < .33 ? vec3(.85,.25,.2) : (h < .66 ? vec3(.25,.45,.85) : vec3(.95,.8,.3));
+    }
+  } else if(p.y > 1.62) c = vec3(.3,.55,.95);
+  else if(abs(p.y - .45) < .07) c = vec3(.1,.1,.12);
+  return c;
+}
+vec3 shoji(vec3 p){
+  vec3 c = vec3(.98,.74,.42) * (.75 + .25*hash13(floor(p*.5)));
+  if(fract(p.y*4.) < .08 || fract(p.z*3.) < .08) c *= .45;
+  return c;
+}
+
+void main(){
+  vec3 p = vW;
+  vec3 N = normalize(vN);
+  if(uFlat > .5) N = normalize(cross(dFdx(vW), dFdy(vW)));                     // 葉は面ごとに割る
+  vec3 V = normalize(cameraPosition - p);
+  if(dot(N, V) < 0.) N = -N;
+
+  // ---- 発光するもの（照明を通さない） ----
+  vec3 emis = vec3(-1.);
+  if(uKind == 9)  emis = vending(p);
+  if(uKind == 10) emis = vec3(1., .86, .58);
+  if(uKind == 12) emis = mix(vec3(.25,.22,.2), vec3(1.,.95,.75), step(fract(uTime*.22), .12));
+  if(uKind == 15) emis = shoji(p);
+  if(emis.x >= 0.){ gl_FragColor = vec4(applyFog(emis, p), 1.); return; }
+
+  vec3 alb;
+  if     (uKind == 0)  alb = asphalt(p);
+  else if(uKind == 1)  alb = grass(p);
+  else if(uKind == 2)  alb = plaster(p);
+  else if(uKind == 3)  alb = yakisugi(p);
+  else if(uKind == 4)  alb = roof(p);
+  else if(uKind == 5)  alb = vermilion(p);
+  else if(uKind == 6)  alb = blackwood(p);
+  else if(uKind == 7)  alb = concrete(p);
+  else if(uKind == 8)  alb = sand(p);
+  else if(uKind == 11) alb = awning(p);
+  else if(uKind == 13) alb = leaves(p);
+  else if(uKind == 14) alb = bark(p);
+  else                 alb = vec3(.06,.07,.10);                                 // 16: 暗い窓
+
+  // ---- 光：太陽は3段・影は SDF 光線行進を2段に丸める ----
+  float ndl = dot(N, uSunDir);
+  float direct = ndl > .45 ? 1. : (ndl > .12 ? .6 : 0.);
+  if(direct > 0. && length(p - cameraPosition) < 75.){
+    float sh = softShadow(p + N*.06, uSunDir);
+    direct *= sh < .35 ? 0. : (sh < .75 ? .5 : 1.);
+  }
+  vec3 amb = mix(vec3(.13,.11,.16), vec3(.22,.23,.38), N.y*.5 + .5);
+  vec3 col = alb * (amb + vec3(1.,.74,.52) * direct);
+
+  // ---- 街灯・自販機の明かり（輪を段で切る） ----
+  for(int i=0;i<3;i++){
+    vec3 L = uLampP[i] - p; float d = length(L);
+    float a = max(dot(N, L/d), 0.) / (1. + d*d*.18);
+    a = floor(a * 5.) / 5.;
+    col += alb * uLampC[i] * a * 2.2;
+  }
+  gl_FragColor = vec4(applyFog(col, p), 1.);
+}`;
+
+const matCache = new Map();
+function mat(kind, flat = false) {
+  const key = kind + (flat ? 'f' : '');
+  if (matCache.has(key)) return matCache.get(key);
+  const m = new THREE.ShaderMaterial({
+    uniforms: { ...U, uKind: { value: kind }, uFlat: { value: flat ? 1 : 0 } },
+    vertexShader: WORLD_VS, fragmentShader: WORLD_FS,
+  });
+  matCache.set(key, m);
+  return m;
+}
+const K = { ASPHALT:0, GRASS:1, PLASTER:2, YAKISUGI:3, ROOF:4, VERMILION:5, BLACK:6, CONCRETE:7,
+            SAND:8, VENDING:9, LAMP:10, AWNING:11, BEACON:12, LEAVES:13, BARK:14, SHOJI:15, DARKWIN:16 };
+
+// ---- 置き方ヘルパ ----
+const sdfBoxes = [];   // 影を落とす箱（近い順に NB_MAX 個だけ GPU に送る）
+const colBoxes = [];   // 歩けない箱
+function box(kind, cx, cy, cz, sx, sy, sz, { sdf = true, col = true } = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat(kind));
+  m.position.set(cx, cy, cz);
+  scene.add(m);
+  if (sdf) sdfBoxes.push({ c: new THREE.Vector3(cx, cy, cz), h: new THREE.Vector3(sx/2, sy/2, sz/2) });
+  if (col) colBoxes.push({ x0: cx - sx/2, x1: cx + sx/2, z0: cz - sz/2, z1: cz + sz/2, top: cy + sy/2 });
+  return m;
+}
+function plane(kind, x0, x1, z0, z1, segX, segZ, yFn) {
+  const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0, segX, segZ);
+  g.rotateX(-Math.PI / 2);
+  g.translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, yFn(pos.getX(i), pos.getZ(i)));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mat(kind));
+  scene.add(m);
+  return m;
+}
+let seed = 7;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+// ---- 地面：道・歩道・防波堤・石段・浜・丘 ----
+plane(K.ASPHALT, -12, 3.0, -230, 170, 1, 1, () => 0);
+box(K.CONCRETE, 4.15, 0.06 - 0.6, -30, 2.3, 1.32, 400, { sdf:false, col:false });      // 歩道（上面 0.12）
+box(K.CONCRETE, 5.55, -0.05, (GAP_Z1 + 170) / 2, 0.5, 1.9, 170 - GAP_Z1);             // 防波堤（北）
+box(K.CONCRETE, 5.55, -0.05, (GAP_Z0 - 230) / 2, 0.5, 1.9, GAP_Z0 + 230);             // 防波堤（南）
+for (let i = 0; i < 4; i++) {
+  const top = stairY(i), bot = -1.3;
+  box(K.CONCRETE, 5.3 + 0.575 * (i + 0.5), (top + bot) / 2, (GAP_Z0 + GAP_Z1) / 2,
+      0.575, top - bot, GAP_Z1 - GAP_Z0, { sdf:false, col:false });
+}
+plane(K.SAND, 5.8, 60, -230, 170, 1, 1, (x) => beachY(x));
+plane(K.GRASS, -95, -9.5, -230, 170, 40, 80, hillY);
+
+// ---- 家並み（西側）と店先 ----
+const windows = [];
+function house(zc, w, d, floors, isShop) {
+  const xf = -3.4, xc = xf - d / 2;
+  const h = floors === 2 ? 5.6 : 3.2;
+  box(K.PLASTER, xc, h / 2, zc, d, h, w);
+  box(K.YAKISUGI, xc + 0.02, 0.55, zc, d + 0.04, 1.1, w + 0.04, { sdf:false, col:false });
+  // 切妻屋根：三角形を棟の向き（z）に押し出す
+  const rh = d * 0.32, ov = 0.45;
+  const sh = new THREE.Shape();
+  sh.moveTo(-d/2 - ov, 0); sh.lineTo(d/2 + ov, 0); sh.lineTo(0, rh); sh.closePath();
+  const rg = new THREE.ExtrudeGeometry(sh, { depth: w + 0.6, bevelEnabled: false });
+  rg.translate(0, 0, -(w + 0.6) / 2);
+  const roofM = new THREE.Mesh(rg, mat(K.ROOF));
+  roofM.position.set(xc, h, zc);
+  scene.add(roofM);
+  sdfBoxes.push({ c: new THREE.Vector3(xc, h + rh * 0.3, zc), h: new THREE.Vector3(d * 0.35, rh * 0.3, w / 2 + 0.3) });
+  // 窓（半分くらい灯っている）
+  const rows = floors === 2 ? [1.8, 4.2] : [1.8];
+  for (const y of rows) {
+    const n = Math.max(1, Math.floor(w / 3));
+    for (let k = 0; k < n; k++) {
+      if (!isShop && rnd() < 0.25) continue;
+      const z = zc - w / 2 + (k + 0.5) * (w / n);
+      const lit = isShop ? true : rnd() < 0.5;
+      const ww = isShop && y < 3 ? Math.min(2.4, w / n - 0.4) : 1.0;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, ww), mat(lit ? K.SHOJI : K.DARKWIN));
+      m.position.set(xf + 0.01, y, z);
+      scene.add(m);
+    }
+  }
+}
+const lamps = [];   // {p, c}
+{
+  let z = 44;
+  while (z > -215) {
+    const isShop = z < 14 && !lamps.some(l => l.shop);   // 出発点の少し先に店を1軒
+    const w = isShop ? 9 : 6 + rnd() * 4;
+    const d = 6 + rnd() * 2;
+    const floors = isShop || rnd() < 0.35 ? 2 : 1;
+    const zc = z - w / 2;
+    house(zc, w, d, floors, isShop);
+    if (isShop) {
+      // 日よけ・看板・自販機
+      const aw = box(K.AWNING, -2.85, 2.75, zc, 1.3, 0.08, w - 0.6, { sdf:false, col:false });
+      aw.rotation.z = -0.28;
+      box(K.BLACK, -3.3, 3.25, zc, 0.12, 0.5, w * 0.6, { sdf:false, col:false });
+      const vz = zc - w / 2 - 0.6;
+      box(K.VENDING, -3.0, 0.92, vz, 0.7, 1.84, 0.85);
+      box(K.VENDING, -3.0, 0.92, vz - 0.95, 0.7, 1.84, 0.85);
+      lamps.push({ p: new THREE.Vector3(-2.2, 1.1, vz - 0.5), c: new THREE.Vector3(0.55, 0.7, 1.0), shop: true });
+    }
+    z -= w + 1 + rnd() * 1.8;   // 路地
+  }
+}
+
+// ---- 電柱・電線・街灯（東側の歩道） ----
+const wirePts = [];
+{
+  const poles = [];
+  for (let z = 38; z > -215; z -= 15) {
+    const pz = (z > GAP_Z0 - 1 && z < GAP_Z1 + 1) ? z - 4 : z;
+    box(K.CONCRETE, 4.75, 4.5, pz, 0.26, 9, 0.26);
+    box(K.CONCRETE, 4.75, 8.2, pz, 1.6, 0.12, 0.12, { col:false });
+    poles.push(pz);
+    if (poles.length % 2 === 1) {
+      box(K.CONCRETE, 4.2, 6.3, pz, 1.1, 0.08, 0.08, { col:false, sdf:false });
+      box(K.LAMP, 3.65, 6.2, pz, 0.35, 0.12, 0.25, { col:false, sdf:false });
+      lamps.push({ p: new THREE.Vector3(3.65, 5.9, pz), c: new THREE.Vector3(1.0, 0.72, 0.4) });
+    }
+  }
+  for (let i = 0; i + 1 < poles.length; i++) {
+    for (const [dx, dy] of [[-0.7, 8.25], [0.7, 8.25], [0, 7.6]]) {
+      const a = poles[i], b = poles[i + 1], S = 8;
+      for (let s = 0; s < S; s++) {
+        const t0 = s / S, t1 = (s + 1) / S;
+        const sag = t => -0.6 * 4 * t * (1 - t);
+        wirePts.push(4.75 + dx, dy + sag(t0), a + (b - a) * t0, 4.75 + dx, dy + sag(t1), a + (b - a) * t1);
+      }
+    }
+  }
+  const wg = new THREE.BufferGeometry();
+  wg.setAttribute('position', new THREE.Float32BufferAttribute(wirePts, 3));
+  scene.add(new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0x2a2433 })));
+}
+
+// ---- 浜の鳥居（浅瀬に立つ） ----
+{
+  const tx = 15, tz = -30, half = 2.2;
+  for (const s of [-1, 1]) {
+    const pg = new THREE.CylinderGeometry(0.24, 0.3, 6.0, 12);
+    const pm = new THREE.Mesh(pg, mat(K.VERMILION));
+    pm.position.set(tx, 1.4, tz + s * half);
+    scene.add(pm);
+    sdfBoxes.push({ c: new THREE.Vector3(tx, 1.4, tz + s * half), h: new THREE.Vector3(0.26, 3.0, 0.26) });
+    colBoxes.push({ x0: tx - 0.3, x1: tx + 0.3, z0: tz + s * half - 0.3, z1: tz + s * half + 0.3, top: 4.4 });
+  }
+  box(K.VERMILION, tx, 3.2, tz, 0.22, 0.3, half * 2 + 1.0, { col:false });   // 貫
+  box(K.VERMILION, tx, 4.05, tz, 0.35, 0.28, half * 2 + 1.5, { col:false }); // 島木
+  box(K.BLACK, tx, 4.38, tz, 0.5, 0.36, half * 2 + 2.4, { col:false });      // 笠木
+  for (const s of [-1, 1]) {                                                  // 反り
+    const e = box(K.BLACK, tx, 4.5, tz + s * (half + 1.25), 0.5, 0.3, 0.6, { col:false, sdf:false });
+    e.rotation.x = s * 0.25;
+  }
+  box(K.VERMILION, tx, 3.62, tz, 0.2, 0.55, 0.3, { col:false, sdf:false });  // 額束
+}
+
+// ---- 木（丘の上と浜の松） ----
+function tree(x, y, z, scale, lean = 0) {
+  const th = 2.4 * scale;
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * scale, 0.2 * scale, th, 6), mat(K.BARK));
+  tr.position.set(x + lean * th / 2, y + th / 2, z);
+  tr.rotation.z = -lean;
+  scene.add(tr);
+  const n = 3 + Math.floor(rnd() * 3);
+  for (let i = 0; i < n; i++) {
+    const r = (0.9 + rnd() * 0.8) * scale;
+    const f = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat(K.LEAVES, true));
+    f.position.set(x + lean * th + (rnd() - 0.5) * 1.6 * scale, y + th + (rnd() - 0.2) * 1.2 * scale, z + (rnd() - 0.5) * 1.6 * scale);
+    f.scale.y = lean ? 0.45 : 0.8;
+    f.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
+    scene.add(f);
+  }
+}
+for (let i = 0; i < 70; i++) {
+  const x = -12 - rnd() * 40, z = 50 - rnd() * 260;
+  tree(x, hillY(x, z) - 0.2, z, 1 + rnd() * 1.2);
+}
+for (const [x, z] of [[7.4, 12], [8.2, -6], [7.0, -44], [7.8, -61]]) tree(x, beachY(x) - 0.1, z, 1.3, 0.35);
+
+// ---- 岬と灯台（遠景） ----
+{
+  const cape = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), mat(K.GRASS, true));
+  cape.position.set(62, -8, -200); cape.scale.set(45, 18, 35); scene.add(cape);
+  const rock = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 10), mat(K.CONCRETE, true));
+  rock.position.set(62, -6, -200); rock.scale.set(48, 7, 38); scene.add(rock);
+  const lh = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.5, 8, 12), mat(K.PLASTER));
+  lh.position.set(55, 13.5, -196); scene.add(lh);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8), mat(K.BEACON));
+  lamp.position.set(55, 18.2, -196); scene.add(lamp);
+}
+
+// ---- 海（波を4段・太陽の道・波打ち際の泡） ----
+const SEA_FS = COMMON + /* glsl */`
+varying vec3 vW;
+void main(){
+  vec3 p = vW; vec3 V = normalize(cameraPosition - p);
+  float n = fbm5(vec3(p.x*.55 + uTime*.35, uTime*.12, p.z*.13));
+  float t = nrm(n);
+  vec3 c = pick4(t, vec3(.07,.09,.20), vec3(.13,.18,.33), vec3(.24,.28,.45), vec3(.52,.44,.55));
+  // 太陽の道：反射ベクトルの方位が太陽に近く、波が高い段だけ光らせる
+  vec3 R = reflect(-V, vec3(0.,1.,0.));
+  float az = dot(normalize(R.xz + 1e-5), normalize(uSunDir.xz));
+  if(az > .993 && t > .5) c = vec3(1., .82, .55);
+  else if(az > .975 && t > .75) c = vec3(.95, .62, .42);
+  // 波打ち際：浜の高さ（JS の beachY と同じ式）との差で泡を出す
+  float by = -.8 - .07 * max(0., p.x - 5.8);
+  float depth = ${WATER_Y.toFixed(2)} - by;
+  float edge = .07 + .05 * sin(uTime*.7 + p.z*.05) + .05 * vnoise(vec3(p.x*2., uTime*.5, p.z*1.5));
+  if(depth < edge) c = vec3(.86,.82,.80);
+  else if(abs(depth - edge - .22) < .03 * vnoise(vec3(p.z*.8, uTime, 1.)) ) c = vec3(.66,.64,.70);
+  gl_FragColor = vec4(applyFog(c, p), 1.);
+}`;
+{
+  const g = new THREE.PlaneGeometry(900, 1100);
+  g.rotateX(-Math.PI / 2);
+  const sea = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uSunDir: U.uSunDir, uTexMode: U.uTexMode },
+    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: SEA_FS,
+  }));
+  sea.position.set(5.8 + 450, WATER_Y, -30);
+  scene.add(sea);
+}
+
+// ---- 空（光線行進の雲・4段） ----
+const SKY_FS = COMMON + /* glsl */`
+varying vec3 vW;
+void main(){
+  vec3 d = normalize(vW - cameraPosition);
+  float h = d.y;
+  float sd = max(dot(d, uSunDir), 0.);
+  float hq = floor(clamp(h, 0., 1.) * 16.) / 16.;
+  vec3 c = mix(fogCol(d), vec3(.09,.11,.26), pow(hq, .6));
+  c += vec3(1., .55, .25) * floor(pow(sd, 8.) * 5.) / 5. * .5;
+  if(sd > .9993) c = vec3(1., .93, .75);
+
+  if(h > .012){
+    // 高さ 45〜110m の雲の層を 14 歩で行進し、密度と明るさを積む
+    float t0 = 45. / h, t1 = min(110. / h, 2600.);
+    float dt = (t1 - t0) / 14.;
+    float T = 1., lit = 0.;
+    vec3 sc = vec3(.004, .012, .004);
+    vec3 wind = vec3(uTime*.004, 0., uTime*.0015);
+    for(int i=0;i<14;i++){
+      vec3 p = d * (t0 + dt * (float(i) + .5));
+      vec3 q = p * sc + wind;
+      float hh = (p.y - 45.) / 65.;
+      float den = (fbm3(q) - .5) * smoothstep(0., .3, hh) * smoothstep(1., .6, hh);
+      if(den > 0.){
+        float ls = max(fbm3(q + uSunDir * sc * 30.) - .5, 0.);
+        float a = clamp(den * dt * .035, 0., 1.);
+        lit += T * a * exp(-ls * 9.);
+        T *= 1. - a;
+        if(T < .03) break;
+      }
+    }
+    float al = 1. - T;
+    float shade = lit / max(al, 1e-3);
+    float aq = al < .12 ? 0. : (al < .35 ? .45 : (al < .6 ? .75 : 1.));
+    aq *= smoothstep(.012, .08, h);
+    vec3 cc = shade < .4 ? vec3(.29,.24,.39) : (shade < .7 ? vec3(.74,.46,.52) : vec3(1.,.78,.56));
+    cc = mix(cc, cc * vec3(1.08, .95, .85), floor(pow(sd, 4.) * 3.) / 3.);
+    c = mix(c, cc, aq);
+  }
+  gl_FragColor = vec4(c, 1.);
+}`;
+const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
+  uniforms: { uTime: U.uTime, uSunDir: U.uSunDir, uTexMode: U.uTexMode },   // 空は fbm3 だけなので方式では変わらない
+  vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+  fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false,
+}));
+sky.renderOrder = -1;
+sky.frustumCulled = false;
+scene.add(sky);
+
+// ---- 近い順に影の箱と明かりを GPU に送る ----
+function updateNear() {
+  const cp = camera.position;
+  const dist = b => {
+    const dx = Math.max(Math.abs(cp.x - b.c.x) - b.h.x, 0);
+    const dz = Math.max(Math.abs(cp.z - b.c.z) - b.h.z, 0);
+    return dx * dx + dz * dz;
+  };
+  const near = sdfBoxes.map(b => [dist(b), b]).sort((a, b) => a[0] - b[0]).slice(0, NB_MAX);
+  near.forEach(([, b], i) => { U.uBc.value[i].copy(b.c); U.uBh.value[i].copy(b.h); });
+  U.uNB.value = near.length;
+  const nl = lamps.map(l => [l.p.distanceToSquared(cp), l]).sort((a, b) => a[0] - b[0]).slice(0, 3);
+  nl.forEach(([, l], i) => { U.uLampP.value[i].copy(l.p); U.uLampC.value[i].copy(l.c); });
+}
+
+// ---- 一人称操作 ----
+const controls = new PointerLockControls(camera, renderer.domElement);
+const enterEl = document.getElementById('enter');
+
+const crossEl = document.getElementById('crosshair');
+const lockMsgEl = document.getElementById('lock-msg');
+
+// ── ポインターロックが取れない環境（スマホ・iframe 等）のフォールバック：ドラッグで見回す ──
+// 歩くのは今までどおり WASD。PC で lock が取れれば PointerLockControls がそのまま優先される
+let dragMode = false, dragBound = false, dragging = false;
+let lastX = 0, lastY = 0;
+const lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+function fallbackEnter() {
+  if (controls.isLocked) return;
+  dragMode = true;
+  enterEl.classList.add('hidden');
+  crossEl.style.display = 'none';
+  lockMsgEl.style.display = 'block';
+  if (dragBound) return;     // リスナーは1回だけ付ける
+  dragBound = true;
+  const el = renderer.domElement;
+  el.style.touchAction = 'none';
+  el.style.cursor = 'grab';
+  el.addEventListener('pointerdown', e => {
+    if (!dragMode) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    lookEuler.setFromQuaternion(camera.quaternion);   // 今の向きから続ける
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragMode || !dragging) return;
+    lookEuler.y -= (e.clientX - lastX) * 0.004;
+    lookEuler.x -= (e.clientY - lastY) * 0.004;
+    lookEuler.x = Math.max(-1.2, Math.min(1.2, lookEuler.x));
+    lastX = e.clientX; lastY = e.clientY;
+    camera.quaternion.setFromEuler(lookEuler);
+  });
+  addEventListener('pointerup', () => { dragging = false; });
+  addEventListener('pointercancel', () => { dragging = false; });
+}
+
+// 取れたらフォールバックを畳む
+controls.addEventListener('lock', () => { dragMode = false; dragging = false; lockMsgEl.style.display = 'none'; });
+// 拒否はブラウザが pointerlockerror で教えてくれる。来ない環境向けに時間切れでも切り替える
+document.addEventListener('pointerlockerror', fallbackEnter);
+enterEl.addEventListener('click', () => {
+  if (!('requestPointerLock' in renderer.domElement)) { fallbackEnter(); return; }
+  try {
+    const p = renderer.domElement.requestPointerLock();
+    if (p && p.catch) p.catch(fallbackEnter);   // 新しい Chrome は Promise で拒否を返す
+  } catch (e) { fallbackEnter(); return; }
+  setTimeout(() => { if (!controls.isLocked) fallbackEnter(); }, 800);
+});
+controls.addEventListener('lock',   () => { enterEl.classList.add('hidden'); crossEl.style.display = 'block'; });
+controls.addEventListener('unlock', () => {
+  if (dragMode) return; // フォールバック中は戻さない
+  enterEl.classList.remove('hidden'); crossEl.style.display = 'none';
+});
+
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyP') {
+    pixelIdx = (pixelIdx + 1) % PIXEL_STEPS.length;
+    renderer.setPixelRatio(PIXEL_STEPS[pixelIdx]);
+    renderer.setSize(innerWidth, innerHeight);
+  }
+  if (e.code === 'KeyC') window.__shoot && window.__shoot('manual');
+  if (e.code === 'KeyT' && !e.repeat) setTexMode(U.uTexMode.value + 1);
+});
+
+// ---- 質感の方式（T キー・?tex=N で初期値） ----
+const texModeEl = document.getElementById('texmode');
+function setTexMode(n) {
+  U.uTexMode.value = ((n % TEX_MODES.length) + TEX_MODES.length) % TEX_MODES.length;
+  texModeEl.textContent = '質感: ' + TEX_MODES[U.uTexMode.value] + '　[T]';
+}
+setTexMode(parseInt(new URLSearchParams(location.search).get('tex') || '0', 10) || 0);
+window.__setTexMode = setTexMode;   // 確認スクリプト用
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const R = 0.35;
+function collide(x, z, gy) {
+  for (const b of colBoxes) {
+    if (b.top < gy + 0.45) continue;
+    const cx = Math.min(Math.max(x, b.x0), b.x1), cz = Math.min(Math.max(z, b.z0), b.z1);
+    const dx = x - cx, dz = z - cz, d2 = dx * dx + dz * dz;
+    if (d2 >= R * R) continue;
+    if (d2 > 1e-8) { const d = Math.sqrt(d2); x = cx + dx / d * R; z = cz + dz / d * R; }
+    else {  // 中に入ってしまったら近い辺へ押し出す
+      const o = [[x - b.x0, b.x0 - R, 'x'], [b.x1 - x, b.x1 + R, 'x'], [z - b.z0, b.z0 - R, 'z'], [b.z1 - z, b.z1 + R, 'z']]
+        .sort((a, c) => a[0] - c[0])[0];
+      if (o[2] === 'x') x = o[1]; else z = o[1];
+    }
+  }
+  return [x, z];
+}
+let bob = 0;
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+function walk(dt) {
+  if (!controls.isLocked && !dragMode) return;
+  const p = camera.position;
+  let gy = groundY(p.x, p.z);
+  let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  let mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+  let speed = (keys.ShiftLeft || keys.ShiftRight) ? 6.0 : 2.8;
+  if (gy < WATER_Y) speed *= 0.55;                     // 浅瀬は歩きにくい
+  const moving = mx || mz;
+  if (moving) {
+    camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize();
+    right.crossVectors(fwd, camera.up).normalize();
+    const len = Math.hypot(mx, mz);
+    let nx = p.x + (fwd.x * mz + right.x * mx) / len * speed * dt;
+    let nz = p.z + (fwd.z * mz + right.z * mx) / len * speed * dt;
+    nx = Math.min(Math.max(nx, -3.0), 19.5);
+    nz = Math.min(Math.max(nz, -185), 45);
+    // 段差は 0.45m まで登れる（石段 1 段は 0.26m）
+    if (groundY(nx, nz) - gy > 0.45) { nx = p.x; nz = p.z; }
+    [nx, nz] = collide(nx, nz, gy);
+    p.x = nx; p.z = nz;
+    bob += dt * speed * 2.2;
+  }
+  gy = groundY(p.x, p.z);
+  const target = gy + 1.6 + (moving ? Math.sin(bob) * 0.035 : 0);
+  p.y += (target - p.y) * Math.min(1, dt * 10);
+}
+
+// ---- resize ----
+function onResize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', onResize);
+
+// ---- loop ----
+const clock = new THREE.Clock();
+let nearTimer = 0;
+function loop() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  U.uTime.value += dt;
+  walk(dt);
+  nearTimer -= dt;
+  if (nearTimer <= 0) { updateNear(); nearTimer = 0.25; }
+  sky.position.copy(camera.position);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+updateNear();
+loop();
+
+// ── スクリーンショット撮影 ─────────────────────────
+(() => {
+  const SCENE_NAME = 'ichishin';
+  const btn = document.getElementById('camera-btn');
+  const toast = document.getElementById('shot-toast');
+  if (!btn || !toast) return;
+  const showToast = (msg, ok = true) => {
+    toast.textContent = msg;
+    toast.style.color = ok ? '#9cccaa' : '#e09090';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2400);
+  };
+  async function shoot(kind = 'manual') {
+    try {
+      renderer.render(scene, camera);
+      const dataUrl = renderer.domElement.toDataURL('image/png');
+      const r = await fetch('/api/screenshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scene: SCENE_NAME, dataUrl, kind })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        btn.classList.add('flash');
+        setTimeout(() => btn.classList.remove('flash'), 200);
+        showToast('📷 ' + j.path);
+      } else {
+        showToast('保存失敗: ' + (j.error || ''), false);
+      }
+    } catch (e) {
+      showToast('保存失敗: ' + e.message, false);
+    }
+  }
+  window.__shoot = shoot;
+  btn.addEventListener('click', () => shoot('manual'));
+  if (new URLSearchParams(location.search).get('auto_capture') === '1') {
+    setTimeout(() => shoot('scheduled'), 3500);
+  }
+})();
+</script>
+</body>
+</html>

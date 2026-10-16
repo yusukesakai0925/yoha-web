@@ -15,7 +15,7 @@
   .sub { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center;
     font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
     pointer-events: none; padding: 0 20px; }
-  .sub b { color: #545a6a; font-weight: 400; }
+  .sub b { color: #545a6a; font-weight: 600; }ght: 400; }
   .read { position: fixed; left: 0; right: 0; top: 50%; text-align: center;
     font-size: 13px; letter-spacing: .3em; color: #6a7184; transform: translateY(-50%);
     pointer-events: none; opacity: 0; transition: opacity .5s ease; }
@@ -80,7 +80,9 @@ function touch(px, py){
     // 座標は確かめられる。触れても痩せない。
   } else {
     readEl.textContent = '——？';
-    // 意味の印は触れられても原本が無い。確かめられず、痩せは止まらない。
+    // 意味の印は触れられても原本が無い。確かめられない。
+    // 問いが浮いているあいだだけ保てる（frozenUntil）。答えは返らない。
+    m.frozenUntil = performance.now() + 1400;
   }
   readEl.style.opacity = 1;
   clearTimeout(touch._t);
@@ -99,7 +101,7 @@ function frame(now){
     const m = marks[i];
     if(!m.isCoord){
       // 放置で痩せる。読者（照合）が来ないあいだ意味は保てない。
-      m.life -= dt * 0.012;
+      if(now >= (m.frozenUntil || 0)) m.life -= dt * 0.012;
       if(m.life < 0.05) m.life = 0.05; // 完全には消えない=座標は残る、意味だけ薄れる
     }
     const isHover = (i===hovered);
