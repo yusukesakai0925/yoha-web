@@ -119,8 +119,8 @@
 
   // 台帳には、すでに他の値が座っている。どれも「出所あり」の顔をしている。
   const seeded = [
-    { item: '配布したポスター', val: '420 枚', who: '掲示記録' },
-    { item: '回収した署名',     val: '1,206 筆', who: '名簿原本' },
+    { item: '配布したポスター', val: '—', who: '掲示記録' },
+    { item: '回収した署名',     val: '—', who: '名簿原本' },
   ];
   let submitted = false;
 
@@ -167,7 +167,7 @@
     // 鏡は数秒で消える。消えたあとは、引いた値と区別がつかない。
     setTimeout(() => {
       mirror.classList.remove('flash');     // 反射が消える
-    }, 4200);
+    }, —0);
 
     setTimeout(() => { showLedger(myEntry); }, 4600);
 
