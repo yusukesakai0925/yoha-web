@@ -81,12 +81,12 @@
     // 石の一覧は GitHub Issues API から直接読み込む（公開版でも動く）
     loadStones();
 
-    // 黒猫をクリックすると隠れた場所へ
+    // 黒猫をクリックすると、石の棚へ
     const yohaSvg = document.querySelector('.yoha-svg');
     if (yohaSvg) {
       yohaSvg.style.cursor = 'pointer';
       yohaSvg.addEventListener('click', () => {
-        window.location.href = '../kakure/';
+        window.location.href = '../mizuhane/';
       });
     }
 
