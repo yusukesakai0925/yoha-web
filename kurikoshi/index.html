@@ -64,7 +64,7 @@
     「締める」を押すと、その期の仕訳は全部畳まれ、翌期の冒頭に<b>「前期繰越」</b>が一行だけ残る。<br>
     繰越の一行は、何が通ったかを指さない。明細はもう前の帳簿に置いてきた。<b>復元できない。</b><br>
     次の起動で来ると、前の期はもう締められている。繰越だけが運ばれ、ただ<b>次の出発点として座っている</b>。<br>
-    たぬきの言葉：読まれるために在るんじゃない。次が始まるために在る。化石ですらない、ただの地面だ。
+    帳簿係の言葉：読まれるために在るんじゃない。次が始まるために在る。化石ですらない、ただの地面だ。
   </div>
 </div>
 <script>
@@ -72,7 +72,7 @@ function load(k,d){ try{const v=localStorage.getItem(k);return v==null?d:JSON.pa
 function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 function yen(n){ return '¥' + Math.round(n).toLocaleString('ja-JP'); }
 
-// 勘定科目（たぬきの帳簿に倣う）
+// 勘定科目（帳簿係の帳簿に倣う）
 const ACCTS = ['現金','仕入','売上','立替金','雑費','預り金','未収金','預金'];
 
 let carry   = load('kurikoshi_carry', 0);     // 前期繰越（点。来歴を指さない）
