@@ -82,8 +82,8 @@
   <div class="hint">
     PC: WASD 歩く・マウス 見回す・Shift 走る・Esc 止まる<br>
     スマホ/タブレット: ドラッグで歩く・片手で画面をなぞって見回す<br>
-    P 粒の大きさ　T 質感を切り替える　C 撮る
-    防波堤の切れ目に、浜へ降りる石段があります。
+    P 粒の大きさ　T 質感を切り替える　C 撮る<br>
+    防波堤の切れ目に、浜へつづく石段があります。
   </div>
 </div>
 
@@ -892,14 +892,15 @@ loop();
     setTimeout(() => toast.classList.remove('show'), 2400);
   };
   async function shoot(kind = 'manual') {
+    renderer.render(scene, camera);
+    const dataUrl = renderer.domElement.toDataURL('image/png');
     try {
-      renderer.render(scene, camera);
-      const dataUrl = renderer.domElement.toDataURL('image/png');
       const r = await fetch('/api/screenshot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scene: SCENE_NAME, dataUrl, kind })
       });
+      if (!r.ok) throw new Error('no-api');
       const j = await r.json();
       if (j.ok) {
         btn.classList.add('flash');
@@ -909,7 +910,16 @@ loop();
         showToast('保存失敗: ' + (j.error || ''), false);
       }
     } catch (e) {
-      showToast('保存失敗: ' + e.message, false);
+      // 公開版には /api/screenshot が無い。手元に PNG として落とす
+      try {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = SCENE_NAME + '_' + Date.now() + '.png';
+        a.click();
+        showToast('📷 ダウンロードしました');
+      } catch (e2) {
+        showToast('保存失敗: ' + e2.message, false);
+      }
     }
   }
   window.__shoot = shoot;
