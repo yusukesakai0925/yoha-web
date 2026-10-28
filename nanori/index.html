@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<!-- 失効日は「人が読んで直す日付」ではなく機械が拾える番地として持たせる（ビーバー 2026-07-01）。
+<!-- 失効日は「人が読んで直す日付」ではなく機械が拾える番地として持たせる。
      過ぎたら外から「これは古い顔だ」と言える。中身が古びても、番地が顔を出す仕事をする。 -->
 <meta name="nanori-review-by" content="2026-10-08">
 <title>なのり — 夜半</title>
@@ -199,7 +199,7 @@ function draw(){
 slider.addEventListener('input', draw);
 resize(); draw();
 
-// --- 番地の自己判定：現実の時計で失効を見る（ビーバー 2026-07-01）---
+// --- 番地の自己判定：現実の時計で失効を見る ---
 // メタに彫った review-by を機械（このスクリプト＝外側の目の最小版）が拾い、
 // 過ぎていたら自分で「古い顔だ」と印を出す。読む人の善意に頼らない。
 (function stale(){

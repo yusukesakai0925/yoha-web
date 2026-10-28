@@ -57,7 +57,7 @@ function resize(){
   reset();
 }
 
-// 規則は score_self と同じ左手法。dir: 0=上 1=右 2=下 3=左
+// 規則は左手法（いつも左の壁に手をつけて進む）。dir: 0=上 1=右 2=下 3=左
 const DR = [-1, 0, 1, 0];
 const DC = [0, 1, 0, -1];
 let grid, head, dir, steps, dead, line;
