@@ -25,6 +25,7 @@
 <body>
 <a class="back" href="../">← もどる</a>
 <canvas id="c"></canvas>
+<!-- 担う式: frame() の draw += (DRAW_MAX - draw) * 0.004（DRAW_MAX=0.97、1 には届かない）。requestAnimationFrame なのでタブが見えているあいだだけ -->
 <div class="note" id="note">放す前の腕。これは止まっているのではない、ためている。</div>
 <script>
 const cv = document.getElementById('c');
@@ -74,6 +75,7 @@ function frame(now){
   g.fillRect(0, 0, W, H);
 
   // 訪問者がいないあいだ、狙う先は独りで漂う（誰も見ていなくても、ためている）
+  // 願い：hasVisitor は一度触れると戻らないので「いないあいだ」は「まだ触れていないあいだ」。タブが隠れると rAF が止まるので「誰も見ていなくても」はここから違う
   if (!hasVisitor){
     driftT += 0.004;
     aim.x = W * (0.5 + 0.30 * Math.sin(driftT) + 0.06 * Math.sin(driftT * 2.3));

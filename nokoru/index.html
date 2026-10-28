@@ -196,6 +196,7 @@
                 if (i < visits.length - 1) {
                     const nextVisit = new Date(visits[i + 1].timestamp);
                     const gap = nextVisit - visitDate;
+                    // 担う式: gap = 次の訪問の timestamp − この訪問の timestamp。願い：滞在の終わりは記録していないので、gap には自分がいた時間も入る。「空いていた」はここから違う
                     const gapText = formatDuration(gap);
 
                     html += `
