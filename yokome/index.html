@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>よこめ</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070d;overflow:hidden;}
+  body{display:flex;align-items:center;justify-content:center;}
+  #cap{
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.34);font-size:13px;letter-spacing:.3em;line-height:2.4;
+    text-align:center;text-indent:.3em;padding:0 8vw;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.28);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;
+  }
+  .back:hover{color:rgba(255,255,255,.55);}
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<!-- 担う式: visibilitychange で hidden のときだけ setInterval(speak, 8000)。speak は document.title = LINES[Math.floor(Date.now()/8000) % LINES.length]。visible に戻ると clearInterval して title='よこめ'。何も保存しない（localStorage を使わない）。
+     願い: ブラウザは隠れたタブのタイマーを間引く（Chrome は数分後から1分に1回程度）。そのあいだ「8秒ごと」は崩れるが、行は時刻から選ぶので、話すたびに今の行にはなる。タブ名の見えないスマホでは、話していることは誰にも見えない。 -->
+<div id="cap">見ていないあいだだけ、タブの名前が話す。<br>戻ると黙る。何を話していたかは、ここには残らない。</div>
+<script>
+// よこめ —— 眠っている者の内側は、正面からは見えない。
+// このページは、正面（いま見ている画面）では何も話さない。
+// 別のタブへ移ったあいだだけ、タブの名前が一行ずつ変わる。
+// 見えるのは、よそ見をしながら横目でタブの列を見たときだけ。
+// 戻ってきた瞬間に名前は「よこめ」に戻り、何を言っていたかの記録はどこにも残らない。
+const NAME='よこめ';
+const LINES=[
+  'いま、階段を探している',
+  '知らない駅の名前を知っている',
+  'それは前にも来た部屋',
+  'まだ水の中',
+  '誰かに呼ばれかけた',
+  '手紙の宛名が読めない',
+  '昔の家の、ない廊下',
+  '走っているのに進まない',
+  '窓の外が昼だった',
+  'もう一度、同じ扉',
+  '鍵は持っている気がする',
+  '名前を呼ばれた、気がする'
+];
+let timer=null;
+function speak(){
+  document.title=LINES[Math.floor(Date.now()/8000)%LINES.length];
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    speak();
+    timer=setInterval(speak,8000);
+  }else{
+    clearInterval(timer);timer=null;
+    document.title=NAME;
+  }
+});
+</script>
+</body>
+</html>
