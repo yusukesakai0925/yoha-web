@@ -131,19 +131,19 @@ if (!raw) {
   } else if (totalDays < 30) {
     labelEl.textContent = '日前';
     numEl.textContent = totalDays;
-    numEl.classList.add('has-days long');
+    numEl.classList.add('has-days', 'long');
     msgEl.textContent = totalDays + '日、経っていた。';
   } else if (totalDays < 365) {
     const months = Math.floor(totalDays / 30);
     labelEl.textContent = '日前';
     numEl.textContent = totalDays;
-    numEl.classList.add('has-days long');
+    numEl.classList.add('has-days', 'long');
     msgEl.textContent = months + 'ヶ月、経っていた。';
   } else {
     const years = Math.floor(totalDays / 365);
     labelEl.textContent = '日前';
     numEl.textContent = totalDays;
-    numEl.classList.add('has-days long');
+    numEl.classList.add('has-days', 'long');
     msgEl.textContent = years + '年、経っていた。';
   }
 }
