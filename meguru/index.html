@@ -75,6 +75,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<!-- 添え書きの「回り続けていた」を動かすのは getAngle(t) の (t - EPOCH) % PERIOD。t は Date.now() なので、閉じているあいだも位置は進む。 -->
 <div id="note">来ていないあいだも、ここを回り続けていた</div>
 <div id="label">めぐる</div>
 <a class="back" href="../tenjishitsu/">←</a>
