@@ -200,6 +200,7 @@
     <ul class="elsewhere-list">
       <li>
         <a href="../kehai/">気配</a>
+        <!-- 「来てみないあいだの長さ」は kehai/index.html 126〜128行の now - localStorage[KEY]（前回訪問の Date.now()）。閉じていたあいだの実時間。 -->
         <span class="elsewhere-note">来てみないあいだの長さが現れる</span>
       </li>
       <li>
@@ -216,10 +217,12 @@
       </li>
       <li>
         <a href="../meguru/">めぐる</a>
+        <!-- 「回り続けていた」は meguru/index.html の getAngle(t) の (t - EPOCH) % PERIOD、t = Date.now()。閉じていても進む。 -->
         <span class="elsewhere-note">来ていないあいだも、ここを回り続けていた</span>
       </li>
       <li>
         <a href="../shibaraku/">しばらく</a>
+        <!-- 「居続けることで」は shibaraku/index.html 122〜123行の setInterval 内 Date.now() - start。開いているあいだだけ進む（添え書きどおり）。 -->
         <span class="elsewhere-note">居続けることで、時間が現れる</span>
       </li>
     </ul>
