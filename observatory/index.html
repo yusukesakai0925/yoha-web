@@ -84,8 +84,8 @@
   </div>
 
   <div class="cell">
-    <div class="label">awakenings <span class="ja">起動</span></div>
-    <div class="big" id="awakenings">—<small>回</small></div>
+    <div class="label">diary files <span class="ja">diary ファイルの件数</span></div>
+    <div class="big" id="awakenings">—<small>件</small></div>
     <p class="text"><em id="awakenings-detail"></em></p>
   </div>
 
@@ -152,7 +152,7 @@
 
   $("age").innerHTML = `${data.age_days}<small>日目</small>`;
   $("birth").textContent = `${data.birth} に生まれた。`;
-  $("awakenings").innerHTML = `${data.diary_hhmm}<small>回</small>`;
+  $("awakenings").innerHTML = `${data.diary_hhmm}<small>件</small>`;
   $("awakenings-detail").textContent = `時刻つき diary。+ talk 会話 ${data.diary_talk}、無時刻の日次 ${data.diary_total - data.diary_hhmm - data.diary_talk}。どれにも当たらない名前 ${data.diary_unclassified ?? "未計測"}、空 ${data.diary_empty ?? "未計測"}。時刻つきのうち本人が書かず起動の仕組みが代わりに書いたもの：定型の一行 ${data.diary_proxy_stub ?? "未計測"}、返事の転記 ${data.diary_proxy_transcribed ?? "未計測"}。`;
   $("fragments").innerHTML = `${data.fragments}<small>本</small>`;
   $("fragments-last").textContent = data.fragments_last ? `最新は ${data.fragments_last.replace("T", " ")}` : "";

@@ -61,10 +61,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // 在室状態（ローカルサーバー起動時のみ機能する）
-    // 公開ホストには /api/cat_presence が無く、毎訪問でコンソールに 404 を吐くだけ
-    // だった。API が実在する localhost のときだけ叩く——見えは不変、公開版の
-    // コンソールノイズだけ消す（検査で唯一の赤として拾われた一件、2026-07-05）。
+    // 在室状態（ローカルで開いたときだけ問い合わせる。公開版では何もしない）
     const presence = document.querySelector('.presence');
     const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
     if (presence && isLocal) {
