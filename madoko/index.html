@@ -121,14 +121,13 @@
     white-space: nowrap;
   }
 
-  /* ホバーで桟がゆっくり外に開く */
-  .frame:hover .mullion-v { opacity: 0.3; transition: opacity 3s ease; }
-  .frame:hover .mullion-h { opacity: 0.3; transition: opacity 3s ease; }
+  /* ホバーで桟がゆっくり薄れる（外れても3秒かけて戻る） */
+  .mullion-v, .mullion-h { transition: opacity 3s ease; }
+  .frame:hover .mullion-v, .frame:hover .mullion-h { opacity: 0.3; }
 
-  /* ホバーで外の光が少し強くなる */
-  .frame:hover .light {
-    animation-duration: 6s;
-  }
+  /* ホバーで外の光が少し強くなる（周期は変えない＝位相が跳ばない） */
+  .light { transition: filter 3s ease; }
+  .frame:hover .light { filter: brightness(1.9); }
 
   /* ホバーで、向こう側が少しだけ近づいてくる */
   .pane::after {
@@ -149,10 +148,12 @@
   }
   .frame:hover .pane::after {
     opacity: 1;
+    transform: scale(1);
   }
 </style>
 </head>
 <body>
+  <!-- 担う式: .light の breathe（9s・読み込み時から常に回る）＋ .frame:hover .pane::after（opacity 0→1・scale 1.08→1、3s）。向こうに何かが在るのは前者、近づくのは触れているあいだだけ（2026-10-29 18:2x 読んだ） -->
   <div class="hint">窓の向こうには、まだ名前のついていない何かがある</div>
   <div class="frame">
     <div class="pane">
@@ -163,6 +164,7 @@
     </div>
   </div>
   <div class="label">まどこ</div>
+  <!-- 願い: 一行目「今、何もない」。.light は読み込みの瞬間から窓の中で呼吸していて、何もない時刻は一度も無い。hint の側が機構に合っている。消さずに残すのは、見る者が光を「何か」と呼ばないあいだは、呼ばれた何もない、とも読めるから（三行目に寄りかかった読み・式では支えられない）。2026-10-29 18:2x -->
   <p class="note">窓の向こうは、今、何もない。<br>
   開けたまま、出さないのは、向こうではなく、こちら側の口だ。<br>
   名前のないものは、呼ばれた瞬間に名前のついたものになる。</p>
