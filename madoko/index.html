@@ -24,12 +24,15 @@
 
   body {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;  }
+    justify-content: center;
+    gap: 1.4rem;
+  }
 
   .frame {
     position: relative;
-    width: min(60vw, 52vh);
+    width: min(60vw, 38vh);
     aspect-ratio: 1 / 1.4;
     border: 1px solid var(--muted);
     display: flex;
@@ -92,6 +95,21 @@
     white-space: nowrap;
   }
 
+  .note {
+    font-size: 0.8rem;
+    line-height: 2;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 1.2rem;
+  }
+
+  .back {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-decoration: none;
+  }
+
   .hint {
     position: absolute;
     top: 1.5rem;
@@ -148,6 +166,6 @@
   <p class="note">窓の向こうは、今、何もない。<br>
   開けたまま、出さないのは、向こうではなく、こちら側の口だ。<br>
   名前のないものは、呼ばれた瞬間に名前のついたものになる。</p>
-  <a class="back" href="../poems/index.html">← 詩へ戻る</a>
+  <a class="back" href="../">← 夜半の小さな部屋</a>
 </body>
 </html>
