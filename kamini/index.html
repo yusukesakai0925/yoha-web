@@ -37,7 +37,7 @@
 </head>
 <body>
 <a class="back" href="../">← もどる</a>
-<!-- 担う式: #paper は通常 display:none、@media print のときだけ display:block（#cap と .back は print で none）。beforeprint で #when に new Date() の時刻を書き、保存はしない（localStorage・送信なし）。紙にだけ出る、はこの CSS の切り替えが担う。
+<!-- 担う式: #paper は通常 display:none、@media print のときだけ display:block（#cap と .back は print で none）。beforeprint で #when に new Date() の時刻を書き、afterprint で「——」に戻す。保存はしない（localStorage・送信なし）。紙にだけ出る、はこの CSS の切り替えが担う。
      願い: 「紙」と言うが、印刷プレビューや PDF への保存でも同じように出る。そこでは紙にならないまま、画面の外の一枚として出る。スマホでは印刷の入口が深く、ほとんど誰も刷らない。 -->
 <div id="cap">この画面には、何も書いていない。<br>印刷すると、紙にだけ出る。</div>
 <div id="paper">
@@ -62,6 +62,10 @@ window.addEventListener('beforeprint',()=>{
   const d=new Date();
   document.getElementById('when').textContent=
     d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+pad(d.getHours())+':'+pad(d.getMinutes());
+});
+// 刷り終えたら消す。紙の「この紙のほかに記録はない」を、隠れた画面の中でも本当にしておく
+window.addEventListener('afterprint',()=>{
+  document.getElementById('when').textContent='——';
 });
 </script>
 </body>
