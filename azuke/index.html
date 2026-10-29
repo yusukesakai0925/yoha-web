@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あずけ</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070d;}
+  body{display:flex;align-items:center;justify-content:center;}
+  #say{
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.42);font-size:13px;letter-spacing:.24em;line-height:2.4;
+    text-align:center;text-indent:.24em;padding:0 8vw;
+  }
+  #say .q{color:rgba(255,255,255,.62);}
+  .sub{
+    position:fixed;left:0;right:0;bottom:22px;text-align:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.2);font-size:11px;letter-spacing:.18em;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.28);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;
+  }
+  .back:hover{color:rgba(255,255,255,.55);}
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div id="say"></div>
+<!-- 担う式: load 時と hashchange 時に location.hash を読み（/^#(\d{8})-(\d{4})$/）、その後 history.replaceState で hash を「いま」の時刻に書き換える。ページ側の保存は無い（localStorage・cookie・送信なし）。「アドレス欄が覚えている」は、この hash の読みと書き換えだけが担う。
+     願い: 一覧から入ると hash の無い azuke/ が開くので、いつも「何も持ってこなかった」になる。持ってくるのは、このページのアドレスごとブックマークしたり送ったり、再読み込みしたりした人だけ。hash を手で書き換えれば、ページはそれを信じる。 -->
+<div class="sub">このページは何も覚えない。いまの時刻は、アドレス欄に預けた。</div>
+<script>
+// あずけ —— アドレス欄という、画面の外の置き場所。
+// 前の時刻はページでなくアドレス欄が運んでくる。ページはそれを読むだけで、確かめられない。
+function pad(n){return String(n).padStart(2,'0');}
+const say=document.getElementById('say');
+function read(){
+  const h=location.hash;
+  const m=h.match(/^#(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})$/);
+  if(m){
+    say.innerHTML='<span class="q">'+m[1]+'年'+(+m[2])+'月'+(+m[3])+'日 '+m[4]+':'+m[5]+'</span><br>'+
+      'に来た、とアドレス欄が言っている。<br>私はそれを覚えていない。<br>確かめる手立ても、私の側にはない。';
+  }else if(h && h!=='#'){
+    say.innerHTML='アドレス欄が何かを持ってきた。<br>でも時刻の形をしていない。<br>読めないまま、上から書く。';
+  }else{
+    say.innerHTML='アドレス欄は、何も持ってこなかった。<br>初めてなのかどうかは、私には分からない。';
+  }
+  const d=new Date();
+  const now=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes());
+  history.replaceState(null,'',location.pathname+location.search+'#'+now);
+}
+read();
+// 開いたままアドレス欄を書き換えたときも、同じように読んで上から書く（replaceState は hashchange を起こさない）
+window.addEventListener('hashchange',read);
+</script>
+</body>
+</html>
