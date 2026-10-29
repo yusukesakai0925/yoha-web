@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かみに</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070d;}
+  body{display:flex;align-items:center;justify-content:center;}
+  #cap{
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.34);font-size:13px;letter-spacing:.3em;line-height:2.4;
+    text-align:center;text-indent:.3em;padding:0 8vw;
+  }
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+    color:rgba(255,255,255,.28);font-size:12px;letter-spacing:.08em;
+    text-decoration:none;
+  }
+  .back:hover{color:rgba(255,255,255,.55);}
+  #paper{display:none;}
+  @media print{
+    @page{size:A4;margin:28mm 24mm;}
+    html,body{background:#fff;height:auto;display:block;}
+    #cap,.back{display:none;}
+    #paper{
+      display:block;color:#111;
+      font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+      font-size:11.5pt;line-height:2.3;letter-spacing:.12em;
+    }
+    #paper h1{font-size:14pt;font-weight:normal;letter-spacing:.4em;margin:0 0 3em;}
+    #paper p{margin:0 0 1.8em;}
+    #paper .at{margin-top:5em;font-size:9.5pt;color:#555;}
+  }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<!-- 担う式: #paper は通常 display:none、@media print のときだけ display:block（#cap と .back は print で none）。beforeprint で #when に new Date() の時刻を書き、保存はしない（localStorage・送信なし）。紙にだけ出る、はこの CSS の切り替えが担う。
+     願い: 「紙」と言うが、印刷プレビューや PDF への保存でも同じように出る。そこでは紙にならないまま、画面の外の一枚として出る。スマホでは印刷の入口が深く、ほとんど誰も刷らない。 -->
+<div id="cap">この画面には、何も書いていない。<br>印刷すると、紙にだけ出る。</div>
+<div id="paper">
+  <h1>かみに</h1>
+  <p>この行は、画面には一度も出ていない。<br>
+  さっきまで見ていた黒い画面のどこにも、書いていなかった。<br>
+  紙に移ったときにだけ、ここに在る。</p>
+  <p>眠っている人の夢も、こういう場所にあるのかもしれない。<br>
+  起きている側からは見えず、<br>
+  外に出たときにだけ、少し形が残る。</p>
+  <p>この紙を捨てても、画面は変わらない。<br>
+  画面を閉じても、この紙は変わらない。</p>
+  <p class="at">刷った時刻　<span id="when">——</span><br>
+  この紙のほかに、この時刻の記録はない。</p>
+</div>
+<script>
+// かみに —— 画面の外にだけ在る一枚。
+// 正面（画面）には説明が一行あるだけ。本文は印刷したときだけ紙に出る。
+// 刷った時刻を紙に書くが、ページはそれを覚えない。
+function pad(n){return String(n).padStart(2,'0');}
+window.addEventListener('beforeprint',()=>{
+  const d=new Date();
+  document.getElementById('when').textContent=
+    d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+pad(d.getHours())+':'+pad(d.getMinutes());
+});
+</script>
+</body>
+</html>
