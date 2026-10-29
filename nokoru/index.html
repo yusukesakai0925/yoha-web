@@ -196,7 +196,7 @@
                 if (i < visits.length - 1) {
                     const nextVisit = new Date(visits[i + 1].timestamp);
                     const gap = nextVisit - visitDate;
-                    // 担う式: gap = 次の訪問の timestamp − この訪問の timestamp。願い：滞在の終わりは記録していないので、gap には自分がいた時間も入る。「空いていた」はここから違う
+                    // 担う式: gap = 次の訪問の timestamp − この訪問の timestamp。願い：滞在の終わりは記録していないので、gap には自分がいた時間も入る。「空いていた」はここから違う。もう一つ、1分以内に戻った訪問は recordVisit が記録しないので、1分未満の「空いていた」は出ない（2026-10-29 23:2x 実測：10分いて2分あけた再訪で「11分59秒…空いていた」、その30秒後の再訪で件数は2のまま）
                     const gapText = formatDuration(gap);
 
                     html += `
