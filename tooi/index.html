@@ -96,7 +96,8 @@ const msgEl = document.getElementById('message');
 if (!raw) {
   labelEl.textContent = '';
   numEl.textContent = '';
-  msgEl.textContent = 'はじめて、ここに来た。';
+  // 数えているのは localStorage＝この端末のこのブラウザで前に開いた時刻だけ。別の端末から来た人にも「はじめて」が出る
+  msgEl.textContent = 'この端末からは、はじめて来た。';
 } else {
   const last = parseInt(raw, 10);
   const diff = now - last;
