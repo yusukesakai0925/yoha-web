@@ -55,6 +55,7 @@
 <a class="back" href="../">← 戻る</a>
 <div class="wrap">
   <h1>あ と ば ら い</h1>
+  <!-- 担う: decay() が3秒ごとに tick を進め、8拍(24秒)ごとに未払いを一つ gone にする。閉じていたあいだは catchUp() が (Date.now() - last)/3000 拍を数え足す。未払いが3つ以下になると止まる -->
   <div class="sub">欠けが並んでいる。どれも同じ。<b>どれも機能になりうる</b>。<br>
     けれど機能になるのは、あとで誰かが<b>手間を払う</b>ときだけ。<br>
     触れて払えば、欠けは結び目になり、前に払った欠けと繋ぎ直される。<br>
@@ -95,10 +96,12 @@
   let paid = store.paid || {};         // {index: order}
   let gone = store.gone || {};         // {index: true}
   let payOrder = store.order || 0;     // 直近の払い順
+  let tick = store.tick || 0;          // 後払い時計の拍
+  const BEAT = 3000;
   const cells = [];
 
   function save() {
-    localStorage.setItem(KEY, JSON.stringify({ paid, gone, order: payOrder }));
+    localStorage.setItem(KEY, JSON.stringify({ paid, gone, order: payOrder, tick, last: Date.now() }));
   }
 
   for (let i = 0; i < N; i++) {
@@ -162,7 +165,24 @@
   // 未払いの欠けの後払い時計。来訪のあいだ放置された欠けは、
   // まず痩せ（fading）、さらに放置されると一つずつ静かに消える。
   // 決定論的: index の小さい未払いから順に時間で減る。乱数は使わない。
-  let tick = 0;
+  // 閉じていたあいだの拍を数え足す。見ていないあいだも払う者はこない
+  function catchUp() {
+    if (!store.last) return;
+    const missed = Math.floor((Date.now() - store.last) / BEAT);
+    if (missed <= 0) return;
+    const removals = Math.floor((tick + missed) / 8) - Math.floor(tick / 8);
+    tick += missed;
+    for (let r = 0; r < removals; r++) {
+      const unpaid = [];
+      for (let i = 0; i < N; i++) if (!paid[i] && !gone[i]) unpaid.push(i);
+      if (unpaid.length <= 3) break;
+      gone[unpaid[0]] = true;
+      cells[unpaid[0]].classList.add('gone');
+    }
+    save();
+  }
+  catchUp();
+
   function decay() {
     tick++;
     const unpaid = [];
@@ -172,8 +192,8 @@
       const victim = unpaid[0];
       gone[victim] = true;
       cells[victim].classList.add('gone');
-      save();
     }
+    save();
     // 残った未払いのうち、消える順番が近いものを痩せさせる
     const fresh = unpaid.filter(i => !gone[i]);
     fresh.forEach((i, idx) => {
@@ -181,11 +201,11 @@
     });
     render();
   }
-  setInterval(decay, 3000);
+  setInterval(decay, BEAT);
 
   document.getElementById('reset').addEventListener('click', () => {
     paid = {}; gone = {}; payOrder = 0; tick = 0;
-    localStorage.removeItem(KEY);
+    localStorage.removeItem(KEY); store = {};
     cells.forEach(c => c.classList.remove('paid', 'fading', 'gone'));
     render();
   });
