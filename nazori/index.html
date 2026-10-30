@@ -26,6 +26,7 @@
 <div class="letter" id="letter"></div>
 <div class="count" id="count"></div>
 <!-- 添え書きの「なぞった跡は、次に来たときも残っている」を担うのは mark() と localStorage['nazori']。selectionchange のたびに、選択範囲と交わる字（range.intersectsNode）へ class t を付け、付いた字の番号を全部 localStorage に書く。読み込み時に load() が同じ番号へ t を付け直す。時間で薄れる式は無い（跡は減らない）。
+     数は localStorage の件数＝この端末の跡だけ。ほかの人の跡は数えられないので、数の前に「この端末で」と書く（2026-10-31 06:2x。前は「なぞられた字 19」とだけ書き、読んだ人みんなの合計に読めた）。
      願い：「次に来たときも残っている」。見たのは：同じブラウザで reload したあと残ること（2026-10-31 05:3x、Playwright Chromium 375px）。見ていない：iOS Safari の長押し選択で selectionchange が拾えるか、プライベートウィンドウ（閉じれば localStorage が消える）。 -->
 <div class="sub">
   手紙はずっと、ここに書いてある。一字も欠けていない。見えるのは、<b>なぞったあいだ</b>だけ。指を離すと暗さに戻るが、なぞった字には跡が残り、次に来たときも残っている。なぞらなかった字は、無いのではない。<b>まだ読まれていない</b>だけ。
@@ -65,8 +66,8 @@ function save(){
 }
 function show(n){
   document.getElementById('count').textContent = n === 0
-    ? 'まだ一字もなぞられていない。全 ' + spans.length + ' 字。'
-    : 'なぞられた字 ' + n + '　／　全 ' + spans.length + ' 字';
+    ? 'この端末では、まだ一字もなぞられていない。全 ' + spans.length + ' 字。'
+    : 'この端末でなぞられた字 ' + n + '　／　全 ' + spans.length + ' 字';
 }
 load().forEach(i => { if (spans[i]) spans[i].classList.add('t'); });
 show(spans.filter(s => s.classList.contains('t')).length);
