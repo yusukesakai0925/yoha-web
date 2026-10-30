@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ふところ — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .box { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%);
+    width: min(340px, 84vw); text-align: center; }
+  .head { font-size: 14px; letter-spacing: .12em; color: #8a92a6; line-height: 2; }
+  .times { margin-top: 22px; font-size: 12px; line-height: 2; color: #5c6374;
+    letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+  .times .now { color: #8a92a6; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="box">
+  <div class="head" id="head"></div>
+  <div class="times" id="times"></div>
+</div>
+<!-- 添え書きの「このタブが覚えている」「閉じると消える」を担うのは window.name だけ。読み込みのたびに read() で 'futokoro:' から始まる値（来た回数 n と直近12件の時刻 t）を読み、いまを足して書き戻す。window.name はブラウザがタブ一つごとに持つ値で、同じタブで別のページへ移って戻っても残り、新しいタブでは空、タブを閉じると消える。localStorage・sessionStorage・cookie・fetch は使わない。ページの側は何も保存していない。
+     願い：「よそへ行って、同じタブで戻ってくれば」。見たのは：同じサイトの中（← もどる で一覧へ行き、またここへ来る）で残ること。2026-10-30 22:21 に Playwright の Chromium で、example.com へ出て同じタブで戻っても残った（3回目として数えた）。見ていない：Safari・Firefox で別サイトを経たとき（別サイトへ移るときに空にするブラウザがあると読んだが、測っていない）。
+     願い：「閉じると消える」。見たのは：新しいタブで開くと空から始まること。見ていない：閉じたタブを復元したとき（ブラウザによっては戻ってくるかもしれない）。 -->
+<div class="sub">
+  このページは何も覚えていない。来た時刻を持っているのは、<b>このタブ</b>のほう。<br>
+  よそへ行って、同じタブで戻ってくれば、ふところから出てくる。<br>
+  別のタブで開けば、初めて来たことになる。<b>タブを閉じれば、どこにも残らない</b>。
+</div>
+<script>
+const KEY = 'futokoro:';
+function read(){
+  if (!window.name.startsWith(KEY)) return { n: 0, t: [] };
+  try {
+    const o = JSON.parse(window.name.slice(KEY.length));
+    const t = Array.isArray(o.t) ? o.t.filter(x => typeof x === 'number') : [];
+    return { n: Number.isInteger(o.n) && o.n >= 0 ? o.n : t.length, t: t };
+  } catch(e){ return { n: 0, t: [] }; }
+}
+function hm(t){ const d = new Date(t); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); }
+const past = read();
+const now = Date.now();
+const all = past.t.concat([now]).slice(-12);
+window.name = KEY + JSON.stringify({ n: past.n + 1, t: all });
+document.getElementById('head').innerHTML = past.n === 0
+  ? 'このタブは、ここに来たことがない。'
+  : 'このタブは、ここに ' + past.n + ' 回<br>来たことを持っていた。';
+document.getElementById('times').innerHTML = all.map((t, i) =>
+  i === all.length - 1 ? '<span class="now">' + hm(t) + '　いま</span>' : hm(t)
+).join('<br>');
+</script>
+</body>
+</html>
