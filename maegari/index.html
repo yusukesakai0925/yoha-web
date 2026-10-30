@@ -50,6 +50,7 @@
 <a class="back" href="../">← もどる</a>
 <div class="wrap">
   <h1>まえがり</h1>
+  <!-- 添え書きの「誰も見ていなくても揃っていく」を担うのは field(x, y, clock()) の clock() = Date.now() - EPOCH。閉じていても壁時計は進むので、開き直すと見ていなかったぶん進んだ向きから描かれる。 -->
   <div class="sub">左は<b>現象</b>。スピンが近くと噛み合って、時刻だけで向きが決まる。<br>
     誰も見ていなくても揃っていく。読者を借りていない。<br>
     右は<b>意味</b>。同じ向きを「賛が何割」と数えた値。<br>
@@ -81,6 +82,10 @@
 <script>
 // ── 現象の面：イジング風の格子。各スピンの向きは「時刻＋座標」から決定的に求める。
 // localStorage を使わない。誰も見ていなくても、戻ってくれば時刻ぶんだけ進んでいる。
+// 時刻は壁時計（Date.now）から取る。rAF や performance.now はページを開いた瞬間を0にするので、
+// それで回すと開くたびに同じ向きから始まり、見ていないあいだは何も進まない。
+const EPOCH = Date.UTC(2026, 0, 1);
+function clock(){ return Date.now() - EPOCH; }
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const COLS = 16, ROWS = 11;
@@ -108,7 +113,8 @@ function tally(t){
   return up/total;
 }
 
-function draw(now){
+function draw(){
+  const now = clock();
   ctx.clearRect(0,0,W,H);
   for (let i=0;i<COLS;i++){
     for (let j=0;j<ROWS;j++){
@@ -147,7 +153,7 @@ const fadeEl = document.getElementById('fade');
 let fadeTimer = null;
 
 document.getElementById('read').addEventListener('click', ()=>{
-  const t = performance.now();
+  const t = clock();
   const r = tally(t);
   const pct = Math.round(r*100);
   valEl.textContent = pct + '%';
