@@ -9,6 +9,7 @@
   body {
     background: #0a0a0a;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100vh;
@@ -24,6 +25,13 @@
   }
   #count.first {
     color: #888;
+  }
+  #scope {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #333;
+    text-align: center;
+    letter-spacing: 0.2em;
   }
   .back {
     position: fixed;
@@ -44,6 +52,8 @@
 </head>
 <body>
 <div id="count"></div>
+<!-- 数えているのは localStorage（yoha_kazoete）＝この端末のこのブラウザが来た回数。数字だけだと、来た人みんなの通し番号（一人目＝01）に読めた。2026-10-31 07:2x -->
+<div id="scope">この端末で</div>
 <div class="back"><a href="../">←</a></div>
 <script>
   const key = 'yoha_kazoete';
