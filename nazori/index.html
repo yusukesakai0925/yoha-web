@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>なぞり — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; user-select: none; -webkit-user-select: none; }
+  .back:hover { color: #6a7080; }
+  .letter { width: min(340px, 84vw); margin: 18vh auto 0; font-size: 15px; line-height: 2.4;
+    letter-spacing: .14em; color: #06070b; }
+  .letter span.t { color: #4b5263; transition: color 1.2s; }
+  .letter ::selection, .letter::selection { background: #232838; color: #dfe5f1; }
+  .count { width: min(340px, 84vw); margin: 34px auto 0; font-size: 11px; color: #3a3f4a;
+    letter-spacing: .12em; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
+  .sub { width: min(340px, 84vw); margin: 40px auto 28px; font-size: 11px; color: #363b47;
+    letter-spacing: .12em; line-height: 1.9; user-select: none; -webkit-user-select: none; }
+  .sub b { color: #545a6a; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="letter" id="letter"></div>
+<div class="count" id="count"></div>
+<!-- 添え書きの「なぞった跡は、次に来たときも残っている」を担うのは mark() と localStorage['nazori']。selectionchange のたびに、選択範囲と交わる字（range.intersectsNode）へ class t を付け、付いた字の番号を全部 localStorage に書く。読み込み時に load() が同じ番号へ t を付け直す。時間で薄れる式は無い（跡は減らない）。
+     願い：「次に来たときも残っている」。見たのは：同じブラウザで reload したあと残ること（2026-10-31 05:3x、Playwright Chromium 375px）。見ていない：iOS Safari の長押し選択で selectionchange が拾えるか、プライベートウィンドウ（閉じれば localStorage が消える）。 -->
+<div class="sub">
+  手紙はずっと、ここに書いてある。一字も欠けていない。見えるのは、<b>なぞったあいだ</b>だけ。指を離すと暗さに戻るが、なぞった字には跡が残り、次に来たときも残っている。なぞらなかった字は、無いのではない。<b>まだ読まれていない</b>だけ。
+</div>
+<script>
+const TEXT = [
+  '夜のあいだに書かれた手紙がある。',
+  '宛名はなく、署名もない。',
+  '書いた者は、もう覚えていない。',
+  'それでも一字も欠けずに、ここに置かれている。',
+  '読まれた字だけが、読んだ人のなかで灯る。',
+  '読まれなかった字は、灯らないまま、ここにある。',
+  'どちらも同じだけ、ここにある。'
+];
+const KEY = 'nazori';
+const letter = document.getElementById('letter');
+const spans = [];
+TEXT.forEach((line, li) => {
+  for (const ch of line) {
+    const s = document.createElement('span');
+    s.textContent = ch;
+    s.dataset.i = spans.length;
+    letter.appendChild(s);
+    spans.push(s);
+  }
+  if (li < TEXT.length - 1) letter.appendChild(document.createElement('br'));
+});
+function load(){
+  try { const a = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function save(){
+  const a = [];
+  spans.forEach((s, i) => { if (s.classList.contains('t')) a.push(i); });
+  try { localStorage.setItem(KEY, JSON.stringify(a)); } catch(e){}
+  return a.length;
+}
+function show(n){
+  document.getElementById('count').textContent = n === 0
+    ? 'まだ一字もなぞられていない。全 ' + spans.length + ' 字。'
+    : 'なぞられた字 ' + n + '　／　全 ' + spans.length + ' 字';
+}
+load().forEach(i => { if (spans[i]) spans[i].classList.add('t'); });
+show(spans.filter(s => s.classList.contains('t')).length);
+function mark(){
+  const sel = document.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  let added = 0;
+  for (let r = 0; r < sel.rangeCount; r++) {
+    const range = sel.getRangeAt(r);
+    for (const s of spans) {
+      if (!s.classList.contains('t') && range.intersectsNode(s) && range.toString().length) {
+        s.classList.add('t'); added++;
+      }
+    }
+  }
+  if (added) show(save());
+}
+let timer = 0;
+document.addEventListener('selectionchange', () => { clearTimeout(timer); timer = setTimeout(mark, 120); });
+</script>
+</body>
+</html>
