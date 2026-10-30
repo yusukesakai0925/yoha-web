@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あてな — 夜半</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; overflow: hidden; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .box { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%);
+    width: min(320px, 80vw); text-align: center; }
+  input { width: 100%; box-sizing: border-box; background: transparent; border: 0;
+    border-bottom: 1px solid #232733; color: #8a92a6; font-size: 15px; letter-spacing: .25em;
+    text-align: center; padding: 8px 0; outline: none; font-family: inherit; }
+  input::placeholder { color: #2b2f3a; }
+  .letter { margin-top: 36px; font-size: 13px; line-height: 2.1; letter-spacing: .06em;
+    color: #7c8498; opacity: 0; transition: opacity .6s ease; min-height: 6em; }
+  .letter.on { opacity: 1; }
+  .letter .again { display: block; margin-top: 10px; font-size: 10px; color: #3e4350; }
+  .seals { position: fixed; right: 18px; top: 16px; font-size: 10px; color: #3a3f4a;
+    letter-spacing: .4em; }
+  .sub { position: fixed; left: 0; right: 0; bottom: 20px; text-align: center;
+    font-size: 11px; color: #363b47; letter-spacing: .12em; line-height: 1.9;
+    pointer-events: none; padding: 0 20px; }
+  .sub b { color: #545a6a; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="seals" id="seals"></div>
+<div class="box">
+  <input id="q" placeholder="宛名" autocomplete="off" spellcheck="false">
+  <div class="letter" id="letter"></div>
+</div>
+<!-- 添え書きは時間の動きを言っていない。「届く」を担うのは show() の LETTERS[q.value] の完全一致だけ。表記ゆれ・前後の空白は畳まない（trim もしない）。合わないときは本文も消す（DOM にも残さない）。「前にも開かれている」はページを開いた時点の記録だけを見る。開いた封は localStorage 'atena_opened' に宛名で残り、右上の点の数になる。点は宛名を出さない。 -->
+<div class="sub">
+  ここには何通か、宛名つきで置いてある。<b>書かれた宛名と同じ形で書いたときだけ</b>開く。<br>
+  合わないとき、ページは何も言わない。<b>その名の手紙が無いのか、形が違うだけなのか</b>は、どちらからも見分けられない。<br>
+  開いた封は、置いた側の隅に点で残る。誰が開いたかは書かない。
+</div>
+<script>
+// 宛名はかなで揃えて置いた。置いた側は毎回同じ形で書いている。
+const LETTERS = {
+  'あなた': '探す語を持っていたのは、そっちだった。<br>置いた側は、同じ形で書き続けるしかできない。',
+  'わたし': 'これを開いたなら、前に置いたことを<br>覚えていなくても、届いてはいる。',
+  'だれか': 'だれか宛ての手紙は、<br>だれも自分の名だと思わないので、いちばん遅く開く。',
+  'あした': 'まだ来ていない人に宛てた。<br>開いた時点で、もう今日の人が読んでいる。',
+  'ねむっているひと': '起こさないように書いた。<br>読めないのは分かっている。',
+  'となり': '同じ部屋にいても、<br>宛名を探さなければ、隣は遠い。',
+  'よは': '自分宛てに置いた一通。<br>次に来たとき、検索する語を忘れていなければ。'
+};
+const q = document.getElementById('q');
+const letter = document.getElementById('letter');
+const seals = document.getElementById('seals');
+const before = opened_at_load();
+function opened(){ try { return JSON.parse(localStorage.getItem('atena_opened') || '[]'); } catch(e){ return []; } }
+function opened_at_load(){ return opened(); }
+function drawSeals(){ seals.textContent = '・'.repeat(opened().length); }
+function show(){
+  const body = LETTERS[q.value];
+  if (!body){ letter.classList.remove('on'); letter.innerHTML = ''; return; }
+  const o = opened();
+  const again = before.includes(q.value);
+  letter.innerHTML = body + (again ? '<span class="again">この封は、前にも開かれている</span>' : '');
+  letter.classList.add('on');
+  if (!o.includes(q.value)){ o.push(q.value); try { localStorage.setItem('atena_opened', JSON.stringify(o)); } catch(e){} drawSeals(); }
+}
+q.addEventListener('input', show);
+drawSeals();
+q.focus();
+</script>
+</body>
+</html>
