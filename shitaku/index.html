@@ -74,6 +74,7 @@
 <a class="back" href="../">← 戻る</a>
 <div class="wrap">
   <h1>し た く</h1>
+  <!-- 添え書きの「誰も来ないまま時間が経つと、片方だけが嘘になる」を担うのは step()。開いているあいだは setInterval が2.5秒ごとに1拍、閉じていたあいだは読み込み時に (Date.now() - last) / 2500 拍を数え足す（last は save() が localStorage に書く）。4拍ごとに慰めが一つ嘘になり、支度は変わらない。「読み手が来る」を押すと (arrived) 拍は止まる。2026-10-30 23:2x までは閉じているあいだ時間が止まっていて、添え書きと食い違っていた -->
   <div class="sub">預けた空欄が並んでいる。同じ空欄に、二つのことができる。<br>
     ひとつは<b>慰めで埋める</b>——「だいじょうぶ」と書いて、表面を平らに塞ぐ。<br>
     ひとつは<b>支度する</b>——空けたまま、来たときに意味が入る場所にしておく。<br>
@@ -125,7 +126,25 @@
   const cells = [];
 
   function save() {
-    localStorage.setItem(KEY, JSON.stringify({ state, rot, arrived, tick }));
+    localStorage.setItem(KEY, JSON.stringify({ state, rot, arrived, tick, last: Date.now() }));
+  }
+
+  // 一拍：4拍ごとに、まだ嘘になっていない慰めのうち index の最も小さいものが一つ嘘になる
+  function step() {
+    tick++;
+    if (tick % 4 === 0) {
+      for (let i = 0; i < N; i++) {
+        if (state[i] === 'solace' && !rot[i]) { rot[i] = true; break; }
+      }
+    }
+  }
+
+  // 閉じていたあいだの拍を、開いたときに数え足す（N*4 拍で慰めは全部嘘になるので、それ以上は数だけ足す）
+  if (!arrived && store.last) {
+    const missed = Math.floor((Date.now() - store.last) / 2500);
+    const k = Math.min(missed, N * 4);
+    for (let j = 0; j < k; j++) step();
+    tick += missed - k;
   }
 
   // モード切替
@@ -186,17 +205,12 @@
     cReady.textContent = rdy;
   }
 
-  // 時間：来ないまま経つと、慰めは古い順に嘘になる。支度は変わらない。
-  // 決定論的：index の小さい慰めから、一定の拍ごとに罅割れる。乱数は使わない。
+  // 時間：来ないまま経つと、慰めは index の小さい順に嘘になる。支度は変わらない。
+  // 決定論的：一定の拍ごとに罅割れる。乱数は使わない。
   setInterval(() => {
     if (arrived) return;           // 読み手が来ていれば時間は嘘を生まない
-    tick++;
-    // 4拍ごとに、まだ嘘になっていない慰めの最古（index最小）が一つ嘘になる
-    if (tick % 4 === 0) {
-      for (let i = 0; i < N; i++) {
-        if (state[i] === 'solace' && !rot[i]) { rot[i] = true; paint(i); break; }
-      }
-    }
+    step();
+    for (let i = 0; i < N; i++) paint(i);
     save();
     tally();
   }, 2500);
