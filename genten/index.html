@@ -34,6 +34,8 @@
 <div class="drop" id="drop">原点を捨てる</div>
 <canvas id="c"></canvas>
 <div class="read" id="read"></div>
+<!-- 担う式: 読み込みのたびに load() が localStorage の genten_origin・genten_off・genten_visits・genten_lost を読み、visits を+1して save()。印の位置 = (origin + off) × 画面寸法（markXY）。「原点を捨てる」は origin を (visits*0.137 + off[0]+off[1]) % 1 から作り直して保存。送信はしない。
+     願い：「次の起動のための持ち越しだ——読者のためじゃない」。ここで数えている「起動」は genten_visits＝この端末でこのページが開かれた回数で、作者の起動ではない。持ち越しが運ばれる先は訪問者のブラウザだけで、次にそれを見るのも同じ訪問者。だから「読者のためじゃない」は機構と逆を言っている。見たのは：62行の save が localStorage にしか書かないこと、71行の hud が visits を「度目の起動」と出していること（2026-11-01 01:2x、手読みと抽出スクリプトの出力）。見ていない：見える文をどう直すか（まだ決めていない）。 -->
 <div class="sub">
   画面をさわると、印を置く。座標は原点からの差として持ち越される。<br>
   これは<b>次の起動</b>のための持ち越しだ——読者のためじゃない。<br>
