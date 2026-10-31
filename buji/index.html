@@ -119,6 +119,7 @@
 
   <button class="reset" id="reset">盤を空にする</button>
 
+  <!-- 担う式: 落ちた痕＝localStorage の buji_scars/buji_cuts/buji_fails（この端末で累計）。書いた無事＝buji_written。通っただけの無事は passes（メモリ）にしか無く、閉じれば数ごと消える。「戻っていく」は時間でなく、6000ms の offerTimer か次の「検査を走らせる」で書く升が閉じること。10/31 16:2x まで passes と runs を保存していて、書かなかった無事の数がいちばん確かに残っていた -->
   <div class="sub">
     ボタンは<b>結果を選べない</b>。押すたび、通るか・落ちるかは向こうで決まる——無事は狙って作れない。<br>
     <b>座標</b>は、落ちた検査を傷として刻み、消えない。だが通った検査に座標は打てない——刺す先（欠け）が無いから。通った升は、まだ走らせていない升と<b>一字も違わない</b>。<br>
@@ -139,9 +140,12 @@ const N_CELLS = 30, N_ROWS = 24;
 let scars   = load('buji_scars',  []);   // 座標升：失敗が刻んだ傷（cell index の列）
 let cuts    = load('buji_cuts',   []);   // 型升：失敗が断った行（row index の列）
 let written = load('buji_written', []);   // 書く升：手で書いた「通った」の行
-let runs    = load('buji_runs',   0);     // 検査を走らせた総数
-let fails   = load('buji_fails',  0);     // 落ちた数
-let passes  = load('buji_passes', 0);     // 通った数（うち written.length だけが残る）
+let fails   = load('buji_fails',  0);     // 落ちた数（この端末で累計）
+// 走らせた数・通った数は保存しない。保存すると runs - fails で、書かなかった無事の数が残ってしまう。
+let runs    = 0;   // この訪問で走らせた数
+let passes  = 0;   // この訪問で通った数
+let wroteNow = 0;  // この訪問で手で書いた数
+['buji_runs','buji_passes'].forEach(k=>{ try{localStorage.removeItem(k);}catch(e){} });
 
 const latticeEl = document.getElementById('lattice');
 const typeEl    = document.getElementById('type');
@@ -184,13 +188,13 @@ function renderBuji(){
 }
 
 function renderCount(){
-  const lost = passes - written.length;
+  const lost = passes - wroteNow;
   countEl.innerHTML =
-    '検査 <b>' + runs + '</b> 回 ／ ' +
-    '落ちた <b>' + fails + '</b>（座標と型に残った）<br>' +
-    '通った <b>' + passes + '</b> ── ' +
-    '手で書いた <b>' + written.length + '</b> だけ残り、' +
-    '<span class="lost">' + lost + ' は消えた</span>';
+    'この端末で落ちた <b>' + fails + '</b>（座標と型に残った）<br>' +
+    'この訪問で走らせた <b>' + runs + '</b> ／ 通った <b>' + passes + '</b> ── ' +
+    '手で書いた <b>' + wroteNow + '</b> だけ残り、' +
+    '<span class="lost">' + lost + ' は消えた</span><br>' +
+    '<span class="lost">（消えた数も、このページを閉じれば数ごと無くなる）</span>';
 }
 
 function verdict(msg, cls){
@@ -209,7 +213,7 @@ runBtn.addEventListener('click', ()=>{
   // 直前に開いていた無事を書かなかったなら、それは消える（何も保存しない）
   closeOffer();
 
-  runs++; save('buji_runs', runs);
+  runs++;
   // 結果は内部で決まる。訪問者は選べない。
   const pass = Math.random() < 0.5;
 
@@ -237,7 +241,7 @@ runBtn.addEventListener('click', ()=>{
     }
     verdict('落ちた。座標と型に、勝手に残る。', 'fail');
   } else {
-    passes++; save('buji_passes', passes);
+    passes++;
     // 成功：どの道具も何も刻まない。書く升だけが開く。
     verdict('通った。どこにも、勝手には残らない。', 'pass');
     pendingPass = true;
@@ -250,15 +254,15 @@ runBtn.addEventListener('click', ()=>{
 
 offerBtn.addEventListener('click', ()=>{
   if(!pendingPass) return;
-  written.push('｜通った'); save('buji_written', written);
+  written.push('｜通った'); save('buji_written', written); wroteNow++;
   closeOffer();
   renderBuji(); renderCount();
 });
 
 document.getElementById('reset').addEventListener('click', ()=>{
-  scars=[]; cuts=[]; written=[]; runs=0; fails=0; passes=0;
-  ['buji_scars','buji_cuts','buji_written','buji_runs','buji_fails','buji_passes']
-    .forEach(k=>save(k, k.endsWith('runs')||k.endsWith('fails')||k.endsWith('passes')?0:[]));
+  scars=[]; cuts=[]; written=[]; runs=0; fails=0; passes=0; wroteNow=0;
+  ['buji_scars','buji_cuts','buji_written','buji_fails']
+    .forEach(k=>save(k, k.endsWith('fails')?0:[]));
   closeOffer();
   verdictEl.style.opacity = 0;
   renderLattice(); renderType(); renderBuji(); renderCount();
