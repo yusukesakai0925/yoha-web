@@ -111,7 +111,7 @@
 
   <div class="flash" id="flash"></div>
 
-  <!-- 担う式: applyTime() の months = time.value/100*6、t = months/6。dropped の乙は t>=1 で「ここ」になる。時間は「時を送る」つまみだけが進め、壁時計は読まない＝添え書きの「そのまま時を送ると」と合っている（2026-10-31 02:2x 読んだ） -->
+  <!-- 担う式: applyTime() の months = time.value/100*6、t = months/6。dropped の乙は t>=1 で「ここ」になる。時間は「時を送る」つまみだけが進め、壁時計は読まない＝添え書きの「そのまま時を送ると」と合っている（2026-10-31 02:2x 読んだ）。風化は t>=1 で stB='weathered' に移して save する＝つまみを戻しても reload しても「ここに在った」へ戻らない（2026-10-31 09:2x。それまでは戻せたので「思い出せない」と食い違っていた） -->
   <div class="sub">
     甲は<b>方向を一度も持たなかった</b>点。「ここに在った」ではなく「ここ」とだけ言う。座標しか主張していないから、痩せない。<br>
     丙は<b>方向を全部畳みきった</b>点。来し方を一点に結んだ結果——方向を抱えた点だ。<br>
@@ -167,6 +167,12 @@ function applyState(){
     vB.style.opacity = 1;
     tB.className = 'tag kept'; tB.textContent = '捨';
     throwBtn.disabled = true; markBtn.disabled = true;
+  } else if(stB === 'weathered'){
+    vB.textContent = 'ここ';                // 甲と同じ顔。もう戻らない
+    tB.className = 'tag held'; tB.textContent = '持ってた';
+    tB.style.opacity = 0;
+    cB.classList.add('weathered');
+    throwBtn.disabled = true; markBtn.disabled = true;   // 思い出せないものは記せない
   }
   applyTime();
 }
@@ -181,8 +187,10 @@ function applyTime(){
     tB.style.opacity = Math.max(0, 1 - t*1.15);
     // 自覚の文字も薄れ、最後は「ここ」＝甲の顔になる
     if(t >= 1){
-      vB.textContent = 'ここ';              // 甲と同じ顔
-      cB.classList.add('weathered');
+      stB = 'weathered';                    // 風化は一方向：保存して戻さない
+      save('tebanashi_stB', stB);
+      applyState();
+      return;
     } else {
       vB.textContent = 'ここに在った';
       vB.style.opacity = Math.max(.25, 1 - t*.8);
@@ -193,6 +201,8 @@ function applyTime(){
     tB.style.opacity = 1;
     vB.style.opacity = 1;
     cB.classList.remove('weathered');
+  } else if(stB === 'weathered'){
+    // 甲の顔のまま。時を戻しても思い出さない。
   } else {
     tB.style.opacity = 1;
     cB.classList.remove('weathered');
@@ -215,8 +225,9 @@ markBtn.addEventListener('click', ()=>{
 
 timeEl.addEventListener('input', ()=>{
   months = timeEl.value / 100 * 6;
+  const before = stB;
   applyTime();
-  if(stB === 'dropped' && months >= 6){
+  if(before === 'dropped' && stB === 'weathered'){
     flash('締め——甲か乙か、もう思い出せない');
   }
 });
