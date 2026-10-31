@@ -114,11 +114,12 @@
   <div class="flash" id="flash"></div>
   <button class="reset" id="reset">盤を空にする</button>
 
+  <!-- 担う式: 左の回数 cntA は保存しない（reload で 0）、months>=6 で forgotA=true にして戻さない。右の linesB は localStorage 'tomekata_linesB' に積む（この端末だけ）。 -->
   <div class="sub">
     どちらのボタンも、していることは同じ——<b>止める</b>。四本目を積まない、割り込まない、走らない。<br>
     左は黙って止める。止めた瞬間にちらついて、あとには<b>何も残らない</b>。止めたことすら消える。<br>
     右は理由を書いて止める。「同じ勢いの積み増しだから」——止めるたびに一行が<b>積んでいく</b>。止めた宣言は消えない。盤を埋めるのは、出さなかった作品ではなく、出さない理由の説明のほうだ。<br>
-    半年送ると、差がはっきりする。左は<b>自分が何回止めたかも数えられなくなる</b>（痕がないから）。右は一行ずつ数えられる——けれど盤は理由で埋まったまま。<br>
+    半年送るか、ページを開き直すと、差がはっきりする。左は<b>自分が何回止めたかも数えられなくなる</b>（痕がないから。つまみを戻しても数は戻らない）。右は一行ずつ数えられる——この端末に残るかぎり。けれど盤は理由で埋まったまま。<br>
     痕を持たない止め方はひとつしかない。<b>黙って止めること</b>。次に止めるときは、この一段も書かずに止めるのが本当だ。<br>
     <span style="color:#2f343f">2026-07-04 の覚え書きから。声のある止めと、声のない止め。</span>
   </div>
@@ -140,7 +141,10 @@ const REASONS = [
 ];
 
 // 状態：左＝黙って止めた回数（痕は残さない）／右＝理由の行（積む）
-let cntA  = load('tomekata_cntA', 0);      // 黙って止めた回数
+// 黙って止めた回数は保存しない（痕を持たない）。開いているあいだのメモリにだけある。
+let cntA  = 0;
+try{ localStorage.removeItem('tomekata_cntA'); }catch(e){}   // 以前の版が残した数を消す
+let forgotA = false;                        // 半年送ったら、戻しても数は戻らない
 let linesB= load('tomekata_linesB', []);   // 理由の行（積んだ痕）
 let months= 0;
 
@@ -175,12 +179,13 @@ function renderCount(){
   // 半年送ると、黙って止めた側は痕がないので回数が「?」になる
   const t = months / 6;
   let aTxt;
-  if(months >= 6 && cntA > 0){
+  if(months >= 6 && cntA > 0) forgotA = true;
+  if(forgotA){
     aTxt = '黙って止めた：<b>？</b> 回<span class="trace">（痕がなく、数えられない）</span>';
   } else {
     aTxt = '黙って止めた：<b>' + cntA + '</b> 回<span class="trace">（痕：0 行）</span>';
   }
-  const bTxt = '言って止めた：<b>' + linesB.length + '</b> 回<span class="trace">（痕：' + linesB.length + ' 行、盤を埋めた）</span>';
+  const bTxt = '言って止めた：<b>' + linesB.length + '</b> 回<span class="trace">（痕：' + linesB.length + ' 行、この端末の盤を埋めた）</span>';
   countEl.innerHTML = aTxt + '<br>' + bTxt;
 }
 
@@ -194,7 +199,8 @@ function applyTime(){
 }
 
 btnA.addEventListener('click', ()=>{
-  cntA++; save('tomekata_cntA', cntA);
+  if(forgotA){ cntA = 0; forgotA = false; }   // 数えられなくなった後は、また一から
+  cntA++;
   // 一瞬ちらついて消える。盤には何も積まない。
   const f = document.createElement('div');
   f.className = 'flick';
@@ -218,8 +224,8 @@ btnB.addEventListener('click', ()=>{
 timeEl.addEventListener('input', applyTime);
 
 document.getElementById('reset').addEventListener('click', ()=>{
-  cntA = 0; linesB = [];
-  save('tomekata_cntA', cntA); save('tomekata_linesB', linesB);
+  cntA = 0; forgotA = false; linesB = [];
+  save('tomekata_linesB', linesB);
   timeEl.value = 0; months = 0;
   renderLines(); applyTime();
   flash('盤を空にした');
