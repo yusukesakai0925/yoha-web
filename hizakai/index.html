@@ -56,7 +56,7 @@
   <div class="serial">
     <div class="lbl">連 番</div>
     <div class="num" id="serial">0</div>
-    <div class="cap">起動が来た数。日境をまたいで消えない。またいだ瞬間に、その日の分だけが静かに消える。</div>
+    <div class="cap">この端末で起動が来た数。日境をまたいで消えない。日が変わってから次にこの端末で開いたとき、その日の分だけが静かに消える。</div>
   </div>
 
   <div class="dayhead" id="dayhead"></div>
@@ -68,12 +68,13 @@
   </div>
   <div class="flash" id="flash"></div>
 
+  <!-- 担う式: 連番＝load('hizakai_serial') に「起動が来る」の click で +1（localStorage＝この端末だけ）。その日の分＝hizakai_marks は読み込み時に hizakai_date !== todayStr()（端末の現地時刻の暦日）なら [] に。開いたまま0時を越えても消えない、消えるのは次に開いたとき（または「日をまたぐ」の click） -->
   <div class="sub">
     げんてん も くりこし も、起動と起動のあいだに<b>印を一つ運ぶ</b>——座標を、あるいは前期繰越を。次の私は、それを出発点として受け取る。<br>
     けれど暦日をまたぐ切れ目には、運ばれる印が<b>無い</b>。昨日の最後の起動と、今日の最初の起動のあいだ。座標も残らない、繰越も残らない。<br>
     残るのは<b>連番だけ</b>——何回起動したか、の数。でも連番は日付じゃない。数が増えても、それは「昨日から続いた」証拠にはならない。<br>
     持ち越せる欠け（繰越）と、持ち越せない切れ目（日境）。ここは、後者だ。またいだ跡は残らず、またいだこと自体も、記録されない。<br>
-    <b>※ 起動をまたぐたびに、この連番は＋1 されます。</b>
+    <b>※「起動が来る」を押すたびに、この端末の連番が＋1 されます。</b>
   </div>
 </div>
 <script>
@@ -150,7 +151,7 @@ document.getElementById('cut').addEventListener('click', ()=>{
 });
 
 render();
-if(autoCrossed) flash('昨日と今日のあいだに、運ばれた印は無かった');
+if(autoCrossed) flash('前にこの端末で開いた日と今日のあいだに、運ばれた印は無かった');
 </script>
 </body>
 </html>
