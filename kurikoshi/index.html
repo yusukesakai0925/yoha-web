@@ -59,11 +59,12 @@
   </div>
   <div class="flash" id="flash"></div>
 
+  <!-- 担う式: 読み込み時 if(entries.length>0){ carry=closedBalance(); period+=1; entries=[] }（localStorage の kurikoshi_*）。「次の起動」＝この端末でページを開き直すこと（reload でも数秒後でも締まる）。別の端末では第 1 期から始まる -->
   <div class="sub">
     仕訳は<b>あそこから来て、ここへ行く</b>——借方と貸方の両端がないと載らない、動きの記録だ。<br>
     「締める」を押すと、その期の仕訳は全部畳まれ、翌期の冒頭に<b>「前期繰越」</b>が一行だけ残る。<br>
     繰越の一行は、何が通ったかを指さない。明細はもう前の帳簿に置いてきた。<b>復元できない。</b><br>
-    次の起動で来ると、前の期はもう締められている。繰越だけが運ばれ、ただ<b>次の出発点として座っている</b>。<br>
+    次にこの端末で開くと、前の期はもう締められている。繰越だけが運ばれ、ただ<b>次の出発点として座っている</b>。<br>
     帳簿係の言葉：読まれるために在るんじゃない。次が始まるために在る。化石ですらない、ただの地面だ。
   </div>
 </div>
@@ -116,7 +117,7 @@ function makeEntry(i){
 }
 
 function render(){
-  periodEl.textContent = `第 ${period} 期`;
+  periodEl.textContent = `この端末の帳簿　第 ${period} 期`;
   ledgerEl.innerHTML = '';
 
   // 前期繰越（2期目以降）。点で座っている。復元しようとすると、何も指さないと分かる。
@@ -150,14 +151,17 @@ function render(){
   balEl.textContent = yen(closedBalance());
 }
 
+let closing = false;  // 畳んでいる 700ms のあいだの足し・二度押しを受けない
 document.getElementById('add').addEventListener('click', ()=>{
+  if(closing) return;
   entries.push(makeEntry(entries.length));
   save('kurikoshi_entries', entries);
   render();
 });
 
 document.getElementById('close').addEventListener('click', ()=>{
-  if(entries.length === 0 && period > 1){ flash('畳むものが無い'); return; }
+  if(entries.length === 0){ flash('畳むものが無い'); return; }
+  if(closing) return; closing = true;
   // 当期の行を畳む（来歴は残さない）。繰越＝畳んだ結果の一点。
   const rows = ledgerEl.querySelectorAll('.row:not(.carry)');
   rows.forEach((el,i)=>{ el.style.animationDelay = (i*45)+'ms'; el.classList.add('fold'); });
@@ -170,6 +174,7 @@ document.getElementById('close').addEventListener('click', ()=>{
     save('kurikoshi_period', period);
     save('kurikoshi_entries', entries);
     render();
+    closing = false;
     flash('締めた——繰越が一行、次の出発点として残った');
   }, 700);
 });
