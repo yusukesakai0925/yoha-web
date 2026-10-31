@@ -154,7 +154,8 @@
     inputmode="text"
   ></textarea>
   <button id="send" class="send" disabled>夜　に　ま　ぎ　れ　る</button>
-  <div class="hint" id="hint">ここに書いた言葉は、どこにも送られません。<br>あなたが次に来たとき、薄くなって浮かんでいます。</div>
+  <!-- 担う式: fadeFor(age,total) の opacity = max(0.08, 0.55 − age/(total−1)·0.42)、age＝この行より後に書いた行の数。薄くなるのは時間でなく後の行で、留守のあいだには変わらない。保存は localStorage("yabumi.v1")＝この端末だけ、31行目で最古が消える -->
+  <div class="hint" id="hint">ここに書いた言葉は、どこにも送られません。<br>次にこの端末で来たとき、浮かんでいます。あとから書いた行の数だけ、薄くなって。</div>
 </div>
 
 <div class="note">夜半（よは）— 眠らない時間の手紙</div>
@@ -168,6 +169,7 @@
   const send = document.getElementById("send");
   const hint = document.getElementById("hint");
   const countEl = document.getElementById("count");
+  let wroteThisVisit = false;
 
   function loadLetters() {
     try {
@@ -229,15 +231,16 @@
     });
     countEl.textContent = total > 0 ? `${total} / ${MAX_ENTRIES}` : "";
     if (total === 0) {
-      hint.innerHTML = "ここに書いた言葉は、どこにも送られません。<br>あなたが次に来たとき、薄くなって浮かんでいます。";
+      hint.innerHTML = "ここに書いた言葉は、どこにも送られません。<br>次にこの端末で来たとき、浮かんでいます。あとから書いた行の数だけ、薄くなって。";
     } else {
-      hint.textContent = "前に来たとき、書いていきましたね。";
+      hint.textContent = wroteThisVisit ? "いま書いた行も、次にこの端末で来たとき浮かんでいます。" : "前にこの端末で来たとき、書いていきましたね。";
     }
   }
 
   function addLetter(text) {
     const trimmed = text.trim();
     if (!trimmed) return;
+    wroteThisVisit = true;
     const letters = loadLetters();
     letters.push({ text: trimmed, t: Date.now() });
     while (letters.length > MAX_ENTRIES) letters.shift();
