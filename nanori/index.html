@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <!-- 失効日は「人が読んで直す日付」ではなく機械が拾える番地として持たせる。
      過ぎたら外から「これは古い顔だ」と言える。中身が古びても、番地が顔を出す仕事をする。 -->
-<meta name="nanori-review-by" content="2026-10-08">
+<!-- 2026-11-01 06:2x に読み直した。見える文の「つまみを引くと相手が歩いていく」「隙間が開く」はスライダーの式どおり動く（下の .sub 直前に式を書いた）。
+     右の一行は「2026-05-31 時点」と過去形で彫ってあるので、日付が過ぎても嘘にならない。次に読み直す日を約14週先に置く（前回 7/1→10/8 と同じ幅）。 -->
+<meta name="nanori-review-by" content="2027-02-08">
 <title>なのり — 夜半</title>
 <style>
   /* 物差し。縁と余白はこの3本、小さい字は --label-size を下限にする。
@@ -72,6 +74,7 @@
     <div class="lbl"><span>確認した日</span><span>ずっと後</span></div>
     <input id="slider" type="range" min="0" max="1000" value="0">
   </div>
+  <!-- 担う式: slider の input で draw() → panel() が t = slider.value/1000 を受け、相手の位置 objX = pinX + w*0.44*t。打った座標 pinX は t に依らず不動、だから隙間は t に比例して開く。左の一行の赤みは rot = min(1, t*1.1)、足元の判定は t > 0.55 で立ち上がる。時計ではなくつまみで動く＝「歩いていく」は訪問者が引いたぶんだけ。右上の失効印だけは現実の時計（今日の日付と head の失効日の文字列比較）で決まる -->
   <div class="sub">
     同じ一行を二枚彫った。座標も、指した相手も同じ。ちがうのは<b>時制</b>だけ。<br>
     つまみを引くと相手が歩いていく——座標は打った場所に留まり、相手は動く。だから隙間が開く。<br>
