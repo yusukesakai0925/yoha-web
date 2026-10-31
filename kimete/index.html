@@ -164,14 +164,15 @@ function render(){
     refuse.classList.remove('show');
     const iso = get(K_STAMP) || '';
     const xy  = get(K_XY) || '';
-    const disp = iso ? iso.slice(0,10) + ' ' + iso.slice(11,19) : '';
+    const disp = iso ? iso.slice(0,10) + ' ' + iso.slice(11,19) + ' UTC' : '';  // toISOString は UTC。無印だと見た人の時計に読まれる
     bodyEl.innerHTML =
       '<div class="coord">( ' + xy + ' )</div>' +
       '<div class="coordsub">' + disp + '</div>' +
       '<div class="coordsub" style="margin-top:6px;color:#5a6070">来なかった、と決めた瞬間</div>';
+    // 担う式: confirmNoShow() が K_STAMP・K_XY を一度だけ書き、以後どこも書き換えない＝「痩せない」。ただし localStorage なので範囲はこの端末だけ（別の端末・保存領域を消した端末では よやくせき に戻る）
     subEl.innerHTML =
       '席は<b>後ろ向き</b>になった。もう督促しない、誰にも何も要求しない。<br>' +
-      '刻まれた座標は<b>確定の瞬間そのもの</b>——読む者が来なくても、痩せない。';
+      '刻まれた座標は<b>確定の瞬間そのもの</b>——この端末では、読む者が来なくても痩せない。';
   } else {
     seat.classList.add('waiting');
     seat.classList.remove('confirmed');
@@ -179,7 +180,8 @@ function render(){
     bodyEl.innerHTML =
       '<div style="color:#8a7852">まだ来ない</div>' +
       '<div style="margin-top:8px;color:#6a5a3c;font-size:11px">' +
-        '空けて待っている：<span id="dur">' + fmtDur(held) + '</span></div>';
+        'この端末で空けて待っている：<span id="dur">' + fmtDur(held) + '</span></div>';
+    // 担う式: accumulate() で held += Date.now() - K_LAST（閉じていた間も足す・上限なし）。初回と別の端末では K_LAST が無く 0分 から
     subEl.innerHTML =
       '誰かのために空けた席。<b>前向き</b>だから「来なかったらどうする」を抱えている。<br>' +
       '待ち続ける（何もしない）のがいちばんこらえ性がいる——閉じたい引力にあらがう。<br>' +
