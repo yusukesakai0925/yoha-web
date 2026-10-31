@@ -33,6 +33,7 @@
 <div class="edge" id="ed_open">いま、ひらいている</div>
 <div class="edge" id="ed_time">——</div>
 <div class="read" id="read"></div>
+<!-- 担う関数: 「次に来ても残っている」= tap() → save() が localStorage['yoha_kankatsu_board_v1'] に盤64升を書き、load() が次の読み込みで読む。残る先は訪問者のこのブラウザだけ（別の端末・別の人には残らない）。「来るたび確かめ直す」= openedAt = new Date() をロードごとに作り、保存しない。2026-10-31 19:2x に関数を通しで読んで確認 -->
 <div class="sub">
   升目は<b>ぜんぶ手の内</b>——押せば灯り、もう一度押せば消える。次に来ても残っている。<br>
   縁の二つだけ<b>手の外</b>だ。この画面が<b>いま開いている</b>ことと、<b>開いた時刻</b>。<br>
