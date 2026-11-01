@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>はいらず — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { width: min(360px, 88vw); margin: 14vh auto 0; }
+  .row { display: flex; gap: 8px; margin-bottom: 14px; }
+  input { flex: 1; min-width: 0; background: #0c0e14; border: 1px solid #1c2030; color: #c6cddc;
+    font-size: 14px; padding: 8px 10px; letter-spacing: .08em; outline: none; border-radius: 2px; }
+  input:focus { border-color: #2c3246; }
+  button { background: #10131b; border: 1px solid #1c2030; color: #7c8496; font-size: 12px;
+    padding: 0 14px; letter-spacing: .12em; cursor: pointer; border-radius: 2px; }
+  button:hover { color: #b8bfce; }
+  .label { font-size: 10px; color: #3a3f4a; letter-spacing: .2em; margin: 26px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; color: #586074;
+    font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+  td { padding: 4px 0; border-bottom: 1px solid #0f121a; }
+  td.hit { color: #c9d0de; }
+  .empty { font-size: 11px; color: #2c313c; letter-spacing: .12em; padding: 4px 0; }
+  .result { font-size: 12px; color: #7c8496; letter-spacing: .14em; min-height: 1.6em; margin-top: 4px;
+    font-variant-numeric: tabular-nums; }
+  .sub { width: min(360px, 88vw); margin: 48px auto 28px; font-size: 11px; color: #363b47;
+    letter-spacing: .12em; line-height: 1.9; }
+  .sub b { color: #545a6a; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="row">
+    <input id="msg" placeholder="一行書いて送る" maxlength="80" autocomplete="off">
+    <button id="send">送る</button>
+  </div>
+
+  <div class="label">送った記録</div>
+  <table id="log"></table>
+  <div class="empty" id="none">まだ何も送っていない</div>
+
+  <div class="label">記録を数える</div>
+  <div class="row">
+    <input id="q" placeholder="言葉を入れて数える" maxlength="40" autocomplete="off">
+    <button id="count">数える</button>
+  </div>
+  <div class="result" id="result"></div>
+</div>
+
+<!-- 添え書きの「書いた言葉は、記録のどこにも残らない」を担うのは send()。入力欄の中身は、空かどうかと字数を見たあとで消す。変数にも保存先にも書かない。記録に残るのは、時刻・宛先・状態・字数の四つだけ。
+     数える count() は、その四つの文字列に、入れた言葉が含まれる行を数える。書いた言葉で数えると、ほぼ0件になる（「向」「字」や数字のように、四つの欄にたまたま同じ字があれば見つかる）。「200」や時刻で数えれば、行は見つかる。
+     記録はこのタブを開いているあいだだけのもの。閉じるか再読込すると消える（保存先を使っていない）。 -->
+<div class="sub">
+  一行書いて送ると、記録に一行増える。そのあと、書いた言葉で記録を数えてみてほしい。ほとんどの場合、0件と出る。<b>無かった</b>のではない。この記録には、<b>言葉の入る欄がはじめから無い</b>。<br><br>
+  どちらの0かは、0だけ見ても分からない。分けるには、確かに入れたはずのものでもう一度数える。それも0なら、ここでは確かめられない。<br><br>
+  そのとき「確かに送った」と言えるのは、記録ではなく、送ったあなたが覚えているからだ。
+</div>
+
+<script>
+const log = [];
+const tbody = document.getElementById('log');
+const none = document.getElementById('none');
+const msg = document.getElementById('msg');
+const q = document.getElementById('q');
+const result = document.getElementById('result');
+
+function pad(n){ return String(n).padStart(2, '0'); }
+
+function render(hits){
+  tbody.innerHTML = '';
+  none.style.display = log.length ? 'none' : 'block';
+  log.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    [r.time, r.to, r.status, r.len].forEach(v => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      if (hits && hits.has(i)) td.className = 'hit';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function send(){
+  const len = [...msg.value.trim()].length;
+  msg.value = '';
+  if (!len) return;
+  const d = new Date();
+  log.push({
+    time: pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()),
+    to: '向こう',
+    status: '200',
+    len: len + '字'
+  });
+  result.textContent = '';
+  render();
+}
+
+function count(){
+  const word = q.value.trim();
+  if (!word) { result.textContent = ''; render(); return; }
+  const hits = new Set();
+  log.forEach((r, i) => {
+    if ([r.time, r.to, r.status, r.len].some(v => v.includes(word))) hits.add(i);
+  });
+  result.textContent = '「' + word + '」　' + hits.size + '件　／　' + log.length + '行中';
+  render(hits);
+}
+
+document.getElementById('send').addEventListener('click', send);
+msg.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) send(); });
+document.getElementById('count').addEventListener('click', count);
+q.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) count(); });
+render();
+</script>
+</body>
+</html>
