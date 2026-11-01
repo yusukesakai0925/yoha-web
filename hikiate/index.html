@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ひきあて — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #06070b; color: #aeb6c8;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { width: min(420px, 92vw); margin: 11vh auto 0; }
+  .how { font-size: 11px; color: #4a5060; letter-spacing: .14em; margin-bottom: 26px; }
+  .field { position: relative; display: flex; justify-content: space-between; gap: 44px; min-height: 300px; }
+  .lane { display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 2; }
+  .sent { flex: 1 1 58%; min-width: 0; }
+  .back-lane { flex: 0 0 34%; padding-top: 22px; gap: 26px; }
+  .item { background: #0c0e14; border: 1px solid #171b27; border-radius: 2px; padding: 8px 10px;
+    font: inherit; font-size: 12px; line-height: 1.6; color: #98a0b2; text-align: left;
+    letter-spacing: .04em; cursor: pointer; width: 100%; box-sizing: border-box; }
+  .item .t { display: block; font-size: 10px; color: #3f4553; letter-spacing: .1em;
+    font-variant-numeric: tabular-nums; }
+  .item:hover { border-color: #272c3c; }
+  .item.picked { border-color: #6d7890; color: #d4dae6; }
+  .reply { opacity: 0; transition: opacity 1.2s; color: #b6bdcc; }
+  .reply.here { opacity: 1; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+  line { stroke: #9aa5bb; stroke-width: 1; transition: stroke .9s, opacity .9s; }
+  line.undone { stroke: #3a4050; stroke-dasharray: 2 5; }
+  .label { font-size: 10px; color: #3a3f4a; letter-spacing: .2em; margin: 30px 0 8px; }
+  .rec { font-size: 11px; line-height: 1.9; color: #586074; letter-spacing: .05em;
+    font-variant-numeric: tabular-nums; }
+  .rec .none { color: #2c313c; }
+  .rec .off { color: #3b4150; }
+  .sub { width: min(420px, 92vw); margin: 44px auto 28px; font-size: 11px; color: #363b47;
+    letter-spacing: .12em; line-height: 1.9; }
+  .sub b { color: #545a6a; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="how">返事を押してから、行を押す</div>
+  <div class="field" id="field">
+    <svg id="lines" aria-hidden="true"></svg>
+    <div class="lane sent" id="sent"></div>
+    <div class="lane back-lane" id="back"></div>
+  </div>
+
+  <div class="label">届いたもの</div>
+  <div class="rec" id="arrived"><span class="none">まだ何も届いていない</span></div>
+  <div class="label">あなたが引いた線</div>
+  <div class="rec" id="drawn"><span class="none">まだ引いていない</span></div>
+</div>
+
+<!-- 添え書きの「しばらくすると返事が届く」を担うのは arrive()。一つ目はページを開いて2.5秒後、二つ目は7秒後。
+     「三つ目は線を引いたあとに来る」を担うのは draw() の中の setTimeout。最初の線を引いてから8秒後に来る。どの行に引いたかは見ていない。
+     REPLIES の各要素には時刻と本文の欄しか無く、どの行への返事かを持つ欄が無い。正解を持つ欄もこのページのどこにも無いので、線の合否は判定できない。
+     「線は全部、引き直しになる」を担うのは object()。その時点で引かれている線をすべて undone にする。届いたものの一覧には触らない。
+     どれもこのタブを開いているあいだだけのもの。保存先を使っていないので、再読込すると線も届いたものも消える。送った行と返事は、架空の例文。 -->
+<div class="sub">
+  送った行が四つあって、しばらくすると返事が届く。返事には時刻と本文しかない。<b>どの行への返事かは、書かれていない。</b>だから線は、読んでいるあなたが引くことになる。<br><br>
+  線を引いたあとで、三つ目の返事が来る。違うと言っているが、どれが違うのかは言っていない。だから線は全部、引き直しになる。<br><br>
+  それでも、届いたものの一覧は動かない。いつ何が着いたかは、誰が何を言っても変わらない。動くのは、それが何への答えだったかのほうだけだ。<br><br>
+  どの線が合っているかを、このページは知らない。正解の欄がはじめから無いからだ。
+</div>
+
+<script>
+const SENT = [
+  { t: '18:02', x: '木曜の集まり、七時からでいいですか' },
+  { t: '18:05', x: '鍵は郵便受けに戻しておきました' },
+  { t: '18:31', x: '先月分の精算、三千円です' },
+  { t: '19:10', x: '傘、忘れていませんでしたか' }
+];
+const REPLIES = [
+  { t: '21:10', x: '了解' },
+  { t: '21:12', x: 'ありがとうございます' },
+  { t: '22:40', x: 'それ、違うと思います' }
+];
+
+const field = document.getElementById('field');
+const svg = document.getElementById('lines');
+const sentEl = document.getElementById('sent');
+const backEl = document.getElementById('back');
+const arrivedEl = document.getElementById('arrived');
+const drawnEl = document.getElementById('drawn');
+
+const arrived = [];
+const drawn = [];   // { r, s, undone }
+let picked = null;
+let objectionTimer = null;
+
+function item(rec, cls){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'item ' + cls;
+  const t = document.createElement('span');
+  t.className = 't';
+  t.textContent = rec.t;
+  b.append(t, rec.x);
+  return b;
+}
+
+const sentBtns = SENT.map((rec, s) => {
+  const b = item(rec, 'send');
+  b.addEventListener('click', () => { if (picked !== null) draw(picked, s); });
+  sentEl.appendChild(b);
+  return b;
+});
+
+const replyBtns = REPLIES.map((rec, r) => {
+  const b = item(rec, 'reply');
+  b.addEventListener('click', () => pick(r));
+  backEl.appendChild(b);
+  return b;
+});
+
+function pick(r){
+  if (!replyBtns[r].classList.contains('here')) return;
+  picked = picked === r ? null : r;
+  replyBtns.forEach((b, i) => b.classList.toggle('picked', i === picked));
+}
+
+function arrive(r){
+  replyBtns[r].classList.add('here');
+  arrived.push(REPLIES[r]);
+  renderArrived();
+}
+
+function draw(r, s){
+  const live = drawn.find(d => d.r === r && !d.undone);
+  if (live && live.s === s) { pick(r); return; }
+  if (live) live.undone = true;       // 引き直した前の線は跡として残す
+  drawn.push({ r, s, undone: false });
+  pick(r);
+  renderLines();
+  if (objectionTimer === null && r !== 2) objectionTimer = setTimeout(object, 8000);
+}
+
+function object(){
+  drawn.forEach(d => { d.undone = true; });
+  renderLines();
+  arrive(2);
+}
+
+function renderArrived(){
+  arrivedEl.textContent = '';
+  arrived.forEach(a => {
+    const row = document.createElement('div');
+    row.textContent = a.t + '　' + a.x;
+    arrivedEl.appendChild(row);
+  });
+}
+
+function renderLines(){
+  svg.textContent = '';
+  const box = field.getBoundingClientRect();
+  drawn.forEach(d => {
+    const a = replyBtns[d.r].getBoundingClientRect();
+    const b = sentBtns[d.s].getBoundingClientRect();
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', a.left - box.left);
+    l.setAttribute('y1', a.top + a.height / 2 - box.top);
+    l.setAttribute('x2', b.right - box.left);
+    l.setAttribute('y2', b.top + b.height / 2 - box.top);
+    if (d.undone) l.setAttribute('class', 'undone');
+    svg.appendChild(l);
+  });
+  drawnEl.textContent = '';
+  if (!drawn.length) {
+    const n = document.createElement('span');
+    n.className = 'none';
+    n.textContent = 'まだ引いていない';
+    drawnEl.appendChild(n);
+  }
+  drawn.forEach(d => {
+    const row = document.createElement('div');
+    row.textContent = REPLIES[d.r].t + ' → ' + SENT[d.s].t + (d.undone ? '　引き直し' : '　決めたのは読んだ人');
+    if (d.undone) row.className = 'off';
+    drawnEl.appendChild(row);
+  });
+}
+
+window.addEventListener('resize', renderLines);
+setTimeout(() => arrive(0), 2500);
+setTimeout(() => arrive(1), 7000);
+</script>
+</body>
+</html>
