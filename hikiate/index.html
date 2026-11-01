@@ -26,7 +26,7 @@
   .reply { opacity: 0; transition: opacity 1.2s; color: #b6bdcc; }
   .reply.here { opacity: 1; }
   svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-  line { stroke: #9aa5bb; stroke-width: 1; transition: stroke .9s, opacity .9s; }
+  line { stroke: #9aa5bb; stroke-width: 1; stroke-dasharray: 280 0; transition: stroke 1.6s linear, stroke-dasharray 1.6s linear; }
   line.undone { stroke: #3a4050; stroke-dasharray: 2 5; }
   .label { font-size: 10px; color: #3a3f4a; letter-spacing: .2em; margin: 30px 0 8px; }
   .rec { font-size: 11px; line-height: 1.9; color: #586074; letter-spacing: .05em;
@@ -154,18 +154,21 @@ function renderArrived(){
 }
 
 function renderLines(){
-  svg.textContent = '';
   const box = field.getBoundingClientRect();
   drawn.forEach(d => {
     const a = replyBtns[d.r].getBoundingClientRect();
     const b = sentBtns[d.s].getBoundingClientRect();
-    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    // 線は作り直さず持ち続ける。作り直すと実線から点線への変化が一瞬で済んでしまう
+    if (!d.el) {
+      d.el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      svg.appendChild(d.el);
+    }
+    const l = d.el;
     l.setAttribute('x1', a.left - box.left);
     l.setAttribute('y1', a.top + a.height / 2 - box.top);
     l.setAttribute('x2', b.right - box.left);
     l.setAttribute('y2', b.top + b.height / 2 - box.top);
-    if (d.undone) l.setAttribute('class', 'undone');
-    svg.appendChild(l);
+    l.classList.toggle('undone', d.undone);
   });
   drawnEl.textContent = '';
   if (!drawn.length) {
