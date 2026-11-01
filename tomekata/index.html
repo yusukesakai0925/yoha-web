@@ -143,10 +143,15 @@ const REASONS = [
 // 状態：左＝黙って止めた回数（痕は残さない）／右＝理由の行（積む）
 // 黙って止めた回数は保存しない（痕を持たない）。開いているあいだのメモリにだけある。
 let cntA  = 0;
-try{ localStorage.removeItem('tomekata_cntA'); }catch(e){}   // 以前の版が残した数を消す
+let oldA = 0;   // 以前の版が左の回数をこの端末に残していた。消すが、黙っては消さない
+try{ oldA = parseInt(localStorage.getItem('tomekata_cntA'),10) || 0; localStorage.removeItem('tomekata_cntA'); }catch(e){}
 let forgotA = false;                        // 半年送ったら、戻しても数は戻らない
 let linesB= load('tomekata_linesB', []);   // 理由の行（積んだ痕）
 let months= 0;
+if(oldA > 0){   // 言うと一行の痕になる。数を持つ行はこの一行だけ
+  linesB.push('前の版が左に残していた ' + oldA + ' 回を、数えるのをやめて消したから');
+  save('tomekata_linesB', linesB);
+}
 
 const pitA    = document.getElementById('pitA');
 const noteA   = document.getElementById('noteA');
