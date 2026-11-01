@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>てんこ</title>
+<style>
+  html,body{margin:0;background:#07070a;color:#8e8b84;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif}
+  #stage{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:2.2em;padding:6vw;box-sizing:border-box;text-align:center}
+  #name{font-size:min(8vw,38px);letter-spacing:.14em;line-height:1.6;min-height:3.2em;
+    display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
+  #name span{transition:opacity 1.6s ease,color 1s ease}
+  #name .gone{opacity:0}
+  #name .left{color:#d8d4c8}
+  #go{background:none;color:inherit;font:inherit;font-size:min(4.2vw,16px);letter-spacing:.3em;
+    padding:.9em 2em;border:1px solid rgba(142,139,132,.4);border-radius:2px;cursor:pointer}
+  #count{font-size:min(3.4vw,13px);letter-spacing:.2em;opacity:.55;min-height:1.6em;
+    font-variant-numeric:tabular-nums}
+  #sub{font-size:min(3.6vw,14px);letter-spacing:.1em;line-height:2.1;opacity:.6;max-width:32em}
+  details{max-width:44em;margin:0 auto;padding:0 6vw 12vh;box-sizing:content-box;
+    font-size:14px;line-height:1.9}
+  summary{cursor:pointer;letter-spacing:.15em;opacity:.7}
+  table{border-collapse:collapse;width:100%;margin-top:1em}
+  td,th{padding:.25em .6em .25em 0;text-align:left;vertical-align:top;font-weight:normal;
+    border-bottom:1px solid rgba(142,139,132,.15)}
+  th{opacity:.6}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="name">てんこ</div>
+  <button id="go" type="button">呼ぶ</button>
+  <div id="count"></div>
+  <!-- 返事を決める式: 名の字面に、いまの町名が含まれ、かつ出どころの表でその土地の現町名にも同じ町名があるときだけ返事になる（reply）。読みは端末の音声合成まかせで、こちらから読み仮名を渡していない。2026/11/02 に回した値: 呼ぶ名132・返事あり81・返事なし51。 -->
+  <div id="sub">文京区から消えた町の名を、この端末の声が順に呼びます。読みは直していません。<br>返事をするのは、いまの町名に同じ字が残っていて、その土地が今もその町名に入っている分だけです。</div>
+</div>
+<details>
+  <summary>呼ぶ名の一覧</summary>
+  <p>明治の小石川区と本郷区にあった町の名です。出どころはウィキペディア「<a href="https://ja.wikipedia.org/wiki/%E6%96%87%E4%BA%AC%E5%8C%BA%E3%81%AE%E7%94%BA%E5%90%8D">文京区の町名</a>」の二つの表で、2026/11/02 に写しました。ほかの資料とは照合していません。途中でできて消えた名（富坂一丁目など）は入っていません。</p>
+  <table><thead><tr><th>呼ぶ名</th><th>廃止</th><th>いまの町名</th><th>返事</th></tr></thead><tbody id="list"></tbody></table>
+</details>
+<script>
+const DATA=[{"name":"小石川竹早町","gone":"1966","now":"小石川4・5、小日向4","reply":["小石川"]},{"name":"小石川大塚窪町","gone":"1966","now":"大塚3、小石川5","reply":["大塚","小石川"]},{"name":"小石川大塚町","gone":"1966","now":"大塚1・2","reply":["大塚"]},{"name":"小石川大塚坂下町","gone":"1966","now":"大塚5・6","reply":["大塚"]},{"name":"小石川大塚仲町","gone":"1966","now":"大塚3・4","reply":["大塚"]},{"name":"小石川大塚上町","gone":"1966","now":"大塚4・5","reply":["大塚"]},{"name":"小石川大塚辻町","gone":"1966","now":"大塚4・5","reply":["大塚"]},{"name":"小石川春日町","gone":"1965","now":"小石川1、本郷1・4","reply":["小石川"]},{"name":"小石川諏訪町","gone":"1964","now":"後楽2","reply":[]},{"name":"小石川新諏訪町","gone":"1964","now":"後楽2","reply":[]},{"name":"市兵衛河岸","gone":"1964","now":"後楽1","reply":[]},{"name":"小石川江戸川町","gone":"1964","now":"後楽2、水道1","reply":[]},{"name":"小石川大和町","gone":"1964","now":"後楽2、春日1、水道1","reply":[]},{"name":"小石川水道町","gone":"1964","now":"春日1・2、水道1","reply":["水道"]},{"name":"小石川大門町","gone":"1964","now":"春日1・2","reply":[]},{"name":"小石川表町","gone":"1964","now":"春日1・2、小石川2・3","reply":["小石川"]},{"name":"小石川仲町","gone":"1964","now":"春日1","reply":[]},{"name":"小石川上富坂町","gone":"1940","now":"小石川2","reply":["小石川"]},{"name":"小石川中富坂町","gone":"1940","now":"小石川2","reply":["小石川"]},{"name":"小石川下富坂町","gone":"1940","now":"小石川1・2","reply":["小石川"]},{"name":"小石川西富坂町","gone":"1940","now":"小石川2","reply":["小石川"]},{"name":"小石川餌差町","gone":"1940","now":"小石川1・2","reply":["小石川"]},{"name":"小石川初音町","gone":"1964","now":"小石川1・2","reply":["小石川"]},{"name":"小石川柳町","gone":"1964","now":"西片1、小石川1・3","reply":["小石川"]},{"name":"小石川掃除町","gone":"1925改称","now":"小石川1・3、白山1","reply":["小石川"]},{"name":"小石川指ヶ谷町","gone":"1966","now":"白山1・2・4・5","reply":[]},{"name":"小石川白山前町","gone":"1966","now":"白山1・5","reply":["白山"]},{"name":"白山御殿町","gone":"1966","now":"白山3・4、小石川5","reply":["白山"]},{"name":"小石川氷川下町","gone":"1967","now":"千石2・3、大塚3・4","reply":[]},{"name":"小石川戸崎町","gone":"1964","now":"小石川3・4、白山2","reply":["小石川"]},{"name":"小石川金富町","gone":"1964","now":"春日2","reply":[]},{"name":"小石川同心町","gone":"1964","now":"春日2、小日向4","reply":[]},{"name":"小石川久堅町","gone":"1966","now":"小石川3・4・5","reply":["小石川"]},{"name":"小石川原町","gone":"1966","now":"白山3・4・5、千石1","reply":[]},{"name":"小石川林町","gone":"1966","now":"千石1・2・4","reply":[]},{"name":"小石川大原町","gone":"1966","now":"千石3・4","reply":[]},{"name":"小石川丸山町","gone":"1966","now":"千石2・3","reply":[]},{"name":"小石川宮下町","gone":"1966","now":"千石3・4","reply":[]},{"name":"小石川駕籠町","gone":"1966","now":"本駒込2・6、千石1 - 4","reply":[]},{"name":"小石川西丸町","gone":"1966","now":"千石1・4","reply":[]},{"name":"小石川西原町一・二丁目","gone":"1966","now":"千石4","reply":[]},{"name":"小石川町","gone":"1964","now":"後楽1、春日1","reply":[]},{"name":"西江戸川町","gone":"1966","now":"水道1・2","reply":[]},{"name":"小日向武島町","gone":"1966","now":"水道1・2","reply":[]},{"name":"小日向第六天町","gone":"1966","now":"小日向1・4、春日2","reply":["小日向"]},{"name":"小日向水道端一・二丁目","gone":"1966","now":"小日向1、水道1・2","reply":["小日向","水道"]},{"name":"小日向茗荷谷町","gone":"1966","now":"小日向1・3・4","reply":["小日向"]},{"name":"小日向清水谷町","gone":"1966","now":"小日向4","reply":["小日向"]},{"name":"小日向台町一 - 三丁目","gone":"1966","now":"小日向2・3、音羽1","reply":["小日向"]},{"name":"小日向水道町","gone":"1966","now":"小日向1・2、水道2、音羽1","reply":["小日向","水道"]},{"name":"小日向三軒町","gone":"1966","now":"小日向4","reply":["小日向"]},{"name":"小日向東古川町","gone":"1966","now":"関口1","reply":[]},{"name":"小日向西古川町","gone":"1966","now":"関口1","reply":[]},{"name":"小日向松ヶ枝町","gone":"1966","now":"関口1","reply":[]},{"name":"小日向町","gone":"1966","now":"関口1","reply":[]},{"name":"桜木町","gone":"1966","now":"関口2、音羽1、小日向2","reply":[]},{"name":"音羽町一 - 九丁目","gone":"1966","now":"音羽1・2、小日向3、目白台3","reply":["音羽"]},{"name":"東青柳町","gone":"1966","now":"音羽2、大塚2","reply":[]},{"name":"西青柳町","gone":"1966","now":"音羽2、目白台2","reply":[]},{"name":"関口水道町","gone":"1966","now":"関口1・2","reply":["関口"]},{"name":"関口駒井町","gone":"1966","now":"関口2","reply":["関口"]},{"name":"関口台町","gone":"1966","now":"関口1・2・3、目白台1、音羽1","reply":["関口"]},{"name":"関口町","gone":"1966","now":"関口2・3、目白台1","reply":["関口"]},{"name":"高田老松町","gone":"1966","now":"目白台1・2・3","reply":[]},{"name":"高田豊川町","gone":"1966","now":"目白台1・2","reply":[]},{"name":"雑司ヶ谷町","gone":"1966","now":"目白台2・3","reply":[]},{"name":"本郷一丁目","gone":"1965","now":"本郷2・3","reply":["本郷"]},{"name":"本郷二丁目","gone":"1965","now":"本郷2・3","reply":["本郷"]},{"name":"本郷三丁目","gone":"1965","now":"本郷2・3","reply":["本郷"]},{"name":"本郷四丁目","gone":"1965","now":"本郷4・5","reply":["本郷"]},{"name":"本郷五丁目","gone":"1965","now":"本郷5","reply":["本郷"]},{"name":"本郷六丁目","gone":"1965","now":"本郷5","reply":["本郷"]},{"name":"本郷金助町","gone":"1965","now":"本郷3","reply":["本郷"]},{"name":"本郷春木町一丁目","gone":"1965","now":"本郷3","reply":["本郷"]},{"name":"本郷春木町二丁目","gone":"1965","now":"本郷3","reply":["本郷"]},{"name":"本郷春木町三丁目","gone":"1965","now":"本郷3","reply":["本郷"]},{"name":"本郷本富士町","gone":"1965","now":"本郷7","reply":["本郷"]},{"name":"本郷元町一丁目","gone":"1965","now":"本郷2","reply":["本郷"]},{"name":"本郷元町二丁目","gone":"1965","now":"本郷1","reply":["本郷"]},{"name":"本郷東竹町","gone":"1933","now":"本郷2・3","reply":["本郷"]},{"name":"本郷西竹町","gone":"1933","now":"本郷2・3","reply":["本郷"]},{"name":"本郷真砂町","gone":"1965","now":"本郷1・2・4","reply":["本郷"]},{"name":"本郷弓町一丁目","gone":"1965","now":"本郷1","reply":["本郷"]},{"name":"本郷弓町二丁目","gone":"1965","now":"本郷2","reply":["本郷"]},{"name":"本郷菊坂町","gone":"1965","now":"本郷4・5","reply":["本郷"]},{"name":"本郷台町","gone":"1965","now":"本郷5","reply":["本郷"]},{"name":"本郷田町","gone":"1965","now":"本郷4・5、西片1","reply":["本郷"]},{"name":"本郷森川町","gone":"1965","now":"弥生1、西片2、本郷6・7[4]","reply":["本郷"]},{"name":"本郷龍岡町","gone":"1965","now":"湯島4","reply":[]},{"name":"湯島一丁目","gone":"1965","now":"湯島1","reply":["湯島"]},{"name":"湯島二丁目","gone":"1965","now":"湯島1、本郷3","reply":["湯島"]},{"name":"湯島三丁目","gone":"1965","now":"湯島1","reply":["湯島"]},{"name":"湯島四丁目","gone":"1965","now":"湯島1・2","reply":["湯島"]},{"name":"湯島五丁目","gone":"1934","now":"本郷3","reply":[]},{"name":"湯島六丁目","gone":"1965","now":"本郷3","reply":[]},{"name":"湯島新花町","gone":"1965","now":"湯島2","reply":["湯島"]},{"name":"湯島三組町","gone":"1965","now":"湯島2・3","reply":["湯島"]},{"name":"湯島天神町一丁目","gone":"1965","now":"湯島2・3","reply":["湯島"]},{"name":"湯島天神町二丁目","gone":"1965","now":"湯島3","reply":["湯島"]},{"name":"湯島天神町三丁目","gone":"1965","now":"湯島3","reply":["湯島"]},{"name":"湯島梅園町","gone":"1965","now":"湯島2・3","reply":["湯島"]},{"name":"湯島天神下同朋町","gone":"1965","now":"湯島3","reply":["湯島"]},{"name":"湯島切通坂町","gone":"1965","now":"湯島2〜4","reply":["湯島"]},{"name":"湯島切通町","gone":"1965","now":"湯島4[5]","reply":["湯島"]},{"name":"湯島両門町","gone":"1965","now":"湯島4、本郷7","reply":["湯島"]},{"name":"妻恋町","gone":"1965","now":"湯島1〜3","reply":[]},{"name":"駒込東片町","gone":"1964","now":"向丘1、西片2、本駒込1[6]","reply":[]},{"name":"駒込西片町","gone":"1964","now":"西片1・2","reply":["西片"]},{"name":"駒込曙町","gone":"1966","now":"本駒込1・2","reply":[]},{"name":"駒込浅嘉町","gone":"1966","now":"本駒込1・3、向丘2","reply":[]},{"name":"駒込追分町","gone":"1965","now":"向丘1・2","reply":[]},{"name":"駒込肴町","gone":"1965","now":"向丘1・2","reply":[]},{"name":"駒込蓬莱町","gone":"1965","now":"向丘2","reply":[]},{"name":"駒込千駄木町","gone":"1965","now":"千駄木1・2・5、向丘2","reply":["千駄木"]},{"name":"駒込千駄木林町","gone":"1965","now":"千駄木3・5、向丘2[7]","reply":["千駄木"]},{"name":"駒込千駄木坂下町","gone":"1965","now":"千駄木2・3","reply":["千駄木"]},{"name":"駒込片町","gone":"1966","now":"本駒込1〜3","reply":[]},{"name":"駒込吉祥寺町","gone":"1966","now":"本駒込3","reply":[]},{"name":"駒込富士前町","gone":"1966","now":"本駒込2・3・5","reply":[]},{"name":"駒込上富士前町","gone":"1966","now":"本駒込2・5・6","reply":[]},{"name":"丸山福山町","gone":"1964","now":"白山1、西片1","reply":[]},{"name":"丸山新町","gone":"1964","now":"白山1","reply":[]},{"name":"根津宮永町","gone":"1965","now":"根津1・2","reply":["根津"]},{"name":"根津八重垣町","gone":"1965","now":"根津1・2","reply":["根津"]},{"name":"根津須賀町","gone":"1965","now":"根津1","reply":["根津"]},{"name":"根津西須賀町","gone":"1965","now":"弥生1","reply":[]},{"name":"根津片町","gone":"1965","now":"根津2","reply":["根津"]},{"name":"根津藍染町","gone":"1965","now":"根津2","reply":["根津"]},{"name":"根津清水町","gone":"1965","now":"根津1","reply":["根津"]},{"name":"向ヶ丘弥生町","gone":"1965","now":"弥生1・2","reply":["弥生"]},{"name":"駒込神明町","gone":"1966","now":"本駒込3〜5","reply":[]},{"name":"駒込動坂町","gone":"1966","now":"千駄木4・5、本駒込3・4","reply":[]}];
+const $=id=>document.getElementById(id);
+const nameEl=$("name"),go=$("go"),countEl=$("count");
+const sy=window.speechSynthesis||null;
+let run=0,voice=null,yes=0,no=0;
+
+for(const r of DATA){
+  const tr=document.createElement("tr");
+  for(const v of [r.name,r.gone,r.now,r.reply.join("・")||"なし"]){
+    const td=document.createElement("td");td.textContent=v;tr.appendChild(td);
+  }
+  $("list").appendChild(tr);
+}
+
+function findVoice(){
+  return sy?(sy.getVoices().find(v=>/^ja/i.test(v.lang))||null):null;
+}
+function waitVoice(){
+  return new Promise(res=>{
+    voice=findVoice();
+    if(voice||!sy)return res();
+    const t=setTimeout(res,1200);
+    sy.addEventListener&&sy.addEventListener("voiceschanged",()=>{
+      voice=findVoice();if(voice){clearTimeout(t);res();}
+    });
+  });
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+// 読み上げ。終わりの合図が来ない端末があるので、字数から決めた時間で先へ進む
+function say(text,pitch){
+  if(!voice)return wait(600+text.length*220);
+  return new Promise(res=>{
+    const u=new SpeechSynthesisUtterance(text);
+    u.voice=voice;u.lang=voice.lang;u.rate=.85;u.pitch=pitch;
+    let done=false;const fin=()=>{if(!done){done=true;clearTimeout(t);res();}};
+    const t=setTimeout(fin,3000+text.length*500);
+    u.onend=fin;u.onerror=fin;
+    sy.speak(u);
+  });
+}
+// 表の表記を声に渡せる形へ。画面の字は変えない
+function spoken(n){return n.replace(/\s*-\s*/g,"から").replace("一・二","一、二");}
+
+function draw(name,reply){
+  nameEl.textContent="";
+  // 返事の字に印を付け、残りと分ける
+  const marks=new Array(name.length).fill(false);
+  for(const w of reply){const i=name.indexOf(w);for(let k=0;k<w.length;k++)marks[i+k]=true;}
+  let i=0;
+  while(i<name.length){
+    let j=i;while(j<name.length&&marks[j]===marks[i])j++;
+    const s=document.createElement("span");
+    s.textContent=name.slice(i,j);s.dataset.left=marks[i]?"1":"";
+    nameEl.appendChild(s);i=j;
+  }
+}
+function replyOrder(r){return [...r.reply].sort((a,b)=>r.name.indexOf(a)-r.name.indexOf(b));}
+
+async function roll(id){
+  yes=0;no=0;
+  for(let n=0;n<DATA.length;n++){
+    if(id!==run)return;
+    const r=DATA[n];
+    draw(r.name,r.reply);
+    countEl.textContent=(n+1)+" / "+DATA.length;
+    await say(spoken(r.name),1);
+    if(id!==run)return;
+    await wait(1300);                        // 返事を待つ間。どの名にも同じだけ待つ
+    if(id!==run)return;
+    for(const s of nameEl.children)s.classList.add(s.dataset.left?"left":"gone");
+    if(r.reply.length){
+      yes++;
+      for(const w of replyOrder(r)){
+        await say(w,.7);
+        if(id!==run)return;
+      }
+    }else no++;
+    await wait(1900);                        // 消えていく字が消えきるまで
+  }
+  if(id!==run)return;
+  nameEl.textContent="";
+  countEl.textContent="呼んだ "+DATA.length+"　返事 "+yes+"　なし "+no;
+  go.textContent="もう一度呼ぶ";
+  run++;
+}
+
+go.addEventListener("click",async()=>{
+  const id=++run;
+  if(go.textContent==="止める"){
+    sy&&sy.cancel();go.textContent="呼ぶ";nameEl.textContent="てんこ";countEl.textContent="";
+    return;
+  }
+  go.textContent="止める";
+  // 端末によってはこの押した瞬間に一度話さないと声が出ない
+  if(sy){sy.cancel();sy.resume&&sy.resume();}
+  await waitVoice();
+  if(id!==run)return;
+  if(!voice)countEl.textContent="この端末に日本語の声がありません。字だけで進みます";
+  await wait(voice?400:2400);
+  if(id===run)roll(id);
+});
+addEventListener("pagehide",()=>{run++;sy&&sy.cancel();});
+</script>
+</body>
+</html>
