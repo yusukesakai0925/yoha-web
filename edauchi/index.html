@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>えだうち</title>
+<style>
+  html,body{margin:0;min-height:100%;background:#05070d;}
+  body{
+    min-height:100vh;box-sizing:border-box;padding:64px 8vw 40px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:"Hiragino Mincho ProN","Yu Mincho",serif;color:rgba(255,255,255,.62);
+    text-align:center;
+  }
+  #scene{font-size:clamp(20px,5vw,30px);letter-spacing:.14em;line-height:1.8;color:rgba(255,255,255,.86);outline:none;}
+  #ways{display:flex;flex-direction:column;gap:14px;align-items:center;min-height:6.5em;margin:30px 0 22px;font-size:16px;letter-spacing:.14em;}
+  #ways a{padding:6px 10px;color:#c9ccd6;text-underline-offset:.4em;text-decoration-thickness:1px;}
+  #ways a:visited{color:#a0855a;}
+  #ways a:hover,#ways a:focus-visible{outline:1px solid rgba(255,255,255,.4);outline-offset:2px;}
+  #ways .end{font-size:13px;line-height:2.1;color:rgba(255,255,255,.5);}
+  #cut{min-height:9em;font-size:13px;letter-spacing:.14em;line-height:2.1;color:rgba(255,255,255,.5);}
+  #cut b{display:block;font-weight:normal;font-size:16px;color:rgba(255,255,255,.86);}
+  #len{font-variant-numeric:tabular-nums;font-size:12px;letter-spacing:.14em;color:rgba(255,255,255,.46);}
+  .sub{margin-top:18px;font-size:12px;letter-spacing:.16em;line-height:2.1;color:rgba(255,255,255,.46);}
+  #cut span,.sub span,#ways .end span{display:inline-block;}
+  .back{
+    position:fixed;left:16px;top:14px;z-index:9;
+    color:rgba(255,255,255,.4);font-size:12px;letter-spacing:.08em;text-decoration:none;
+  }
+  .back:hover{color:rgba(255,255,255,.65);}
+</style>
+</head>
+<body>
+<a class="back" href="../">← 目録</a>
+<!-- 担う式: 道は hash（#lr…）だけで決まり、見えるものは道の名前から計算する。歩くのは普通のリンクで、JS は履歴を書きかえない。「消えた歩数」= 押す直前の history.length - 着いた後の history.length + 1。消えた枝の中身はページが持たない。「色」= ブラウザの :visited で、ページの JS からは読めない。50 はブラウザの履歴の上限の目安で、そこまで来ると長さが減らなくなるので数えない。保存・送信は無い。 -->
+<div id="scene" tabindex="-1"></div>
+<nav id="ways" aria-label="分かれ道"></nav>
+<div id="cut" aria-live="polite"></div>
+<div id="len"></div>
+<div class="sub"><span>戻るときは、ブラウザの「戻る」で。</span></div>
+<script>
+// えだうち —— 「進む」の先は、戻ってから別の道を選ぶと黙って消える。色の台帳には残る。
+const DEPTH=6,CAP=50;
+const THINGS=['水の音','低い灯り','濡れた石','折れた枝','遠い犬の声','古い標識','苔の匂い','冷たい風','錆びた柵','誰かの靴跡','白い花','止まった時計','土の坂','小さな橋','閉じた門','虫の声'];
+const scene=document.getElementById('scene'),ways=document.getElementById('ways'),
+      cut=document.getElementById('cut'),len=document.getElementById('len');
+let before=null;
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function thing(p){
+  if(!p)return null;
+  const parent=p.slice(0,-1),n=THINGS.length,base=hash('p'+parent)%n;
+  return THINGS[p.endsWith('l')?base:(base+1+hash('q'+parent)%(n-1))%n];
+}
+function path(){
+  const h=location.hash.slice(1);
+  return new RegExp('^[lr]{1,'+DEPTH+'}$').test(h)?h:'';
+}
+function link(p){
+  const a=document.createElement('a');
+  a.href='#'+p;a.textContent=thing(p)+'のほうへ';
+  a.addEventListener('click',()=>{before=history.length;});
+  return a;
+}
+function draw(){
+  const p=path(),t=thing(p);
+  scene.textContent=t?t+'がある。':'道が二つに分かれている。';
+  ways.textContent='';
+  if(p.length<DEPTH){ways.append(link(p+'l'),link(p+'r'));}
+  else{
+    const e=document.createElement('div');e.className='end';
+    e.innerHTML='<span>ここで道は終わる。</span><br><span>ブラウザの「戻る」で戻れる。</span>';
+    ways.append(e);
+  }
+  len.textContent='このタブの履歴 '+history.length;
+}
+window.addEventListener('hashchange',()=>{
+  const b=before,a=history.length;before=null;
+  const lost=b===null?0:b-a+1;
+  draw();scene.focus({preventScroll:true});
+  if(b===null)return;
+  if(b>=CAP||a>=CAP){cut.innerHTML='<span>このタブの履歴は長すぎて、</span><span>消えた歩数を数えられない。</span>';return;}
+  if(lost>0){
+    cut.innerHTML='<b>'+lost+'歩、消えた。</b><span>履歴 '+b+' → '+a+'。</span><span>知らせは来ない。</span><br><span>戻って、道の色を見る。</span><br><span>色が残っていれば、ブラウザが覚えている。</span><br><span>このページには、その色が読めない。</span>';
+  }else{cut.textContent='';}
+});
+window.addEventListener('pageshow',draw);
+draw();
+</script>
+</body>
+</html>
