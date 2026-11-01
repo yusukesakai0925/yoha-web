@@ -72,7 +72,7 @@ function stampIt(){
   line.textContent="押した。";
   nEl.textContent=count; // 裏で数だけは進むが、記録の側は畳まれる
   // インクを打つ→ゆっくり乾く（次の押しでまた同じ濃さに戻るだけ）
-  stamp.classList.remove("ink"); void stamp.offsetWidth; stamp.classList.add("ink");
+  stamp.classList.add("ink"); void stamp.offsetWidth; stamp.classList.remove("ink");
 }
 window.addEventListener("pointerdown",stampIt);
 window.addEventListener("keydown",e=>{ if(e.key===" "||e.key==="Enter"){e.preventDefault();stampIt();} });
