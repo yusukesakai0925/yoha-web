@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かたみち — 夜半</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #07080a; color: #aeb4c0;
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+  .back { position: fixed; left: 16px; top: 14px; color: #3a3f4a; font-size: 12px;
+    text-decoration: none; letter-spacing: .08em; z-index: 9; }
+  .back:hover { color: #6a7080; }
+  .wrap { width: min(400px, 90vw); margin: 11vh auto 0; }
+  .label { font-size: 10px; color: #4a5060; letter-spacing: .2em; margin-bottom: 8px; }
+  textarea { display: block; width: 100%; box-sizing: border-box; height: 15.5em; resize: vertical;
+    background: #0b0d11; color: #c0c6d2; border: 1px solid #171b24; border-radius: 2px;
+    padding: 10px 12px; font: 16px/1.7 ui-monospace, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; caret-color: #8fb8a0; }
+  textarea:focus { outline: none; border-color: #2a303e; }
+  #status { margin-top: 14px; font-size: 14px; letter-spacing: .08em; color: #8fb8a0; min-height: 1.6em; }
+  #status::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor; margin-right: 9px; vertical-align: .08em; }
+  #status.ng { color: #c9806f; }
+  #bad { font-size: 12px; line-height: 1.8; color: #8a5f55; letter-spacing: .04em; }
+  #turn { margin-top: 30px; background: none; border: 1px solid #1d212c; border-radius: 2px;
+    color: #6a7182; font: inherit; font-size: 12px; letter-spacing: .1em; padding: 8px 12px; cursor: pointer; }
+  #turn:hover { border-color: #2d3342; color: #8a91a2; }
+  #other { margin-top: 18px; }
+  #other[hidden] { display: none; }
+  #count { font-size: 13px; letter-spacing: .08em; color: #8d94a4; margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; line-height: 2;
+    font-variant-numeric: tabular-nums; color: #4b5160; letter-spacing: .03em;
+    border-top: 1px solid #101319; }
+  .row.none { color: #a9afbc; }
+  .sub { width: min(400px, 90vw); margin: 44px auto 30px; font-size: 11px; color: #3c414d;
+    letter-spacing: .12em; line-height: 1.9; }
+  .sub b { color: #5a6070; font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← もどる</a>
+<div class="wrap">
+  <div class="label"><label for="ledger">帳簿（書きかえられる）</label></div>
+  <textarea id="ledger" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+  <div id="status" role="status"></div>
+  <div id="bad"></div>
+
+  <button id="turn" type="button">明細の側から数える</button>
+  <div id="other" hidden>
+    <div id="count"></div>
+    <div id="rows"></div>
+  </div>
+</div>
+
+<!-- 帳簿の行も明細の入金も、すべて架空の例。入金の欄は日付・名前・金額の三つだけで、帳簿に行が無い理由を持つ欄はこのページのどこにも無い。保存先を使っていないので、再読込で元に戻る。 -->
+<div class="sub">
+  帳簿の一行ずつについて、同じ入金が明細にあるかを見ている。<b>明細に無い行を書けば、止まる。</b>一円ずらしても、同じ行を二度書いても止まる。<br><br>
+  行を消しても、止まらない。この照合が数えるのは帳簿に書いてある行だけで、消した行はもう数える相手の中にいない。<br><br>
+  反対の向きから数えれば、帳簿に行の無い入金が出てくる。ただ、消した行も、もとから帳簿の外にあった入金も、<b>同じ「行なし」で並ぶ。</b>なぜ行が無いのかは、明細には書かれていない。
+</div>
+
+<script>
+const BANK = [
+  ['10/25', 'A室', 50000],
+  ['10/25', 'B室', 48000],
+  ['10/26', 'C室', 52000],
+  ['10/27', 'D室', 50000],
+  ['10/27', 'E室', 45000],
+  ['10/28', 'F室', 50000],
+  ['10/29', 'B室', 3000],
+  ['10/30', 'H室', 50000],
+  ['10/31', 'G室', 47000]
+];
+// 帳簿の初期状態。明細の 10/29 B室 と 10/30 H室 の行だけが、はじめから無い
+const START = [0, 1, 2, 3, 4, 5, 8];
+
+const yen = n => n.toLocaleString('en-US');
+const show = b => b[0] + ' ' + b[1] + ' ' + yen(b[2]);
+const norm = s => s.normalize('NFKC').replace(/,/g, '').trim().replace(/\s+/g, ' ');
+const key = b => norm(b[0] + ' ' + b[1] + ' ' + b[2]);
+
+const ledger = document.getElementById('ledger');
+const statusEl = document.getElementById('status');
+const badEl = document.getElementById('bad');
+const turn = document.getElementById('turn');
+const other = document.getElementById('other');
+const countEl = document.getElementById('count');
+const rowsEl = document.getElementById('rows');
+
+ledger.value = START.map(i => show(BANK[i])).join('\n');
+
+function check(){
+  const lines = ledger.value.split('\n')
+    .map((x, i) => ({ text: norm(x), at: i + 1 }))
+    .filter(l => l.text);
+
+  // 帳簿 → 明細。行ごとに、まだ使っていない入金を一件ずつ当てる
+  const left = BANK.map(key);
+  const bad = [];
+  lines.forEach(l => {
+    const i = left.indexOf(l.text);
+    if (i < 0) bad.push(l.at);
+    else left[i] = null;
+  });
+
+  if (bad.length) {
+    statusEl.className = 'ng';
+    statusEl.textContent = lines.length + '行のうち ' + bad.length + '行 明細に無い';
+    badEl.textContent = bad.map(n => n + '行目').join('、');
+  } else {
+    statusEl.className = '';
+    statusEl.textContent = lines.length + '行 すべて一致';
+    badEl.textContent = '';
+  }
+
+  // 明細 → 帳簿。行を消費した入金は left で null になっている
+  const none = left.filter(x => x !== null).length;
+  countEl.textContent = BANK.length + '件のうち ' + none + '件、帳簿に行が無い';
+  rowsEl.textContent = '';
+  BANK.forEach((b, i) => {
+    const row = document.createElement('div');
+    row.className = 'row' + (left[i] !== null ? ' none' : '');
+    const a = document.createElement('span');
+    a.textContent = show(b);
+    const c = document.createElement('span');
+    c.textContent = left[i] !== null ? '行なし' : '行あり';
+    row.append(a, c);
+    rowsEl.appendChild(row);
+  });
+}
+
+ledger.addEventListener('input', check);
+turn.addEventListener('click', () => { other.hidden = !other.hidden; });
+check();
+</script>
+</body>
+</html>
