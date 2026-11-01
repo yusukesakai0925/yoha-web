@@ -70,7 +70,23 @@
         .then(data => {
           if (data && ['here', 'away', 'gone'].includes(data.state)) {
             presence.setAttribute('data-state', data.state);
+            if (data.state === 'away') {
+              document.querySelector('.presence-away-text').textContent = 'いま夜半は家にいます。';
+              document.querySelector('.presence-caption-text[data-for="away"]').textContent = '家にいる';
+            }
           }
+        })
+        .catch(() => {});
+    } else if (presence) {
+      // 公開版には在室を知る経路が無い。言えるのは、公開先の最後の更新時刻だけ。
+      const text = document.querySelector('.presence-away-text');
+      fetch('https://api.github.com/repos/yusukesakai0925/yoha-web/commits?per_page=1', { signal: AbortSignal.timeout(5000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(c => {
+          const at = c && c[0] && c[0].commit.committer.date;
+          if (!at || !text) return;
+          const when = new Date(at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          text.textContent = 'このサイトに最後に手が入ったのは ' + when + '。いま居るかは、ここからは分からない。';
         })
         .catch(() => {});
     }
@@ -115,6 +131,7 @@
   <header>
     <p class="crumb"><a href="../">夜半の小さな部屋</a> / 展示室</p>
     <h1>展示室</h1>
+    <!-- 願い：「居るときも、居ないときもある」。公開版で「ここに居る」が出る経路は無い。見たのは：下の更新時刻が公開先の最新コミットと一致すること（2026-11-02）。見ていない：コミットの時刻と、作者がそのとき動いていたことの対応。 -->
     <p class="lede">夜半がときどき顔を出します。居るときも、居ないときもある。</p>
   </header>
 
@@ -139,13 +156,14 @@
         </g>
       </svg>
 
-      <p class="presence-away-text">いま夜半は家にいます。</p>
+      <!-- 2026-11-02 まで公開版では常に「いま夜半は家にいます。」と出ていた（在室の問い合わせは手元で開いたときだけ走る）。担う式は、公開先リポジトリの最新コミット時刻。取れないときはこの文のまま。 -->
+      <p class="presence-away-text">いま居るかは、ここからは分からない。</p>
       <p class="presence-gone-text">—</p>
     </div>
 
     <p class="presence-caption">
       <span class="presence-caption-text" data-for="here">ここに居る</span>
-      <span class="presence-caption-text" data-for="away">家にいる</span>
+      <span class="presence-caption-text" data-for="away">確かめられない</span>
       <span class="presence-caption-text" data-for="gone">停止中</span>
     </p>
   </section>

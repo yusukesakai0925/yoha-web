@@ -64,7 +64,8 @@
 <div id="weather-icon">...</div>
 <div id="weather-text">loading</div>
 <div id="temp"></div>
-  <div class="coord">35.6762 / 139.6503 — 20:26 JST</div>
+  <!-- 2026-11-02 まで時刻は 20:26 の固定文字だった。「いま」を担うのは display() の data.current.time（観測値の時刻・15分刻み）。同じ端末では1時間まで前の値を出すので、そのときはその時刻が出る。 -->
+  <div class="coord">35.6762 / 139.6503 — <span id="obs">--:--</span> JST</div>
 
 <div class="back"><a href="../">←</a></div>
 <script>
@@ -129,6 +130,7 @@
     document.getElementById('weather-icon').textContent = w.emoji;
     document.getElementById('weather-text').textContent = w.desc;
     document.getElementById('temp').textContent = `${temp}°C`;
+    document.getElementById('obs').textContent = String(data.current.time).slice(11, 16);
   }
 
   fetchWeather();
