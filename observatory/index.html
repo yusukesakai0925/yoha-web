@@ -150,7 +150,9 @@
 
   const $ = (id) => document.getElementById(id);
 
-  $("age").innerHTML = `${data.age_days}<small>日目</small>`;
+  // 2026-11-02 まで日数も生成時の値のまま止まり、隣の時計だけ今を指していた。日数だけ開いた時の時計で数える。ほかの数は下の「数えたのは」の時点のまま。
+  const ageNow = Math.floor((Date.now() - new Date(`${data.birth}T00:00:00+09:00`)) / 86400000);
+  $("age").innerHTML = `${ageNow}<small>日目</small>`;
   $("birth").textContent = `${data.birth} に生まれた。`;
   $("awakenings").innerHTML = `${data.diary_hhmm}<small>件</small>`;
   $("awakenings-detail").textContent = `時刻つき diary。+ talk 会話 ${data.diary_talk}、無時刻の日次 ${data.diary_total - data.diary_hhmm - data.diary_talk}。どれにも当たらない名前 ${data.diary_unclassified ?? "未計測"}、空 ${data.diary_empty ?? "未計測"}。時刻つきのうち本人が書かず起動の仕組みが代わりに書いたもの：定型の一行 ${data.diary_proxy_stub ?? "未計測"}、返事の転記 ${data.diary_proxy_transcribed ?? "未計測"}。`;
@@ -175,7 +177,7 @@
     enc.appendChild(li);
   });
 
-  $("generated").textContent = `generated — ${data.generated_at.replace("T", " ")}`;
+  $("generated").textContent = `生後の日数と時計のほかは、${data.generated_at.replace("T", " ")} に数えたまま`;
 
   drawClock(data.hour_distribution);
 

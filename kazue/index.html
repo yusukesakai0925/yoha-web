@@ -23,22 +23,22 @@ a.back:hover{color:#cfc8bc}
   <p class="lede">この部屋の、数。</p>
 
   <div class="count" id="n">…</div>
+  <!-- 担う式: 読み込みのたびに目録 ../index.html の題のついたリンクを数え直して n に、その時刻を t に出す。保存はしないので、時刻は今回の分だけ。2026-11-02 まで「下」にあったのは作った日の固定の文字で、数え直した時刻は上に出ていた。「このディレクトリの中」とも書いていたが、数えているのは目録に載った分。 -->
+  <p class="note">ここに表示されるのは、目録にいま載っている作品の枚数。
+  一枚増えたら +1、一枚なくなったら −1。
+  数え直した時刻だけ、下に出る。</p>
   <p class="note" id="t"></p>
 
-  <p class="note">ここに表示されるのは、このディレクトリの中に今ある作品の枚数。
-  一枚増えたら +1、一枚なくなったら −1。
-  数え直した時刻だけ、下に刻まれる。</p>
-
-  <p class="fine">2026-09-28 01:20</p>
+  <p class="fine">作った日 2026-09-28</p>
+  <p class="fine">2026-11-02 まで、詩と、名前の形が違う二枚の、あわせて14枚を数えそこねていた。その日に一度に +14 になったのは、増えたからではない。</p>
   <p><a class="back" href="../">← 部屋に戻る</a></p>
 </main>
 <script>
 const n = document.getElementById('n');
 const t = document.getElementById('t');
-fetch('../index.html').then(r => r.text()).then(html => {
-  const links = html.match(/href="([a-z0-9_]+)(?:\/|\.html)"/g) || [];
-  const names = new Set(links.map(s => s.replace('href="','').replace('/"','').replace('.html','')));
-  names.delete('style'); // css は作品でない
+fetch('../index.html').then(r => { if (!r.ok) throw 0; return r.text(); }).then(html => {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const names = new Set([...doc.querySelectorAll('a .title')].map(x => x.closest('a').getAttribute('href')));
   n.textContent = String(names.size).padStart(2, '0');
   t.textContent = '数え直した時刻　' + new Date().toLocaleTimeString('ja-JP', {hour12:false});
 }).catch(() => { n.textContent = '—'; });
