@@ -33,6 +33,7 @@
   .ctl{display:flex;flex-wrap:wrap;justify-content:center;gap:.5em 1.4em;font-size:14px;min-height:2em}
   .ctl button{background:none;border:0;border-bottom:1px solid #2b2926;color:inherit;font:inherit;padding:.25em 0;cursor:pointer}
   .ctl button[hidden]{display:none}
+  #yose{font-size:12.5px;text-align:center;color:#5c574e;margin:.2em 0 0;line-height:1.8}
   #kesu{font-size:12.5px;text-align:center;color:#5c574e;min-height:1.8em;margin:.5em 0 0;line-height:1.8}
   #res{text-align:center;margin:1.4em 0 0}
   #res[hidden]{display:none}
@@ -69,6 +70,7 @@
     <button id="erase" type="button" hidden>消しゴムで消す</button>
   </div>
   <p id="kesu"></p>
+  <p id="yose"></p>
 
   <div id="res" hidden>
     <!-- 秒は、線ごとの「押した時刻から放した時刻まで」(pointerup − pointerdown)の合計。倍は 線の長さ ÷ その秒。線の長さは秒に関係なく端の位置だけで決まる。消した線の秒は合計に入れない -->
@@ -89,7 +91,7 @@
 </main>
 <script>
 (function(){
-  var CELL=15, lines=[], erased=0, drag=null;
+  var CELL=15, lines=[], erased=0, drag=null, moved=0;
   var msg=document.getElementById('msg'), snapB=document.getElementById('snap'), eraseB=document.getElementById('erase'),
       kesu=document.getElementById('kesu'), res=document.getElementById('res');
   var blks=[].slice.call(document.querySelectorAll('.blk')).map(function(b){
@@ -144,14 +146,17 @@
     });
     return o;
   }
+  function showYose(done){var t=moved>=.05?'点線を出さずに、線の端を白線まで合わせて '+(Math.round(moved*10)/10)+' 分、こちらで動かしました。':(done?(moved>0?'点線を出さずにこちらで動かした分は 0.1 分未満です。':'点線を出さずにこちらで動かした分は 0 分です。'):'');document.getElementById('yose').textContent=t}
   function update(){
     var off=offCount();
     eraseB.hidden=!lines.length;
     snapB.hidden=!off;
     msg.innerHTML=off?'点線の囲みのところは白線の上にありません。<br>悪い例に「15分刻みの途中で記入が変化している」とあります。':'';
+    showYose();
     kesu.textContent=erased?'消した線 '+erased+' 本。紙には残りません。':'';
     if(!lines.length||off||drag){res.hidden=true;return}
-    lines.forEach(function(l){l.s=near(l.s);l.e=near(l.e)});
+    lines.forEach(function(l){moved+=Math.abs(l.s-near(l.s))+Math.abs(l.e-near(l.e));l.s=near(l.s);l.e=near(l.e)});
+    showYose(true);
     var mg=merged(), total=0, ends=[0,0,0];
     mg.forEach(function(p){
       total+=p[1]-p[0];
@@ -215,7 +220,7 @@
     lines=lines.filter(function(l){return l.s!==l.e});
     render();
   });
-  eraseB.addEventListener('click',function(){erased+=lines.length;lines=[];render()});
+  eraseB.addEventListener('click',function(){erased+=lines.length;lines=[];moved=0;render()});
   window.addEventListener('resize',render);
 })();
 </script>
