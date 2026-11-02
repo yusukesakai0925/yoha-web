@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>せいご</title>
+<style>
+  html,body{margin:0;background:#f4f2ec;color:#1c1b19;
+    font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
+  main{max-width:860px;margin:0 auto;padding:clamp(28px,8vh,72px) clamp(14px,4vw,32px) 72px;box-sizing:border-box}
+  h1{font-size:clamp(17px,2.4vw,22px);font-weight:400;letter-spacing:.2em;text-align:center;margin:0 0 .9em}
+  #src{min-height:3.2em;text-align:center;font-size:clamp(12px,1.8vw,14px);line-height:1.6;color:#5b5850;margin:0 0 1em;overflow-wrap:anywhere}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fbfaf6}
+  th,td{border:1px solid #2a2926;padding:0;font-weight:400}
+  th{height:2.4em;font-size:15px;letter-spacing:.2em}
+  td{vertical-align:top}
+  button.side{display:block;width:100%;min-height:9em;padding:1em;background:none;border:0;color:inherit;font:inherit;
+    font-size:clamp(14px,2.2vw,18px);line-height:2;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+  button.side:not(:disabled):hover,button.side:focus-visible{background:#efece2;outline:none}
+  button.side:disabled{cursor:default;color:inherit}
+  .d{background:#1c1b19;color:#fbfaf6;padding:0 .12em}
+  .gap{display:inline-block;width:.34em;height:1.2em;vertical-align:-.2em;background:#1c1b19}
+  u{text-underline-offset:.28em}
+  #foot{min-height:4.6em;margin-top:1.1em;text-align:center;font-size:14px;line-height:1.8;color:#5b5850}
+  #foot a{color:inherit}
+  #next{display:block;margin:.5em auto 0;padding:.5em 2.4em;background:none;border:1px solid #2a2926;color:#1c1b19;font:inherit;font-size:15px;letter-spacing:.2em;cursor:pointer}
+  #next[hidden]{display:none}
+  #end{font-size:clamp(14px,2vw,16px);line-height:2.1;overflow-wrap:anywhere}
+  #end[hidden],#play[hidden]{display:none}
+  #end small{display:block;margin-top:2.2em;font-size:12.5px;line-height:1.9;color:#5b5850}
+  #end a{color:inherit}
+  #end .back{display:inline-block;margin-top:2em}
+</style>
+</head>
+<body>
+<main>
+  <h1>せいご</h1>
+  <div id="play">
+    <p id="src"></p>
+    <table>
+      <thead><tr><th id="h0">&nbsp;</th><th id="h1">&nbsp;</th></tr></thead>
+      <tbody><tr><td><button class="side" id="b0"></button></td><td><button class="side" id="b1"></button></td></tr></tbody>
+    </table>
+    <div id="foot"><span id="msg"></span><button id="next" hidden>つぎ</button></div>
+  </div>
+  <div id="end" hidden>
+    <p id="score"></p>
+    <p>第204回国会の内閣提出法案で、政府の点検で見つかった誤りは合計181件でした。案文14件、参考資料167件です。</p>
+    <p>掲載ページには、こう書かれています。<br>「それ以前に掲載していた資料は、（略）一部誤りがありましたので、正誤表のとおり修正しております。」</p>
+    <p>いま掲載されている資料で3組を確かめると、正のほうの字が載っていました（着実、地縁、所見のある者）。誤のほうの字は、正誤表の右の欄で読めます。</p>
+    <small>出どころ：内閣官房・内閣府の「国会提出法案」に掲載の正誤表から、14組を選んで写しました（第204回13組、第221回1組）。全件ではなく、文は前後を切っています。181件は「法案誤り等再発防止プロジェクトチーム取りまとめ」（令和3年6月29日）の数です。<br>2026年11月2日に写しました。このページは元の資料の更新を追いません。
+    <br><a href="https://www.cas.go.jp/jp/seisaku/houan_ayamaribousi_pt/pdf/torimatome210629.pdf" rel="noopener">取りまとめ（PDF）</a> ／ <a href="https://www.cas.go.jp/jp/houan/" rel="noopener">内閣官房</a> ／ <a href="https://www.cao.go.jp/houan/" rel="noopener">内閣府</a></small>
+    <a class="back" href="../">← もどる</a>
+  </div>
+</main>
+<script>
+const ITEMS=[{"z": "二認可地縁団体の総会に出席しない構成員", "x": "二認可地緑団体の総会に出席しない構成員", "zd": [4, 5], "xd": [4, 5], "src": "デジタル社会の形成を図るための関係法律の整備に関する法律案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_3/seigo_digital_shakai.pdf"}, {"z": "委員の定数は、九人以上十二人以内において定款で定める。", "x": "委員の定数は、九人以上十二人以内において定款で定める", "zd": [26, 27], "xd": [26, 26], "src": "デジタル社会の形成を図るための関係法律の整備に関する法律案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_3/seigo_digital_shakai.pdf"}, {"z": "当該新感染症の所見のある者に対し", "x": "当該新感染症の所見がある者に対し", "zd": [9, 10], "xd": [9, 10], "src": "新型インフルエンザ等対策特別措置法等の一部を改正する法律案 新旧対照表の正誤", "url": "https://www.cas.go.jp/jp/houan/210122/siryou9.pdf", "note": "いま掲載の同じ新旧対照表を数えると、「所見のある者」は1か所、「所見がある者」は13か所あります（2026年11月2日）。"}, {"z": "海上保安庁長官に対する再審査の申請", "x": "海上保安長長官に対する再審査の申請", "zd": [4, 5], "xd": [4, 5], "src": "デジタル社会の形成を図るための関係法律の整備に関する法律案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_3/seigo_digital_shakai.pdf"}, {"z": "形成についての基本理念（二において「基本理念」という。）", "x": "形成についての基本理念（２において「基本理念」という。）", "zd": [12, 13], "xd": [12, 13], "src": "デジタル庁設置法案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_2/seigo_digital_chou.pdf"}, {"z": "この法律の施行の状況等について検討を加え、所要の措置", "x": "この法律の施行の状況等について検討を行い、所要の措置", "zd": [18, 20], "xd": [18, 20], "src": "公的給付の支給等の迅速かつ確実な実施のための預貯金口座の登録等に関する法律案要綱の正誤", "url": "https://www.cao.go.jp/houan/pdf/204/204seigo_3.pdf"}, {"z": "特許法（昭和三十四年法律第百二十一号）", "x": "特許法（昭和三十四年法律第二十一号）", "zd": [13, 14], "xd": [13, 13], "src": "デジタル社会の形成を図るための関係法律の整備に関する法律案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_3/seigo_digital_shakai.pdf"}, {"z": "預金保険法を適用し、所要の読替えを定めるものとすること。", "x": "預金保険法を適用し、所要の読替を定めるものとすること。", "zd": [15, 16], "xd": [15, 15], "src": "預貯金者の意思に基づく個人番号の利用による預貯金口座の管理等に関する法律案要綱の正誤", "url": "https://www.cao.go.jp/houan/pdf/204/204seigo_4.pdf"}, {"z": "一部を改正する法律（令和三年法律第五号）による改正後", "x": "一部を改正する法律（令和三年法律第　号）による改正後", "zd": [17, 18], "xd": [17, 18], "src": "デジタル庁設置法案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_2/seigo_digital_chou.pdf"}, {"z": "五の４の⑴のロの広域避難に関する協", "x": "六の４の⑴のロの広域避難に関する協", "zd": [0, 1], "xd": [0, 1], "src": "災害対策基本法等の一部を改正する法律案要綱の正誤", "url": "https://www.cao.go.jp/houan/pdf/204/204seigo_6.pdf"}, {"z": "厚生年金保険法（昭和二十九年法律第百十五号）", "x": "厚生年金保険法（昭和二十九年法律第百十五条）", "zd": [20, 21], "xd": [20, 21], "src": "デジタル社会の形成を図るための関係法律の整備に関する法律案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_3/seigo_digital_shakai.pdf"}, {"z": "産業競争力強化法等の一部を改正する等の法律（令和三年法律第　号）", "x": "産業競争力強化法等の一部を改正する法律（令和三年法律第　号）", "zd": [17, 19], "xd": [17, 17], "src": "デジタル庁設置法案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_2/seigo_digital_chou.pdf"}, {"z": "その是正が着実に図られなければならない。", "x": "その是正が積極的に図られなければならない。", "zd": [5, 7], "xd": [5, 8], "src": "デジタル庁設置法案の正誤", "url": "https://www.cas.go.jp/jp/houan/210209_2/seigo_digital_chou.pdf"}, {"z": "十四の二　原子力災害対策特別措置法（平成十一年法律第百五十六号）第二条第一号に規定する原子力災害（武力攻撃事態等における国民の保護のための措置に関する法律第百五条第七項第一号に規定する武力攻撃原子力災害を含む。）に対する対策（第九条の二及び第十六条の二第二項において「原子力防災」という。）に関すること。", "x": "十四の二　原子力災害対策特別措置法（平成十一年法律第百五十六号）第二条第一号に規定する原子力災害（武力攻撃事態等における国民の保護のための措置に関する法律第百五条第七項第一号に規定する武力攻撃原子力災害を含む。）に対する対策（第九条の二及び第十六条の二第二項において「原子力防災」という。）に関すること。", "uz": 152, "ux": 145, "src": "防災庁設置法の施行に伴う関係法律の整備等に関する法律案 新旧対照条文の正誤", "url": "https://www.cas.go.jp/jp/houan/260306/seigo.pdf"}];
+const $=id=>document.getElementById(id);
+let i=0,hit=0,zSide=0;
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function render(it,isZ,marked){
+  const t=isZ?it.z:it.x;
+  if(it.uz!==undefined){
+    const n=isZ?it.uz:it.ux;
+    return '<u>'+esc(t.slice(0,n))+'</u>'+esc(t.slice(n));
+  }
+  if(!marked) return esc(t);
+  const [a,b]=isZ?it.zd:it.xd;
+  const mid=a===b?'<span class="gap"></span>':'<span class="d">'+esc(t.slice(a,b))+'</span>';
+  return esc(t.slice(0,a))+mid+esc(t.slice(b));
+}
+function show(){
+  const it=ITEMS[i];
+  zSide=Math.random()<.5?0:1;
+  $('src').textContent=it.src;
+  $('h0').innerHTML=$('h1').innerHTML='&nbsp;';
+  [0,1].forEach(k=>{const b=$('b'+k);b.disabled=false;b.innerHTML=render(it,k===zSide,false)});
+  $('msg').textContent=(i+1)+' / '+ITEMS.length+'　正だと思うほうを押してください';
+  $('next').hidden=true;
+}
+function answer(k){
+  const it=ITEMS[i];
+  if($('b0').disabled) return;
+  const ok=k===zSide; if(ok) hit++;
+  $('h'+zSide).textContent='正'; $('h'+(1-zSide)).textContent='誤';
+  [0,1].forEach(j=>{const b=$('b'+j);b.disabled=true;b.innerHTML=render(it,j===zSide,true)});
+  const m=$('msg'); m.textContent='';
+  m.append(it.uz!==undefined?'字は同じです。傍線の終わりが違います。':'');
+  if(it.note) m.append(it.note,' ');
+  const a=document.createElement('a');a.href=it.url;a.rel='noopener';a.textContent='正誤表（PDF）';m.append(a);
+  $('next').hidden=false; $('next').focus();
+}
+$('b0').onclick=()=>answer(0); $('b1').onclick=()=>answer(1);
+$('next').onclick=()=>{i++; if(i<ITEMS.length) show(); else{
+  $('play').hidden=true;$('end').hidden=false;
+  $('score').textContent=ITEMS.length+'組のうち、正を押したのは'+hit+'組でした。この数は保存していません。';
+  scrollTo(0,0);
+}};
+show();
+</script>
+</body>
+</html>
