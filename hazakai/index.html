@@ -40,26 +40,37 @@ function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight
 addEventListener('resize',resize);resize();
 
 // はざかい＝閾際。入眠の閾（hypnagogia）は、静止して縁取るものでなく、
-// 通り抜けているあいだにだけ在る。研究が言うのは、その通過中こそが
-// 「直近の覚醒経験を、ゆるく結びついた記憶と綴じ合わせる」場だということ。
+// 通り抜けているあいだにだけ在る。閾で見る像は直近の経験をゆるく結びついた記憶と
+// 綴じる、と Lacaux et al. 2021（Science Advances）の序論は先行研究を引いて書く。
+// 同じ論文で測ったのは閾の中でなく休憩の後：隠れた規則を見つけたのは
+// N1まで 20/24、起きていた 15/49、N2まで 2/14。深く行くと消える。
 // だからこの盤は：止まっていると空白。指を動かしつづける（＝通過を模す）
 // あいだだけ、直近の跡が離れた跡と細い糸で綴じられ、像が立つ。
 // 止めた瞬間に flow は散り、糸は解け、盤は空白に戻る。
+// 担う式：judge() の P = 動かした秒 <15 ? .31 : <60 ? .83 : .14。止めた後に一本残るかをこれで引く。
+// 60 と、指の秒を眠りの段階に見立てることは作り手の決めたもので、論文には無い。
 // 丑三つ（不動の中心が濃くなる）の対——あちらは止まりが在り、こちらは通過だけが在る。
 
 let pts=[];               // 通り過ぎた跡 {x,y,t}
 let flow=0;               // 通過の勢い。動かすほど上がり、止めると散る
 let lastPos=null, lastMove=0;
 let capShown=false, hintFaded=false, everMoved=false;
+let deep=0, pair=null, kept=[], capText='止めれば、閾は無い';
+function judge(){
+  const P=deep<15?.31:deep<60?.83:.14;
+  if(pair&&Math.random()<P) kept.push(pair);
+  capText=deep<60?'止めれば、閾は無い':'渡りきると、糸は切れる';
+  deep=0; pair=null;
+}
 const MAXPTS=70;
 
 function moveTo(x,y,now){
   if(lastPos){
     const dx=x-lastPos.x, dy=y-lastPos.y;
     const d=Math.hypot(dx,dy);
-    // 速度で flow を汲む（速いほど深く綴じる、hypnagogia の 15秒／規則発見の相似）
+    // 速度で flow を汲む（論文の数ではない。ここに書いていた「速いほど深く綴じる」は論文と逆なので消した）
     flow=Math.min(1, flow + Math.min(0.22, d/260));
-    if(d>2){ pts.push({x,y,t:now}); if(pts.length>MAXPTS) pts.shift(); everMoved=true; }
+    if(d>2){ pts.push({x,y,t:now}); if(pts.length>MAXPTS) pts.shift(); everMoved=true; pair=[pts[0],pts[pts.length-1]]; }
   }
   lastPos={x,y}; lastMove=now;
 }
@@ -78,13 +89,15 @@ function loop(now){
 
   // 動きが途切れたら flow は一方的に散る（通過が止めば閾は消える）
   if(now-lastMove>90){ flow *= Math.exp(-dt*2.2); if(flow<0.004) flow=0; }
+  else if(flow>0) deep+=dt;
+  if(flow===0&&deep>0) judge();
 
   draw(now);
 
   if(!hintFaded && everMoved){ hint.style.color='rgba(255,255,255,0)'; hintFaded=true; }
   // 一度でも綴じたあと、止めて盤が空白に戻りきったら、初めてキャプションを灯す
   if(!capShown && everMoved && flow===0 && pts.length===0){
-    cap.textContent='止めれば、閾は無い';
+    cap.textContent=capText;
     cap.style.color='rgba(255,255,255,.5)'; capShown=true;
   }
   if(flow>0.05){ cap.style.color='rgba(255,255,255,0)'; capShown=false; }
@@ -93,6 +106,8 @@ function loop(now){
 
 function draw(now){
   g.clearRect(0,0,W,H);
+  g.strokeStyle='rgba(190,205,255,.28)'; g.lineWidth=0.6;
+  for(const[a,b]of kept){ g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke(); }
   if(flow<=0){ pts=[]; return; }   // 通過が無ければ盤は空白。跡ごと消える
 
   // 古い跡から順に薄れさせる（通過が止まると端から解ける）
@@ -103,12 +118,13 @@ function draw(now){
   const newest=pts[pts.length-1];
 
   // 綴じ：直近の点を、時間的に離れた古い跡と細い糸で結ぶ。
-  // 「直近の覚醒経験を、ゆるく結びついた記憶と綴じ合わせる」の相似。
+  // 上の序論の一文の相似。
   for(let i=0;i<pts.length-1;i++){
     const p=pts[i];
     const age=(now-p.t)/life;             // 0=新, 1=消える寸前
     const remote=Math.min(1,(newest.t-p.t)/1400); // 離れているほど綴じ対象
-    const a=flow*remote*(1-age)*0.5;
+    // 60秒を過ぎると10秒かけて綴じが消える。背骨と粒は残る
+    const a=flow*remote*(1-age)*0.5*Math.max(0,1-Math.max(0,deep-60)/10);
     if(a<0.02) continue;
     g.strokeStyle='rgba(150,180,255,'+a.toFixed(3)+')';
     g.lineWidth=0.6;
