@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>いちばんぼし</title>
+<style>
+body{margin:0;background:#10141f;color:#d9d6cc;font:16px/1.9 'Hiragino Mincho ProN','Yu Mincho',serif}
+main{max-width:34em;margin:auto;padding:3em 1.2em}
+h1{font-size:1em;font-weight:400;letter-spacing:.3em;opacity:.7}
+#n{font-size:2.6em;line-height:1.3;margin:.3em 0}
+small,#f{font-size:.82em;opacity:.72}
+ol{list-style:none;padding:0;margin:2em 0}
+li{display:flex;gap:1em;border-top:1px solid #2a3040;padding:.15em 0}
+li span:first-child{flex:0 0 8.5em;font-variant-numeric:tabular-nums}
+li span:last-child{margin-left:auto;opacity:.6}
+li.t{color:#ffe9b0}
+a{color:inherit}
+</style></head><body><main>
+<h1>いちばんぼし</h1>
+<!-- 「今日」と「これから1年」を担う式: evening(開いた日の日本時間0時＋i日) を i=0〜364 で毎回計算する。保存した表は無い -->
+<p id="d"></p><p id="n"></p><p id="w"></p>
+<small>晴れていれば、外で確かめられます。これは計算で、私は見ていません。</small>
+<ol id="y"></ol>
+<p id="c"></p>
+<div id="f">文京区の空を、街明かり16.5等/平方秒角（墨田区で2010〜11年に測られた値）と薄明の式（Patat ほか 2006、パラナル山の測定）で計算し、1等前後の星11個と惑星5つのどれが最初に肉眼の限界を越えるかを1分刻みで探しました。高さ5度より低い星は建物に隠れるものとして外しました（この5度は私が決めた線です）。月の明かり、雲、土星の環は入っていません。太陽が5度より上の薄明は式の範囲の外で、伸ばして使っています。これから1年では<span id="o"></span>夕がそれにあたります。星の表を5等までの1,630個（等級は0.1等刻み）に替えて回すと、2026年11月3日からの1年で18夕の一番星が入れ替わり、時刻の差は最大1分でした（2026年11月3日に回した値）。順番はそのくらいの差で決まっています。</div>
+<p><a href="../">もどる</a></p>
+</main>
+<script>
+const r=Math.PI/180,sn=Math.sin,cs=Math.cos,
+E={水星:[.38709927,.20563593,7.00497902,252.2503235,77.45779628,48.33076593,3.7e-7,1906e-8,-.00594749,149472.67411175,.16047689,-.12534081],金星:[.72333566,.00677672,3.39467605,181.9790995,131.60246718,76.67984255,39e-7,-4107e-8,-.0007889,58517.81538729,.00268329,-.27769418],地:[1.00000261,.01671123,-1531e-8,100.46457166,102.93768193,0,562e-8,-4392e-8,-.01294668,35999.37244981,.32327364,0],火星:[1.52371034,.0933941,1.84969142,-4.55343205,-23.94362959,49.55953891,1847e-8,7882e-8,-.00813131,19140.30268499,.44441088,-.29257343],木星:[5.202887,.04838624,1.30439695,34.39644051,14.72847983,100.47390909,-.00011607,-.00013253,-.00183714,3034.74612775,.21252668,.20469106],土星:[9.53667594,.05386179,2.48599187,49.95424423,92.59887831,113.66242448,-.0012506,-.00050991,.00193609,1222.49362201,-.41897216,-.28867794]},
+H={水星:i=>-.42+.038*i-.000273*i*i+2e-6*i*i*i,金星:i=>-4.4+.0009*i+.000239*i*i-6.5e-7*i*i*i,火星:i=>-1.52+.016*i,木星:i=>-9.4+.005*i,土星:()=>-8.88},
+// 赤経(度) 赤緯(度) 等級
+S=window.STARS||[["アルデバラン",68.98,16.51,.85],["カペラ",79.17,46,.08],["リゲル",78.63,-8.2,.12],["ベテルギウス",88.79,7.41,.5],["シリウス",101.29,-16.72,-1.46],["プロキオン",114.83,5.22,.38],["スピカ",201.3,-11.16,.98],["アークトゥルス",213.92,19.18,-.04],["アンタレス",247.35,-26.43,.96],["ベガ",279.23,38.78,.03],["アルタイル",297.7,8.87,.77]],
+MIN=window.MINALT??5,EPS=23.43928*r,toNL=v=>34.08*Math.exp(20.7233-.92104*v),toV=n=>(20.7233-Math.log(n/34.08))/.92104,nelm=v=>7.93-5*Math.log10(1+Math.pow(10,4.316-v/5)),SKY=toNL(window.SKYV||16.5);
+function hel(e,T){const v=i=>e[i]+e[i+6]*T,a=v(0),c=v(1),I=v(2)*r,w=v(4)*r,O=v(5)*r;let M=(v(3)-v(4))%360;if(M>180)M-=360;if(M<-180)M+=360;M*=r;let A=M+c*sn(M);for(let i=0;i<6;i++)A-=(A-c*sn(A)-M)/(1-c*cs(A));const x=a*(cs(A)-c),y=a*Math.sqrt(1-c*c)*sn(A),o=w-O,cw=cs(o),sw=sn(o),cO=cs(O),sO=sn(O),cI=cs(I),sI=sn(I);return[(cw*cO-sw*sO*cI)*x+(-sw*cO-cw*sO*cI)*y,(cw*sO+sw*cO*cI)*x+(-sw*sO+cw*cO*cI)*y,sw*sI*x+cw*sI*y]}
+const eq=(x,y,z)=>[x,y*cs(EPS)-z*sn(EPS),y*sn(EPS)+z*cs(EPS)],D=["北","北東","東","南東","南","南西","西","北西"];
+const stars=S.map(s=>({n:s[0],q:[cs(s[2]*r)*cs(s[1]*r),cs(s[2]*r)*sn(s[1]*r),sn(s[2]*r)],m:s[3]}));
+function evening(ms){ // ms = その日の日本時間0時。16時から1分ずつ、限界を越える最初の1個を探す
+ const t0=ms+16*36e5,T=(t0/864e5+2440587.5-2451545)/36525,g=hel(E.地,T),R=Math.hypot(...g),sun=eq(-g[0]/R,-g[1]/R,-g[2]/R);
+ const os=stars.concat(Object.keys(H).map(n=>{const h=hel(E[n],T),x=h[0]-g[0],y=h[1]-g[1],z=h[2]-g[2],l=Math.hypot(x,y,z),p=Math.hypot(...h);return{n,q:eq(x/l,y/l,z/l),m:H[n](Math.acos(Math.max(-1,Math.min(1,(p*p+l*l-R*R)/(2*p*l))))/r)+5*Math.log10(p*l)}}));
+ let f=null;const F=35.71*r,cF=cs(F),sF=sn(F);
+ for(let k=0;k<240;k++){const t=t0+k*6e4,d=t/864e5+2440587.5-2451545,L=(280.46061837+360.98564736629*d+139.75)%360*r,cL=cs(L),sL=sn(L),
+  up=q=>{const m=cL*q[0]+sL*q[1];return[-sL*q[0]+cL*q[1],-sF*m+cF*q[2],cF*m+sF*q[2]]},su=up(sun)[2];
+  if(su>=0)continue;
+  const x=-Math.asin(su)/r-5,tw=x>=10?0:toNL(x>=0?11.84+1.518*x-.057*x*x:11.84+1.518*x),lim=nelm(toV(SKY+tw));
+  let b=null,bm=0,c=0;
+  for(const o of os){const[e,no,u]=up(o.q);if(u<sn(MIN*r))continue;const mg=(lim-(o.m+.35*(Math.min(1/u,12)-1)))/.4+.5;if(mg>0&&(f||1)){if(mg>bm){if(b)c=b.n;bm=mg;b={n:o.n,t,alt:Math.asin(u)/r,az:Math.atan2(e,no)}}else c=c||o.n}}
+  if(b){if(f){f.next=b.n==f.n?c:b.n;if(f.next){f.gap=k-f.k;return f}}else{f=b;f.k=k;f.sunAlt=-x-5;if(c){f.next=c;f.gap=0;return f}}}
+ }
+ return null}
+const j=t=>new Date(t+9*36e5),md=t=>{const x=j(t);return(x.getUTCMonth()+1)+"/"+x.getUTCDate()},hm=t=>{const x=j(t);return x.getUTCHours()+"時"+String(x.getUTCMinutes()).padStart(2,"0")+"分"},
+today=Math.floor((Date.now()+9*36e5)/864e5)*864e5-9*36e5;
+const start=window.START||today,ev=[];for(let i=0;i<365;i++)ev.push(evening(start+i*864e5));
+window.EV=ev;
+const a=ev[0];
+document.getElementById("d").textContent=md(start)+"の夕方、東京でいちばん先に見える星は";
+document.getElementById("n").textContent=a.n;
+document.getElementById("w").textContent=hm(a.t)+"、"+D[Math.round(((a.az/r+360)%360)/45)%8]+"の空、高さ"+Math.round(a.alt)+"度。次は"+a.next+"、"+a.gap+"分後。";
+const runs=[];ev.forEach((o,i)=>{const l=runs[runs.length-1];if(l&&l.n==o.n)l.c++;else runs.push({n:o.n,i,c:1})});
+document.getElementById("y").innerHTML=runs.map(q=>`<li${q.i==0?' class=t':''}><span>${md(start+q.i*864e5)}〜${md(start+(q.i+q.c-1)*864e5)}</span><span>${q.n}</span><span>${q.c}夕</span></li>`).join("");
+document.getElementById("o").textContent=ev.filter(o=>o.sunAlt>-5).length;
+const cnt={};ev.forEach(o=>cnt[o.n]=(cnt[o.n]||0)+1);
+document.getElementById("c").textContent="次の星が1分以内に出る夕は、365夕のうち"+ev.filter(o=>o.gap<2).length+"。";
+</script></body></html>
