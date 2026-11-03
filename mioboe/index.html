@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>みおぼえ</title>
+<style>
+html{background:#16140f}
+body{margin:0 auto;max-width:34em;padding:2.2em 1.2em 46vh;color:#b5ac9b;font:16px/1.8 "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
+h1{font-size:1.1em;font-weight:400;margin:0 0 1em;color:#d8d0c0}
+.sub{margin:0 0 1.6em;font-size:.92em}
+ul{list-style:none;margin:0 0 2em;padding:0}
+li{margin:0}
+#l a{display:block;padding:.28em .5em;color:#b5ac9b;background:#16140f;text-decoration:none}
+#l a:visited{color:#f0c060;background:#32270f}
+#l a:focus-visible{outline:1px solid #d8d0c0}
+i{font-style:normal;font-size:.8em;margin-left:1em}
+#s p{display:none;position:fixed;left:0;right:0;bottom:0;margin:0;padding:1em max(1.2em,calc(50vw - 16em));max-height:40vh;overflow:auto;background:#221f18;color:#ece5d6;border-top:1px solid #4a4436}
+#s p:target{display:block}
+.c{display:block;margin-top:.5em;font-size:.75em;color:#b5ac9b}
+button{font:inherit;font-size:.92em;color:#d8d0c0;background:#221f18;border:1px solid #6b6454;padding:.35em .9em;cursor:pointer}
+#o{min-height:3.6em;font-size:.92em;margin:.7em 0 0}
+footer{font-size:.75em;margin-top:2em}
+footer a{color:inherit}
+</style></head><body>
+<h1>みおぼえ</h1>
+<!-- 担う式: 色を持っているのはこのページではなくブラウザの閲覧履歴（CSS の :visited）。この文書はどこにも記録しない（localStorage も cookie も通信も使わない）。下の「聞く」は getComputedStyle を実際に読むだけで、答えを書いてはいない。ブラウザは :visited の色をスクリプトに返さない -->
+<p class="sub">小説の名前を押すと、書き出しの一文が出ます。別の名前を押すと、前の一文は消えて、行の色だけが変わったまま残ります。</p>
+<p class="sub">この色はブラウザが覚えているもので、このページには読めません。何か開いてから、聞いてみてください。</p>
+<ul id="l">
+<li><a href="#w057228">怪人二十面相<i>江戸川乱歩</i></a></li>
+<li><a href="#w000462">風の又三郎<i>宮沢賢治</i></a></li>
+<li><a href="#w001465">蟹工船<i>小林多喜二</i></a></li>
+<li><a href="#w043737">銀河鉄道の夜<i>宮沢賢治</i></a></li>
+<li><a href="#w000776">草枕<i>夏目漱石</i></a></li>
+<li><a href="#w000092">蜘蛛の糸<i>芥川竜之介</i></a></li>
+<li><a href="#w000521">高野聖<i>泉鏡花</i></a></li>
+<li><a href="#w000773">こころ<i>夏目漱石</i></a></li>
+<li><a href="#w000628">ごん狐<i>新美南吉</i></a></li>
+<li><a href="#w000427">桜の樹の下には<i>梶井基次郎</i></a></li>
+<li><a href="#w042618">桜の森の満開の下<i>坂口安吾</i></a></li>
+<li><a href="#w000624">山月記<i>中島敦</i></a></li>
+<li><a href="#w000794">三四郎<i>夏目漱石</i></a></li>
+<li><a href="#w001565">斜陽<i>太宰治</i></a></li>
+<li><a href="#w056041">たけくらべ<i>樋口一葉</i></a></li>
+<li><a href="#w043754">注文の多い料理店<i>宮沢賢治</i></a></li>
+<li><a href="#w000637">手袋を買いに<i>新美南吉</i></a></li>
+<li><a href="#w000301">人間失格<i>太宰治</i></a></li>
+<li><a href="#w001567">走れメロス<i>太宰治</i></a></li>
+<li><a href="#w000042">鼻<i>芥川竜之介</i></a></li>
+<li><a href="#w000752">坊っちゃん<i>夏目漱石</i></a></li>
+<li><a href="#w058126">舞姫<i>森鴎外</i></a></li>
+<li><a href="#w000799">夢十夜<i>夏目漱石</i></a></li>
+<li><a href="#w001504">夜明け前<i>島崎藤村</i></a></li>
+<li><a href="#w000473">よだかの星<i>宮沢賢治</i></a></li>
+<li><a href="#w000127">羅生門<i>芥川竜之介</i></a></li>
+<li><a href="#w000424">檸檬<i>梶井基次郎</i></a></li>
+<li><a href="#w000789">吾輩は猫である<i>夏目漱石</i></a></li>
+</ul>
+<button id="b" type="button">このページに聞く</button>
+<p id="o" aria-live="polite"></p>
+<div id="s">
+<p id="w057228">そのころ、東京中の町という町、家という家では、ふたり以上の人が顔をあわせさえすれば、まるでお天気のあいさつでもするように、怪人「二十面相」のうわさをしていました。<a class="c" href="https://www.aozora.gr.jp/cards/001779/card57228.html" rel="noopener">図書カード</a></p>
+<p id="w000462">どっどど　どどうど　どどうど　どどう<a class="c" href="https://www.aozora.gr.jp/cards/000081/card462.html" rel="noopener">図書カード</a></p>
+<p id="w001465">「おい地獄さ行ぐんだで！」<a class="c" href="https://www.aozora.gr.jp/cards/000156/card1465.html" rel="noopener">図書カード</a></p>
+<p id="w043737">「ではみなさんは、そういうふうに川だと言われたり、乳の流れたあとだと言われたりしていた、このぼんやりと白いものがほんとうは何かご承知ですか」<a class="c" href="https://www.aozora.gr.jp/cards/000081/card43737.html" rel="noopener">図書カード</a></p>
+<p id="w000776">山路を登りながら、こう考えた。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card776.html" rel="noopener">図書カード</a></p>
+<p id="w000092">ある日の事でございます。<a class="c" href="https://www.aozora.gr.jp/cards/000879/card92.html" rel="noopener">図書カード</a></p>
+<p id="w000521">「参謀本部編纂の地図をまた繰開いて見るでもなかろう、と思ったけれども、余りの道じゃから、手を触るさえ暑くるしい、旅の法衣の袖をかかげて、表紙を附けた折本になってるのを引張り出した。<a class="c" href="https://www.aozora.gr.jp/cards/000050/card521.html" rel="noopener">図書カード</a></p>
+<p id="w000773">私はその人を常に先生と呼んでいた。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card773.html" rel="noopener">図書カード</a></p>
+<p id="w000628">これは、私が小さいときに、村の茂平というおじいさんからきいたお話です。<a class="c" href="https://www.aozora.gr.jp/cards/000121/card628.html" rel="noopener">図書カード</a></p>
+<p id="w000427">桜の樹の下には屍体が埋まっている！<a class="c" href="https://www.aozora.gr.jp/cards/000074/card427.html" rel="noopener">図書カード</a></p>
+<p id="w042618">桜の花が咲くと人々は酒をぶらさげたり団子をたべて花の下を歩いて絶景だの春ランマンだのと浮かれて陽気になりますが、これは嘘です。<a class="c" href="https://www.aozora.gr.jp/cards/001095/card42618.html" rel="noopener">図書カード</a></p>
+<p id="w000624">隴西の李徴は博学才穎、天宝の末年、若くして名を虎榜に連ね、ついで江南尉に補せられたが、性、狷介、自ら恃むところ頗る厚く、賤吏に甘んずるを潔しとしなかった。<a class="c" href="https://www.aozora.gr.jp/cards/000119/card624.html" rel="noopener">図書カード</a></p>
+<p id="w000794">うとうととして目がさめると女はいつのまにか、隣のじいさんと話を始めている。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card794.html" rel="noopener">図書カード</a></p>
+<p id="w001565">朝、食堂でスウプを一さじ、すっと吸ってお母さまが、「あ」と幽かな叫び声をお挙げになった。<a class="c" href="https://www.aozora.gr.jp/cards/000035/card1565.html" rel="noopener">図書カード</a></p>
+<p id="w056041">廻れば大門の見返り柳いと長けれど、お歯ぐろ溝に燈火うつる三階の騒ぎも手に取る如く、明けくれなしの車の行来にはかり知られぬ全盛をうらなひて、大音寺前と名は仏くさけれど、さりとは陽気の町と住みたる人の申き、……<a class="c" href="https://www.aozora.gr.jp/cards/000064/card56041.html" rel="noopener">図書カード</a></p>
+<p id="w043754">二人の若い紳士が、すっかりイギリスの兵隊のかたちをして、ぴかぴかする鉄砲をかついで、白熊のような犬を二疋つれて、だいぶ山奥の、木の葉のかさかさしたとこを、こんなことを云いながら、あるいておりました。<a class="c" href="https://www.aozora.gr.jp/cards/000081/card43754.html" rel="noopener">図書カード</a></p>
+<p id="w000637">寒い冬が北方から、狐の親子の棲んでいる森へもやって来ました。<a class="c" href="https://www.aozora.gr.jp/cards/000121/card637.html" rel="noopener">図書カード</a></p>
+<p id="w000301">私は、その男の写真を三葉、見たことがある。<a class="c" href="https://www.aozora.gr.jp/cards/000035/card301.html" rel="noopener">図書カード</a></p>
+<p id="w001567">メロスは激怒した。<a class="c" href="https://www.aozora.gr.jp/cards/000035/card1567.html" rel="noopener">図書カード</a></p>
+<p id="w000042">禅智内供の鼻と云えば、池の尾で知らない者はない。<a class="c" href="https://www.aozora.gr.jp/cards/000879/card42.html" rel="noopener">図書カード</a></p>
+<p id="w000752">親譲りの無鉄砲で小供の時から損ばかりしている。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card752.html" rel="noopener">図書カード</a></p>
+<p id="w058126">石炭をばはや積み果てつ。<a class="c" href="https://www.aozora.gr.jp/cards/000129/card58126.html" rel="noopener">図書カード</a></p>
+<p id="w000799">こんな夢を見た。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card799.html" rel="noopener">図書カード</a></p>
+<p id="w001504">木曾路はすべて山の中である。<a class="c" href="https://www.aozora.gr.jp/cards/000158/card1504.html" rel="noopener">図書カード</a></p>
+<p id="w000473">よだかは、実にみにくい鳥です。<a class="c" href="https://www.aozora.gr.jp/cards/000081/card473.html" rel="noopener">図書カード</a></p>
+<p id="w000127">ある日の暮方の事である。<a class="c" href="https://www.aozora.gr.jp/cards/000879/card127.html" rel="noopener">図書カード</a></p>
+<p id="w000424">えたいの知れない不吉な塊が私の心を始終圧えつけていた。<a class="c" href="https://www.aozora.gr.jp/cards/000074/card424.html" rel="noopener">図書カード</a></p>
+<p id="w000789">吾輩は猫である。<a class="c" href="https://www.aozora.gr.jp/cards/000148/card789.html" rel="noopener">図書カード</a></p>
+</div>
+<footer>本文は<a href="https://www.aozora.gr.jp/" rel="noopener">青空文庫</a>から写しました。ルビは外し、長い一文は途中までにしました（……）。28作。ブラウザの履歴を消すと、色も消えます。</footer>
+<script>
+document.getElementById('b').onclick=function(){
+  var a=document.querySelectorAll('#l a'),w=0,i;
+  for(i=0;i<a.length;i++) if(getComputedStyle(a[i]).color!=='rgb(181, 172, 155)') w++;
+  document.getElementById('o').textContent='このページがいま読めた色：開いた行の色 '+w+'行、開いていない行の色 '+(a.length-w)+'行。';
+};
+</script>
+</body></html>
