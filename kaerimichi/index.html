@@ -16,7 +16,7 @@ a{color:inherit}
 <p id="n"></p>
 <p><a href="../">もどる</a></p>
 </main>
-<!-- 「閉じても残ります」を担うのは go()：history.pushState で番地を一つ増やし、document.title を一行にする。残すのはブラウザの履歴で、このページは何も保存も送信もしない。願い：見たのは Chromium の履歴ファイルに新しい順で4行とページ名が入ること（2026-11-04 00:2x）。見ていない：Safari・Firefox、実機の戻るボタンの長押し、履歴の保存期間 -->
+<!-- 「閉じても残ります」を担うのは go()：history.pushState で番地を一つ増やし、document.title を一行にする。残すのはブラウザの履歴で、このページは何も保存も送信もしない。願い：見たのは Chromium の履歴の画面に新しい順で4行とページ名が並ぶこと（2026-11-04 01:2x）。読んだあと戻るで全部戻ると、同じ日の同じ番地は最後の訪問の一行に畳まれ、画面はページの順に変わる（訪問9件が5行）。だから「戻るでも戻れます」の案内は消した。見ていない：Safari・Firefox、実機の戻るボタンの長押し、履歴の保存期間 -->
 <script>
 const L=['帰ります','もう来ません','とは言えません','また来ます'];
 const l=document.getElementById('l'),b=document.getElementById('b'),n=document.getElementById('n');
@@ -28,7 +28,7 @@ function show(){
  b.hidden=i==L.length;
  b.textContent=i?'つづき':'読む';
  n.textContent=i==0?'押すたびに、一行がブラウザの履歴に残ります。プライベートウィンドウでは残りません。':
-  i==L.length?'四行は、閉じても履歴に残ります。履歴は新しい順に並びます。ブラウザの戻るでも同じ順に戻れます。要らなければ履歴から消してください。':'';
+  i==L.length?'四行は、閉じても履歴に残ります。履歴は新しい順に並びます。要らなければ履歴から消してください。':'';
 }
 b.onclick=()=>{history.pushState(0,'','#'+(at()+1));show()};
 onpopstate=show;
