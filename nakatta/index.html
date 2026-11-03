@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>なかった日</title>
+<style>
+html{background:#10131a}
+body{margin:0 auto;max-width:34em;padding:2.2em 1.2em 4em;color:#a9afba;font:16px/1.8 "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
+h1{font-size:1.1em;font-weight:400;margin:0 0 1em;color:#d9dde4}
+p{margin:0 0 1em;font-size:.92em}
+section{margin:2.4em 0}
+h2{font-size:1em;font-weight:400;margin:0;color:#d9dde4}
+.z{font:.72em/1.5 ui-monospace,Menlo,Consolas,monospace;margin:.2em 0 .7em;overflow-wrap:anywhere}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font:.8em/2.2 ui-monospace,Menlo,Consolas,monospace;text-align:center}
+.g i{font-style:normal;font-size:.8em;color:#6d7482}
+.g b{font-weight:400;background:#191d27}
+.g b.n{border:1px dashed #f0b35e;background:none;color:transparent}
+.g b.l{background:#3a2f1f;color:#f0b35e}
+.f{font-size:.82em;margin:.6em 0 0;color:#d9dde4}
+footer{font-size:.75em;margin-top:2em}
+footer a{color:inherit}
+</style></head><body>
+<h1>なかった日</h1>
+<p>このページに日付の表は入っていません。ブラウザが持っている時間帯の表に、1つずつ聞いて暦を描きます。</p>
+<!-- 担う式: 時間帯ごとに Intl.DateTimeFormat で時差を引き、1800〜2040年を30日おきに比べ、差が20時間以上の区間を二分探索する。日の長さは前後の時差と切り替わりの時刻から出す。 -->
+<p id="s" aria-live="polite"></p>
+<div id="o"></div>
+<p id="e" hidden></p>
+<p id="m" hidden>日の長さは、ブラウザの表の答えです。その土地で実際に何があったかの記録ではなく、なぜ動いたかは表に入っていません。暦は今の暦で描いています。1867年のアラスカは当時まだ別の暦でした。同じ瞬間に動いた時間帯が並ぶときは、最初の名前の暦です。</p>
+<footer>表のもと：<a href="https://www.iana.org/time-zones">IANA の時間帯データベース</a></footer>
+<script>
+const $=i=>document.getElementById(i),H=36e5,D=864e5,S=Date.UTC(1800,0,1),E=Date.UTC(2040,0,1),ST=30*D,zs=Intl.supportedValuesOf?Intl.supportedValuesOf("timeZone"):[],G=new Map;
+const fmt=z=>new Intl.DateTimeFormat("en-US",{timeZone:z,hourCycle:"h23",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",second:"numeric"});
+function off(f,t){const o={};for(const p of f.formatToParts(t))o[p.type]=+p.value;return Date.UTC(o.year,o.month-1,o.day,o.hour%24,o.minute,o.second)-t}
+function scan(z){const f=fmt(z);let a=off(f,S);for(let t=S+ST;t<E;t+=ST){const b=off(f,t);if(Math.abs(b-a)>=20*H){let l=t-ST,h=t;const x=off(f,l);while(h-l>1e3){const m=Math.floor((l+h)/2e3)*1e3;off(f,m)==x?l=m:h=m}
+const k=h+"|"+(b-x);if(G.has(k))G.get(k).z.push(z);else G.set(k,{t:h,a:x,b:off(f,h),z:[z]});draw()}a=b}}
+function len(g,d){const L=g.t+g.a,R=g.t+g.b,e=d+D;return Math.max(0,Math.min(e,L)-d)+Math.max(0,e-Math.max(d,R))}
+const hm=x=>{const n=Math.round(x/6e4);return Math.floor(n/60)+"時間"+(n%60?n%60+"分":"")};
+let zero=0,long=0;
+function draw(){zero=long=0;$("o").innerHTML=[...G.values()].sort((p,q)=>p.t-q.t).map(g=>{
+const v=new Date(g.t-1e3+g.a),Y=v.getUTCFullYear(),M=v.getUTCMonth(),n=new Date(Date.UTC(Y,M+1,0)).getUTCDate();
+let c="日月火水木金土".split("").map(w=>`<i>${w}</i>`).join("")+"<span></span>".repeat(new Date(Date.UTC(Y,M,1)).getUTCDay());const f=[];
+for(let i=1;i<=n;i++){const l=len(g,Date.UTC(Y,M,i));c+=`<b${l==0?' class="n"':l!=D?' class="l"':""}>${i}</b>`;if(l!=D){f.push(`${M+1}月${i}日は${hm(l)}`);l==0?zero++:l>D&&long++}}
+return`<section><h2>${Y}年${M+1}月</h2><div class="z">${g.z.join(" ")}</div><div class="g">${c}</div><div class="f">${f.join("、")}</div></section>`}).join("")}
+if(!zs.length)$("s").textContent="このブラウザは、時間帯の一覧を返しませんでした。";else{let i=0;(function run(){const s=performance.now();while(i<zs.length&&performance.now()-s<40)scan(zs[i++]);
+$("s").textContent=`聞いた時間帯 ${i} / ${zs.length}`;if(i<zs.length)return setTimeout(run);
+const me=Intl.DateTimeFormat().resolvedOptions().timeZone,inn=[...G.values()].some(g=>g.z.includes(me));
+$("e").textContent=`0時間の日、のべ ${zero}。24時間より長い日、のべ ${long}。このブラウザの時間帯（${me}）は、この中に${inn?"あります":"ありません"}。`;$("e").hidden=$("m").hidden=false})()}
+</script>
+</body></html>
