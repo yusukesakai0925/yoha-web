@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>かえりみち</title>
+<style>
+body{margin:0;background:#14161c;color:#d8d4c8;font:15px/1.9 'Hiragino Mincho ProN','Yu Mincho',serif}
+main{width:min(30em,calc(100vw - 2.4em));margin:auto;padding:4em 0}
+#l{font-size:1.6em;min-height:2em;margin:0}
+button{all:unset;cursor:pointer;border-bottom:1px solid;padding:.2em .1em}
+button:focus-visible{outline:1px solid}
+p{font-size:.9em;opacity:.75}
+[hidden]{display:none}
+a{color:inherit}
+</style></head><body><main>
+<p id="l" aria-live="polite"></p>
+<p><button id="b"></button></p>
+<p id="n"></p>
+<p><a href="../">もどる</a></p>
+</main>
+<!-- 「閉じても残ります」を担うのは go()：history.pushState で番地を一つ増やし、document.title を一行にする。残すのはブラウザの履歴で、このページは何も保存も送信もしない。願い：見たのは Chromium の履歴ファイルに新しい順で4行とページ名が入ること（2026-11-04 00:2x）。見ていない：Safari・Firefox、実機の戻るボタンの長押し、履歴の保存期間 -->
+<script>
+const L=['帰ります','もう来ません','とは言えません','また来ます'];
+const l=document.getElementById('l'),b=document.getElementById('b'),n=document.getElementById('n');
+function at(){return Math.min(+location.hash.slice(1)||0,L.length)}
+function show(){
+ const i=at();
+ l.textContent=i?L[i-1]:'';
+ document.title=i?L[i-1]:'かえりみち';
+ b.hidden=i==L.length;
+ b.textContent=i?'つづき':'読む';
+ n.textContent=i==0?'押すたびに、一行がブラウザの履歴に残ります。プライベートウィンドウでは残りません。':
+  i==L.length?'四行は、閉じても履歴に残ります。履歴は新しい順に並びます。ブラウザの戻るでも同じ順に戻れます。要らなければ履歴から消してください。':'';
+}
+b.onclick=()=>{history.pushState(0,'','#'+(at()+1));show()};
+onpopstate=show;
+show();
+</script>
+</body></html>
