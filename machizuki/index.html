@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>まちづき</title>
+<style>
+  html,body{margin:0;background:#0b0d14;color:#d8d6cc;font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
+  main{max-width:760px;margin:0 auto;padding:clamp(20px,5vh,48px) 14px 56px;box-sizing:border-box}
+  h1{font-size:1.25rem;font-weight:400;margin:0 0 .8em;letter-spacing:.1em}
+  p{font-size:.92rem;line-height:1.95;margin:0 0 .7em}
+  #now{color:#a9a79d;font-size:.86rem}
+  #len{font-size:1.5rem;margin:1.1em 0 .2em;min-height:1.5em}
+  #len small{font-size:.8rem;color:#8d8b82;margin-left:.6em}
+  .heads{display:grid;grid-template-columns:repeat(4,1fr);margin-left:44px;margin-top:1em;text-align:center}
+  .nm{display:block;height:3.4rem;position:relative;font-size:1.25rem}
+  .nm span{position:absolute;left:0;right:0;bottom:.3rem;transform-origin:50% 100%}
+  .tat span{transform:scaleY(1.45)}
+  .iru span{transform:scaleY(.6)}
+  .ner i{display:inline-block;font-style:normal;transform:rotate(-90deg)}
+  .fuk span{color:#77756d}
+  .cnt{font-size:.82rem;color:#a9a79d;font-variant-numeric:tabular-nums}
+  canvas{display:block;width:100%;height:min(66vh,560px);touch-action:none;cursor:ns-resize;outline:none}
+  #pick{min-height:3.8em;margin-top:.8em;font-size:.9rem}
+  .note{font-size:.78rem;line-height:1.9;color:#8d8b82;margin-top:1.6em}
+  a{color:inherit}
+</style>
+</head>
+<body>
+<main>
+<h1>まちづき</h1>
+<p>陰暦の十七日は立って、十八日は座って、十九日は寝て、二十日は夜が更けるまで待つ。月の名前はそう言っている。</p>
+<p id="now"></p>
+<!-- 線の動き: 線の長さ = (いま − 直近の日の入り)。tick() が毎分計算する。日が出ているあいだと6時間を超えたあとは 0。動かすと止まる。 -->
+<div id="len"></div>
+<div class="heads" id="heads"></div>
+<canvas id="c" tabindex="0" aria-label="日の入りから月の出までの長さ。上下の矢印で線を動かす"></canvas>
+<p id="pick">点を押すと、その夜が出ます。線は上下に動かせます。</p>
+<div class="note">
+<p>文京区の、2026年から2044年まで235回の月（19年でほぼ同じ並びに戻る長さ）。点はひとつの夜で、縦が日の入りから月の出までの長さ、各列の左が1月、右が12月。「日の入り」の線より上の点は、日の入りより先に月が出ています。</p>
+<p>すべてこのページの中の計算で、取得はしていません。新月を含む日（日本時間）を一日として数えています。計算の月の出は<a href="https://eco.mtk.nao.ac.jp/koyomi/dni/">国立天文台の東京の表</a>と3か月分85夜で比べ、1〜2分早く出ました。日の入りは同じ3か月分88夕で比べ、差は1分以内でした。山や建物は入っていません。名前の日付は資料によって1日ずれることがあり、ここでは<a href="https://news.mynavi.jp/article/20241002-3033317/">陰暦の17〜20日とする解説</a>によりました。</p>
+</div>
+</main>
+<script>
+const R=Math.PI/180,LAT=35.71*R,LON=139.75,J=9*3600,DAY=86400;
+const nm=x=>((x%360)+360)%360,s=x=>Math.sin(x*R),c=x=>Math.cos(x*R);
+function sky(t){
+  const d=t/86400+2440587.5-2451545,T=d/36525;
+  const Lp=nm(218.3164477+481267.88123421*T),D=nm(297.8501921+445267.1114034*T),M=nm(357.5291092+35999.0502909*T),Mp=nm(134.9633964+477198.8675055*T),F=nm(93.272095+483202.0175233*T);
+  const lm=Lp+6.288774*s(Mp)+1.274027*s(2*D-Mp)+.658314*s(2*D)+.213618*s(2*Mp)-.185116*s(M)-.114332*s(2*F)+.058793*s(2*D-2*Mp)+.057066*s(2*D-M-Mp)+.053322*s(2*D+Mp)+.045758*s(2*D-M)-.040923*s(M-Mp)-.03472*s(D)-.030383*s(M+Mp);
+  const bm=5.128122*s(F)+.280602*s(Mp+F)+.277693*s(Mp-F)+.173237*s(2*D-F)+.055413*s(2*D-Mp+F)+.046271*s(2*D-Mp-F);
+  const dist=385000.56-20905.355*c(Mp)-3699.111*c(2*D-Mp)-2955.968*c(2*D)-569.925*c(2*Mp);
+  const L0=nm(280.46646+36000.76983*T),ls=L0+(1.914602-.004817*T)*s(M)+.019993*s(2*M)+.000289*s(3*M),eps=23.439291-.0130042*T;
+  const eq=(l,b)=>[c(b)*c(l),c(eps)*c(b)*s(l)-s(eps)*s(b),s(eps)*c(b)*s(l)+c(eps)*s(b)];
+  const lst=nm(280.46061837+360.98564736629*d+LON)*R;
+  const up=v=>Math.cos(LAT)*(Math.cos(lst)*v[0]+Math.sin(lst)*v[1])+Math.sin(LAT)*v[2];
+  return {m:Math.asin(Math.max(-1,Math.min(1,up(eq(lm,bm))-6378.14/dist)))/R,s:Math.asin(up(eq(ls,0)))/R,el:nm(lm-ls)};
+}
+function cross(k,t0,t1,dir){
+  const th=-.833;let a=sky(t0)[k]-th;
+  for(let t=t0;t<t1;t+=300){
+    const b=sky(t+300)[k]-th;
+    if(a*b<=0&&a!==b&&(b>a)===(dir>0)){
+      let lo=t,hi=t+300;
+      for(let i=0;i<20;i++){const m=(lo+hi)/2;if((sky(m)[k]-th)*a<=0)hi=m;else lo=m}
+      return lo;
+    }
+    a=b;
+  }
+  return null;
+}
+function newMoons(y0,y1){
+  let t=Date.UTC(y0,0,1)/1e3,e=Date.UTC(y1,0,1)/1e3,p=sky(t).el;const r=[];
+  while(t<e){
+    const q=sky(t+3600).el;
+    if(p>300&&q<60){let lo=t,hi=t+3600;for(let i=0;i<20;i++){const m=(lo+hi)/2;if(sky(m).el>300)lo=m;else hi=m}r.push(lo)}
+    p=q;t+=3600;
+  }
+  return r;
+}
+const dayOf=t=>Math.floor((t+J)/DAY)*DAY-J;
+function night(day){
+  const ss=cross('s',day+12*3600,day+22*3600,-1),mr=cross('m',ss-6*3600,ss+18*3600,1);
+  return {day,ss,mr,w:Math.round((mr-ss)/60)};
+}
+const NAMES=[[17,'立待','tat'],[18,'居待','iru'],[19,'寝待','ner'],[20,'更待','fuk']];
+const moons=newMoons(2026,2045);
+const cols=NAMES.map(([k])=>moons.map(n=>night(dayOf(n)+(k-1)*DAY)));
+window._cols=cols;
+const jd=t=>new Date((t+J)*1e3);
+const hm=t=>{const d=jd(t);return d.getUTCHours()+':'+String(d.getUTCMinutes()).padStart(2,'0')};
+const ymd=t=>{const d=jd(t);return d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日'};
+const dur=w=>{const a=Math.abs(w),h=Math.floor(a/60),m=a%60;return (h?h+'時間':'')+(m||!h?m+'分':'')};
+const yr=t=>{const d=jd(t),y=d.getUTCFullYear();return (Date.UTC(y,d.getUTCMonth(),d.getUTCDate())-Date.UTC(y,0,1))/864e5/366};
+
+const heads=document.getElementById('heads'),cv=document.getElementById('c'),ctx=cv.getContext('2d'),lenEl=document.getElementById('len'),pick=document.getElementById('pick');
+heads.innerHTML=NAMES.map(n=>`<div><span class="nm ${n[2]}"><span>${n[2]==='ner'?[...n[1]].map(x=>`<i>${x}</i>`).join(''):n[1]}</span></span><span class="cnt" data-c></span></div>`).join('');
+const cnts=[...heads.querySelectorAll('[data-c]')];
+const YMIN=-30,YMAX=360,LM=44;
+let W=0,H=0,line=0,moved=false,sel=null;
+const yOf=w=>10+(w-YMIN)/(YMAX-YMIN)*(H-20),wOf=y=>Math.round((y-10)/(H-20)*(YMAX-YMIN)+YMIN);
+const xOf=(i,t)=>{const u=(W-LM)/4;return LM+u*i+u*(.1+.8*yr(t))};
+function draw(){
+  ctx.clearRect(0,0,W,H);ctx.font='11px serif';ctx.textBaseline='middle';
+  for(let h=0;h<=6;h++){const y=yOf(h*60);ctx.fillStyle=h?'rgba(216,214,204,.09)':'rgba(216,214,204,.4)';ctx.fillRect(LM,y,W-LM,1);ctx.fillStyle='#77756d';ctx.fillText(h?h+'時間':'日の入り',0,y)}
+  cols.forEach((col,i)=>{
+    let n=0;
+    col.forEach(p=>{
+      const on=p.w<=line;if(on)n++;
+      ctx.fillStyle=on?'#f1e6b8':'rgba(150,152,170,.32)';
+      ctx.beginPath();ctx.arc(xOf(i,p.ss),yOf(p.w),on?2.3:1.7,0,7);ctx.fill();
+    });
+    cnts[i].textContent=n+' / '+col.length;
+  });
+  if(sel){ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(xOf(sel.i,sel.p.ss),yOf(sel.p.w),6,0,7);ctx.stroke()}
+  const y=yOf(line);ctx.fillStyle='#f1e6b8';ctx.fillRect(LM,y,W-LM,1);
+  lenEl.innerHTML=(line<0?'日の入りの'+dur(line)+'前':line===0?'日の入りの時点':'日の入りから'+dur(line))+'<small>ここまでに月が出ていた夜</small>';
+}
+function size(){const r=cv.getBoundingClientRect(),q=devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*q;cv.height=H*q;ctx.setTransform(q,0,0,q,0,0);draw()}
+let down=null;
+const setLine=w=>{line=Math.max(YMIN,Math.min(YMAX,w));moved=true;draw()};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);down={y:e.offsetY,x:e.offsetX,drag:false}});
+cv.addEventListener('pointermove',e=>{if(!down)return;if(Math.abs(e.offsetY-down.y)>5)down.drag=true;if(down.drag)setLine(wOf(e.offsetY))});
+cv.addEventListener('pointerup',e=>{
+  if(down&&!down.drag){
+    let best=null,bd=196;
+    cols.forEach((col,i)=>col.forEach(p=>{const d=(xOf(i,p.ss)-e.offsetX)**2+(yOf(p.w)-e.offsetY)**2;if(d<bd){bd=d;best={i,p}}}));
+    if(best){sel=best;const p=best.p;pick.textContent=`${ymd(p.day)}（${NAMES[best.i][1]}）　日の入り ${hm(p.ss)}　月の出 ${hm(p.mr)}　${p.w<=0?'月が'+dur(p.w)+'先':dur(p.w)+'待つ'}`;draw()}
+    else setLine(wOf(e.offsetY));
+  }
+  down=null;
+});
+cv.addEventListener('keydown',e=>{if(e.key==='ArrowUp'){setLine(line-5);e.preventDefault()}if(e.key==='ArrowDown'){setLine(line+5);e.preventDefault()}});
+function tick(){
+  if(moved)return;
+  const now=Date.now()/1e3;let ss=cross('s',dayOf(now)+12*3600,dayOf(now)+22*3600,-1);
+  if(ss>now)ss=cross('s',dayOf(now)-DAY+12*3600,dayOf(now)-DAY+22*3600,-1);
+  const el=Math.floor((now-ss)/60),up=sky(now).s>-.833;
+  line=(up||el>YMAX)?0:el;draw();
+}
+function tonight(){
+  const now=Date.now()/1e3,today=dayOf(now),i=moons.findLastIndex(n=>dayOf(n)<=today),el=document.getElementById('now');
+  if(i<0||i>=moons.length-1){el.textContent='';return}
+  const k=(today-dayOf(moons[i]))/DAY+1,nt=night(today),nmd=NAMES.find(n=>n[0]===k);
+  let next=null;
+  for(let j=i;j<moons.length&&!next;j++)for(const n of NAMES){const t=dayOf(moons[j])+(n[0]-1)*DAY;if(t>today){next=[t,n[1]];break}}
+  el.textContent=`今日は陰暦の${k}日。日の入り ${hm(nt.ss)}、月の出 ${hm(nt.mr)}（${nt.w<=0?'月が'+dur(nt.w)+'先':dur(nt.w)+'あと'}）。`+(nmd?`今夜が${nmd[1]}です。`:next?`名前の付いた次の夜は ${ymd(next[0])}の${next[1]}。`:'');
+}
+tonight();addEventListener('resize',size);size();tick();setInterval(tick,6e4);
+</script>
+</body>
+</html>
