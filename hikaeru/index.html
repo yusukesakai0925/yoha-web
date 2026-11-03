@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ひかえる</title>
+<style>
+body{margin:0;background:#eef0f2;color:#23282e;font:16px/1.9 'Hiragino Mincho ProN','Yu Mincho',serif}
+main{max-width:34em;margin:auto;padding:3em 1.2em}
+h1{font-size:1em;font-weight:400;letter-spacing:.3em;opacity:.7}
+textarea{width:100%;box-sizing:border-box;height:5.6em;font:inherit;padding:.6em;background:#fff;border:1px solid #aab;border-radius:0}
+#o{font-size:1.25em;line-height:2.1;margin:1.2em 0;white-space:pre-wrap;overflow-wrap:anywhere}
+ins{text-decoration:none;color:#1d5a8c}
+.g{display:inline-block;border-bottom:1px solid #23282e;height:1.1em;vertical-align:baseline}
+dl{margin:1.5em 0}dt{margin-top:.7em}dd{margin:0;font-size:.9em;opacity:.8}
+small{display:block;font-size:.82em;opacity:.72;margin-top:2em}
+a{color:inherit}
+</style></head><body><main>
+<h1>ひかえる</h1>
+<p>空のことを一文、書いてください。気象庁が自分の発表文で使うのを控えている語を、直します。言い換えのある語は入れ替え、無い語は空けます。</p>
+<textarea id="t" aria-label="空のことを書く欄">当分はよい天気。夜半に雨もよう、明朝は花曇り。</textarea>
+<p id="o" aria-live="polite"></p>
+<dl id="l"></dl>
+<small>出どころは気象庁の<a href="https://www.jma.go.jp/jma/kishou/know/yougo_hp/mokuji.html">予報用語</a>（2026年11月3日に読んだ）。本文で×（使用を控える用語）の付いた語は131あり、→（言い換え）が付いていないのは29あります。ここで直すのは、ふだんの文に出そうな語を私が選んだ51の字面で、一致だけを見ています。言い換えが複数あるものは最初の一つを入れました。控えているのは気象庁の発表文で、ほかの人が使ってはいけないという表ではありません。</small>
+<small>この部屋の名前も表にありました。０時の前後それぞれ30分間くらいを合わせた１時間くらい。</small>
+<p><a href="../">もどる</a></p>
+</main>
+<script>
+const D={"w":[["当分","しばらく"],["夜半過ぎ","午前０時から午前２時頃まで"],["夜半前","夜遅く"],["夜更けて","夜遅く"],["夜間","夜"],["一晩中","夜通し"],["今晩","今夜"],["昨晩","××日の夜"],["昨夜","××日の夜"],["今夕","きょうの夕方"],["昨夕","きのうの夕方"],["夕刻","夕方"],["明朝","あすの朝"],["終日","一日中"],["夜明け前","明け方"],["一両日","きょうもあすも"],["昨日来","きのうから"],["曇天","曇り"],["雨天","雨の天気"],["荒天","荒れた天気"],["雨もよう","雨や曇り"],["雨があがる","雨がやむ"],["ゲリラ豪雨","局地的大雨"],["爆弾低気圧","急速に発達する低気圧"],["迷走台風","複雑な動きをする台風"],["入梅","梅雨入り"],["出梅","梅雨明け"],["桜前線","桜の開花日の等期日線"],["紅葉前線","カエデの紅葉日の等期日線"],["暑さがぶり返す","暑さが戻る"],["風が衰える","風が弱まる"],["山津波","土石流"],["洋上","海上"],["夜半",0],["花曇り",1],["さみだれ",1],["五月雨",1],["梅雨寒",1],["朝曇り",1],["かすみ",2],["地雨",3],["終雪",4],["豆台風",5],["よい天気",6],["好天",6],["悪い天気",7],["悪天",7],["晴れがち",8],["曇りがち",8],["模様の天気",9],["梅雨らしい",10]],"r":["日常的に使われることが少なくなっている用語なので用いない。","通俗的な用語のため予報、解説には用いない。","気象観測において定義がされていないので用いない。","一般的な用語でないので予報、解説には用いない。","「初雪」に相対する用語だがあまり一般的ではない。","風の強い領域が小さい台風の俗称。（中心付近では急に風が強まることがあり、かえって危険である）。","意味がいろいろに解釈され誤解をまねきやすいので用いない。少雨のときには、晴れよりも雨のほうがよい天気ともいえる。具体的な天気を明示する。","意味がいろいろに解釈され誤解をまねきやすいので用いない。干天のときには、雨よりも晴れのほうが悪い天気ともいえる。具体的な天気を明示する。","いいまわしが適当でないので用いない。","意味がいろいろに解釈され誤解をまねきやすいので用いない。具体的な天気を明示する。","いずれも意味が曖眛である。気温、降水量などを具体的に示して用いる。"]},
+M=new Map(D.w),
+X=new RegExp([...M.keys()].sort((a,b)=>b.length-a.length).join('|'),'g'),
+t=document.getElementById('t'),o=document.getElementById('o'),l=document.getElementById('l');
+function f(){
+ const s=t.value,seen=new Set;let i=0,m;
+ o.textContent='';l.textContent='';X.lastIndex=0;
+ while(m=X.exec(s)){
+  o.append(s.slice(i,m.index));i=m.index+m[0].length;
+  const v=M.get(m[0]);
+  if(typeof v=='string'){const e=document.createElement('ins');e.textContent=v;o.append(e)}
+  else{
+   const e=document.createElement('span');e.className='g';e.style.width=m[0].length+'em';e.setAttribute('aria-label','空き');o.append(e);
+   if(!seen.has(m[0])){seen.add(m[0]);const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=m[0];b.textContent=D.r[v];l.append(a,b)}
+  }
+ }
+ o.append(s.slice(i));
+}
+t.oninput=f;f();
+</script></body></html>
