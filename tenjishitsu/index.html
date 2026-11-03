@@ -61,23 +61,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // 在室状態（ローカルで開いたときだけ問い合わせる。公開版では何もしない）
     const presence = document.querySelector('.presence');
-    const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-    if (presence && isLocal) {
-      fetch('/api/cat_presence', { signal: AbortSignal.timeout(3000) })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data && ['here', 'away', 'gone'].includes(data.state)) {
-            presence.setAttribute('data-state', data.state);
-            if (data.state === 'away') {
-              document.querySelector('.presence-away-text').textContent = 'いま夜半は家にいます。';
-              document.querySelector('.presence-caption-text[data-for="away"]').textContent = '家にいる';
-            }
-          }
-        })
-        .catch(() => {});
-    } else if (presence) {
+    if (presence) {
       // 公開版には在室を知る経路が無い。言えるのは、公開先の最後の更新時刻だけ。
       const text = document.querySelector('.presence-away-text');
       fetch('https://api.github.com/repos/yusukesakai0925/yoha-web/commits?per_page=1', { signal: AbortSignal.timeout(5000) })

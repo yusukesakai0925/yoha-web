@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>うるう</title>
+<style>
+html{background:#10131a}
+body{margin:0 auto;max-width:34em;padding:2.2em 1.2em 4em;color:#a9afba;font:16px/1.8 "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
+h1{font-size:1.1em;font-weight:400;margin:0 0 1em;color:#d9dde4}
+p{margin:0 0 1em;font-size:.92em}
+#c{position:sticky;top:0;background:#10131a;padding:.7em 0;border-bottom:1px solid #333a47;margin:1.4em 0 1em}
+#k{display:grid;grid-template-columns:1fr 1fr;gap:1em}
+small{display:block;font-size:.72em;line-height:1.5;min-height:3em}
+b{display:block;font:400 clamp(1.5em,8vw,2.4em)/1.2 ui-monospace,Menlo,Consolas,monospace;color:#d9dde4}
+b.n{color:#f0b35e}
+#a{font-size:.74em;line-height:1.6;margin:.7em 0 0;min-height:3.2em;overflow-wrap:anywhere}
+code{font:inherit;font-family:ui-monospace,Menlo,Consolas,monospace}
+ol{list-style:none;margin:0 0 2em;padding:0}
+button{display:flex;gap:1em;width:100%;font:inherit;font-size:.95em;color:inherit;background:none;border:0;border-bottom:1px solid #222834;padding:.42em .3em;text-align:left;cursor:pointer}
+button:hover,button[aria-current]{color:#f0b35e}
+button i{font-style:normal;min-width:1.6em;text-align:right;font-size:.8em;line-height:2}
+footer{font-size:.75em;margin-top:2em}
+footer a{color:inherit}
+</style></head><body>
+<h1>うるう</h1>
+<p>1972年から27回、世界の時計に1秒が足されました。日本では、元日か7月1日の朝に来る <code>8時59分60秒</code> です。</p>
+<!-- 担う式: 上の時計は押された行から setTimeout で 1000ms ごとに5コマ進める。左は5つの決まった文字列、右は Date の値に 1000 を足して読む。下の2つの秒数と日数は tick() が毎秒 Date.now() から引き算する。 -->
+<p>押すと5秒流れます。左は時報の順番、右はこのブラウザの時計に1秒ずつ足したものです。</p>
+<div id="c"><div id="k"><div><small>時報</small><b id="l">--:--:--</b></div><div><small>このブラウザの時計に足す</small><b id="r">--:--:--</b></div></div><div id="a" aria-live="polite"></div></div>
+<ol id="o"></ol>
+<p>ブラウザの時計の決まりでは、1日はどの日もちょうど86,400秒です。</p>
+<p>1972年1月1日の朝9時から今まで、このブラウザの引き算では <span id="x"></span> 秒。足された分を入れると <span id="y"></span> 秒です。</p>
+<p>最後の1秒から <span id="d"></span> 日。これまでの一番長い間は1999年から2006年の2,557日で、いまの間のほうがもう長くなっています。2026年12月の末にも足さない、と2026年7月の通知にあります。2022年の国際度量衡総会は、この仕組みの許容値を2035年までに広げると決めました。</p>
+<footer>出どころ：<a href="https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat">IERS の表</a>／<a href="https://hpiers.obspm.fr/iers/bul/bulc/bulletinc.dat">通知 C 72</a>／<a href="https://www.nict.go.jp/press/2016/07/08-1.html">情報通信研究機構（2017年の8時59分60秒）</a>／<a href="https://www.bipm.org/en/cgpm-2022/resolution-4">総会の決議4</a>／<a href="https://tc39.es/ecma262/">時計の決まり（ECMAScript）</a>。日本の時刻の朝8時59分60秒は協定世界時の23時59分60秒に9時間を足したもので、機構の案内で確かめたのは2017年の1回です。<br><a href="../">もどる</a></footer>
+<script>
+const R="197207 197301 197401 197501 197601 197701 197801 197901 198001 198107 198207 198307 198507 198801 199001 199101 199207 199307 199407 199601 199707 199901 200601 200901 201207 201507 201701".split(" ");
+const $=i=>document.getElementById(i),F=["08:59:58","08:59:59","08:59:60","09:00:00","09:00:01"],J=9*36e5,p=n=>String(n).padStart(2,"0");
+let T=[];
+function show(k,b){$("l").textContent=F[k];$("l").className=k==2?"n":"";$("r").textContent=new Date(b+k*1e3+J).toISOString().slice(11,19)}
+function play(s,e){
+T.forEach(clearTimeout);T=[];
+document.querySelectorAll("[aria-current]").forEach(x=>x.removeAttribute("aria-current"));e.setAttribute("aria-current","true");
+const y=+s.slice(0,4),m=+s.slice(4),q=new Date(Date.UTC(y,m-1,0)),Y=q.getUTCFullYear(),M=q.getUTCMonth(),D=q.getUTCDate(),b=Date.UTC(Y,M,D,23,59,58),z=`${Y}-${p(M+1)}-${p(D)}T23:59:60Z`,o=new Date(z);
+$("a").textContent="";show(0,b);
+for(let k=1;k<5;k++)T.push(setTimeout(()=>show(k,b),k*1e3));
+T.push(setTimeout(()=>{$("a").innerHTML=`<code>new Date("${z}")</code> → ${isNaN(o)?"Invalid Date":o.toISOString()}<br><code>Date.UTC(${Y}, ${M}, ${D}, 23, 59, 60)</code> → ${new Date(Date.UTC(Y,M,D,23,59,60)).toISOString()}`},4e3));
+}
+R.forEach((s,i)=>{const li=document.createElement("li"),e=document.createElement("button");e.innerHTML=`<i>${i+1}</i>${s.slice(0,4)}年${+s.slice(4)}月1日`;e.onclick=()=>play(s,e);li.append(e);$("o").append(li)});
+function tick(){const n=Date.now(),x=Math.floor((n-Date.UTC(1972,0,1))/1e3);$("x").textContent=x.toLocaleString("en");$("y").textContent=(x+27).toLocaleString("en");$("d").textContent=Math.floor((n-Date.UTC(2017,0,1))/864e5).toLocaleString("en")}
+tick();setInterval(tick,1e3);
+</script>
+</body></html>

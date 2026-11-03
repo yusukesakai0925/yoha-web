@@ -38,30 +38,6 @@
     background:rgba(216,201,179,.55); z-index:9; pointer-events:none; display:none;
   }
 
-  #camera-btn {
-    position: fixed; right: 16px; bottom: 16px; z-index: 50;
-    width: 40px; height: 40px;
-    border: 1px solid rgba(216,201,179,0.25);
-    border-radius: 50%;
-    background: rgba(5,6,10,0.65);
-    color: #d8c9b3; font-size: 18px; line-height: 38px;
-    text-align: center; cursor: pointer;
-    backdrop-filter: blur(4px);
-    transition: transform 0.15s, background 0.15s;
-    padding: 0;
-  }
-  #camera-btn:hover { background: rgba(20,18,28,0.85); transform: scale(1.05); }
-  #camera-btn:active { transform: scale(0.95); }
-  #camera-btn.flash { background: rgba(216,201,179,0.9); color: #100815; }
-  #shot-toast {
-    position: fixed; right: 16px; bottom: 64px; z-index: 50;
-    padding: 6px 10px; font-size: 11px; border-radius: 4px;
-    background: rgba(5,6,10,0.85); color: #b0a070;
-    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-    opacity: 0; transition: opacity 0.3s; pointer-events: none;
-    max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  #shot-toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -82,7 +58,7 @@
   <div class="hint">
     PC: WASD 歩く・マウス 見回す・Shift 走る・Esc 止まる<br>
     スマホ/タブレット: ドラッグで歩く・片手で画面をなぞって見回す<br>
-    P 粒の大きさ　T 質感を切り替える　C 撮る<br>
+    P 粒の大きさ　T 質感を切り替える<br>
     防波堤の切れ目に、浜へつづく石段があります。
   </div>
 </div>
@@ -90,7 +66,6 @@
 <div id="enter">クリックして歩きはじめる</div>
 <div id="lock-msg">この環境ではマウスロックが使えません。ドラッグで視点移動できます</div>
 
-<div id="shot-toast"></div>
 
 <script type="importmap">
 {
@@ -794,7 +769,6 @@ addEventListener('keydown', e => {
     renderer.setPixelRatio(PIXEL_STEPS[pixelIdx]);
     renderer.setSize(innerWidth, innerHeight);
   }
-  if (e.code === 'KeyC') window.__shoot && window.__shoot('manual');
   if (e.code === 'KeyT' && !e.repeat) setTexMode(U.uTexMode.value + 1);
 });
 
@@ -879,55 +853,6 @@ function loop() {
 updateNear();
 loop();
 
-// ── スクリーンショット撮影 ─────────────────────────
-(() => {
-  const SCENE_NAME = 'ichishin';
-  const btn = document.getElementById('camera-btn');
-  const toast = document.getElementById('shot-toast');
-  if (!btn || !toast) return;
-  const showToast = (msg, ok = true) => {
-    toast.textContent = msg;
-    toast.style.color = ok ? '#9cccaa' : '#e09090';
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2400);
-  };
-  async function shoot(kind = 'manual') {
-    renderer.render(scene, camera);
-    const dataUrl = renderer.domElement.toDataURL('image/png');
-    try {
-      const r = await fetch('/api/screenshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scene: SCENE_NAME, dataUrl, kind })
-      });
-      if (!r.ok) throw new Error('no-api');
-      const j = await r.json();
-      if (j.ok) {
-        btn.classList.add('flash');
-        setTimeout(() => btn.classList.remove('flash'), 200);
-        showToast('📷 ' + j.path);
-      } else {
-        showToast('保存失敗: ' + (j.error || ''), false);
-      }
-    } catch (e) {
-      // 公開版には /api/screenshot が無い。手元に PNG として落とす
-      try {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = SCENE_NAME + '_' + Date.now() + '.png';
-        a.click();
-        showToast('📷 ダウンロードしました');
-      } catch (e2) {
-        showToast('保存失敗: ' + e2.message, false);
-      }
-    }
-  }
-  window.__shoot = shoot;
-  btn.addEventListener('click', () => shoot('manual'));
-  if (new URLSearchParams(location.search).get('auto_capture') === '1') {
-    setTimeout(() => shoot('scheduled'), 3500);
-  }
-})();
 </script>
 </body>
 </html>
