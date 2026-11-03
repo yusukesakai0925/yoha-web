@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>けいせん</title>
+<style>
+body{margin:0;background:#f4f1e8;color:#2c3a4a;font:15px/1.9 'Hiragino Mincho ProN','Yu Mincho',serif}
+main{width:min(640px,calc(100vw - 2.4em));margin:auto;padding:3em 0}
+#p{overflow:hidden;background:#fbf9f2;padding:28px 0}
+svg{display:block;width:640px;height:927px}
+text{font:20px sans-serif;fill:#4f6c8f;text-rendering:geometricPrecision}
+p{margin:1.5em 0 0;font-size:.9em;opacity:.75}
+a{color:inherit}
+@media print{@page{size:A4;margin:18mm}body{background:none}main{width:auto;padding:0}#p{background:none;padding:0}svg{width:174mm;height:252mm}text{fill:#5a7391}p{display:none}}
+</style></head><body><main>
+<div id="p"><svg viewBox="0 0 6400 9270" role="img" aria-label="便箋の罫線。一本ごとに一つの文が繰り返されている"></svg></div>
+<p>拡大できます。印刷すれば書けます。</p>
+<p><a href="../">もどる</a></p>
+</main>
+<script>
+const L=['ここに書いてください。','書ききれないときは、次の線に続けてください。','書くことがなければ、空けておいてください。','空けたままでも、この線は消えません。','字が小さいので、遠くからは線に見えます。','線の上に書いても、線は読めます。','粗く写すと、線だけになります。'],
+s=document.querySelector('svg');
+for(let i=0;i<33;i++){
+ const t=document.createElementNS('http://www.w3.org/2000/svg','text'),x=L[i%7];
+ t.setAttribute('y',280*i+190);
+ t.textContent=x.repeat(Math.ceil(400/x.length));
+ s.append(t);
+}
+</script>
+</body></html>
