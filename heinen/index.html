@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>へいねん</title>
+<style>
+html{background:#10131a}
+body{margin:0 auto;max-width:34em;padding:2.2em 1.2em 4em;color:#a9afba;font:16px/1.8 "Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif}
+h1{font-size:1.1em;font-weight:400;margin:0 0 1em;color:#d9dde4}
+p{margin:0 0 1em;font-size:.92em}
+#c{position:sticky;top:0;background:#10131a;padding:.7em 0;border-bottom:1px solid #333a47;margin:1.4em 0 1em;display:grid;grid-template-columns:1fr 1fr;gap:1em}
+small{display:block;font-size:.72em;line-height:1.5}
+b{display:block;font:400 clamp(1.5em,8vw,2.4em)/1.2 ui-monospace,Menlo,Consolas,monospace;color:#d9dde4}
+b.n{color:#f0b35e}
+ol{list-style:none;margin:0 0 1.2em;padding:0;columns:2;column-gap:2em;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em}
+li{display:flex;justify-content:space-between;border-bottom:1px solid #222834;break-inside:avoid;padding:.12em .2em}
+li.n span{color:#f0b35e}
+button{font:inherit;font-size:.95em;color:#d9dde4;background:none;border:1px solid #4a5364;padding:.45em 1.2em;margin:0 0 1.4em;cursor:pointer}
+button:hover{color:#f0b35e;border-color:#f0b35e}
+footer{font-size:.75em;margin-top:2em;overflow-wrap:anywhere}
+footer a{color:inherit}
+</style></head><body>
+<h1>へいねん</h1>
+<p>東京の平年の気温は、年平均で15.8℃です。統計の期間は1991〜2020年の30年と書かれています。</p>
+<p>同じ気象庁の表から、その30年の年平均気温を写して足し、30で割ると、16.5℃になります。</p>
+<div id="c"><div><small>平年（1991〜2020年）</small><b>15.8</b></div><div><small>下の30行を足して30で割る</small><b id="m">16.5</b></div></div>
+<ol id="o"></ol>
+<button id="g" type="button">西へ0.9km</button>
+<div id="t" hidden aria-live="polite">
+<p>2014年12月2日、東京の観測場所は西へ約0.9km、標高差19.1mの所に移りました。</p>
+<p>平年は、移る前の値に月ごとの補正を足してそろえてから作られています。東京の平均気温の補正は、11月の−1.2℃から3・4月の−0.6℃まで。30年のうち移る前の24年は、移った先の気温に直して数えられています。</p>
+<p>移ってからの2015〜2025年の11年で、15.8℃を下回った年はありません。2017年が同じ15.8℃で、ほかの10年は上です。</p>
+<p>黄色の数字は、年の値から補正の12か月の平均（−0.85℃、2014年は12月を除いて−0.76℃）を引いたものです。気象庁が出している値ではなく、足し算が合うかを見るためのものです。計算すると15.83で、小数第1位までの公式の値と合います。</p>
+</div>
+<footer>出どころ：気象庁 <a href="https://www.data.jma.go.jp/stats/etrn/view/annually_s.php?prec_no=44&block_no=47662">東京の年ごとの値</a>／<a href="https://www.data.jma.go.jp/stats/etrn/view/nml_sfc_ym.php?prec_no=44&block_no=47662">東京の平年値</a>／<a href="https://www.data.jma.go.jp/stats/data/mdrr/normal/index.html">2020年平年値と、均質化に用いた補正値</a>。<br><a href="../">もどる</a></footer>
+<script>
+const V="16.4 16 15.5 16.9 16.3 15.8 16.7 16.7 17 16.9 16.5 16.7 16 17.3 16.2 16.4 17 16.4 16.7 16.9 16.5 16.3 17.1 16.6 16.4 16.4 15.8 16.8 16.5 16.5".split(" ").map(Number);
+const $=i=>document.getElementById(i),C=y=>y<2014?.85:y==2014?.76:0,W=V.slice(),L=[];
+V.forEach((v,i)=>{const l=document.createElement("li");l.innerHTML=`${1991+i}<span>${v.toFixed(1)}</span>`;$("o").append(l);L.push(l)});
+function mean(){const x=W.reduce((a,b)=>a+b)/30;$("m").textContent=x.toFixed(1);$("m").className=x<16?"n":""}
+let moved=false,T=[];
+$("g").onclick=()=>{T.forEach(clearTimeout);T=[];moved=!moved;$("g").textContent=moved?"東へ0.9km":"西へ0.9km";
+for(let i=0;i<24;i++)T.push(setTimeout(()=>{W[i]=moved?V[i]-C(1991+i):V[i];L[i].className=moved?"n":"";L[i].lastChild.textContent=W[i].toFixed(1);mean()},(moved?i:23-i)*90));
+if(moved)T.push(setTimeout(()=>{$("t").hidden=false},2300));};
+</script>
+</body></html>
