@@ -63,12 +63,14 @@ const lv=document.getElementById('lv'), rv=document.getElementById('rv');
 const lc=document.getElementById('lc'), rc=document.getElementById('rc');
 const lctx=lc.getContext('2d'), rctx=rc.getContext('2d');
 
-// 決定論的な罅の線（Math.random を使わず、種から生成）
+// 決定論的な罅の線（Math.random を使わず、種から生成）。始点は足した字（.add）の矩形の中
 function lines(seed){
   const out=[]; let s=seed;
   const rnd=()=>{ s=(s*1103515245+12345)&0x7fffffff; return (s/0x7fffffff); };
+  const c=rc.getBoundingClientRect(), a=document.querySelector('#right .add').getBoundingClientRect();
+  const sx=270/c.width, sy=200/c.height;
   for(let i=0;i<7;i++){
-    const x=20+rnd()*230, y=20+rnd()*160;
+    const x=(a.left-c.left+rnd()*a.width)*sx, y=(a.top-c.top+rnd()*a.height)*sy;
     const segs=[[x,y]];
     let cx=x, cy=y;
     for(let j=0;j<4;j++){ cx+=(rnd()-0.5)*90; cy+=(rnd()-0.5)*70; segs.push([cx,cy]); }
@@ -76,7 +78,7 @@ function lines(seed){
   }
   return out;
 }
-const rlines=lines(48271);
+let rlines=[];
 
 function drawCracks(ctx, frac){ // frac 0..1 = 破れ具合
   ctx.clearRect(0,0,270,200);
@@ -95,6 +97,7 @@ function drawCracks(ctx, frac){ // frac 0..1 = 破れ具合
 
 function render(){
   const v=+slider.value/100; // 0=良い 1=読めなかった
+  rlines=lines(48271); // 折り返しで字の位置が動くので毎回測る
   // 左：削った約束。結果に関係なく履行。
   lv.textContent='履行'; lv.className='verdict ok';
   drawCracks(lctx,0);
