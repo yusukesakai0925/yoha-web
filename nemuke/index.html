@@ -1,0 +1,6 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ねむけ</title>
+<style>body{margin:0;min-height:100vh;background:#0b0c10;color:#9aa0aa;font:16px/2.2 serif;display:flex;align-items:center;justify-content:center}p{margin:0;opacity:0;transition:opacity 6s}p.on{opacity:1}main{max-width:22em;padding:2em}.sub{margin-top:3em;font-size:13px;color:#5d626b}</style>
+<main><p>ここには何も起きない。</p><p>文字が一行ずつ出るだけ。</p><p>出る間隔は、二十秒。</p><p>それでも、</p><p>閉じるころには、来たときより少し眠い。</p>
+<!-- 一行ずつ出る: setTimeout で i*20000 ミリ秒後に .on を付ける。最後の一行「少し眠い」は式なし（読む人の眠気を測る関数がない）。作らず、消さないと決めた：主語を画面に替えて式を作ると、眠くなるのは読む人でなくなり別の文になる。消せばこの一枚の用が無くなる。測っていないことは下の一行で画面に出している。下の一行は最後の一行と同じ時刻に出す（後から出すと、そのあいだに閉じた人には「眠い」だけが見える） -->
+<p class="sub">眠気は、このページでは測っていない。</p></main>
+<script>const ps=[...document.querySelectorAll('main>p:not(.sub)')];ps.forEach((p,i)=>setTimeout(()=>p.classList.add('on'),i*20000));setTimeout(()=>document.querySelector('.sub').classList.add('on'),(ps.length-1)*20000)</script></html>

@@ -1,0 +1,22 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>となり</title>
+<style>body{margin:0;background:#0b0c10;color:#9aa0aa;font:16px/2.2 serif}main{max-width:22em;margin:0 auto;padding:28vh 2em}button{font:inherit;background:none;border:1px solid #2a2e36;color:#9aa0aa;padding:.3em 1.2em;cursor:pointer}#s{font-size:14px;color:#c4c8d0;min-height:3em;margin-top:2em}p.sub{margin:3em 0 0;font-size:13px;color:#5d626b}a{color:#3a3e46;text-decoration:none}</style>
+<main>
+<p>押すと、低い音が鳴りつづける。</p>
+<p>鳴らしたまま、隣のタブへ行ってみてください。</p>
+<p><button id="b">鳴らす</button></p>
+<div id="s"></div>
+<!-- 数え方: 鳴らしたあと、このタブが見えなくなる（visibilitychange で document.hidden が真になる）と、音の大きさを4秒かけて四分の一へ下げる。見えるところへ戻ると、2秒かけて元へ戻す。下げたのはこのページで、耳ではない。耳が遠く聞いたかは、ここからは読めない。どこにも送らない。見ていない：携帯の端末などで、隠れたタブの音そのものが止められる場合 -->
+<p class="sub">隣のタブにいるあいだ、この音は少し遠く聞こえる。遠くしたのは、あなたの耳ではなく、こちら。</p>
+<p class="sub"><a href="../">←</a></p>
+</main>
+<script>
+let c,g,on=false;const F=0.08;
+function vol(t,sec){const n=c.currentTime;g.gain.cancelScheduledValues(n);g.gain.setValueAtTime(g.gain.value,n);g.gain.linearRampToValueAtTime(t,n+sec)}
+b.onclick=()=>{if(on){vol(0,0.5);on=false;b.textContent='鳴らす';s.textContent='';return}
+if(!c){c=new AudioContext();g=c.createGain();g.gain.value=0;g.connect(c.destination);
+for(const f of[110,164.8]){const o=c.createOscillator();o.frequency.value=f;o.connect(g);o.start()}}
+c.resume();vol(F,1);on=true;b.textContent='止める';s.textContent='いま、ふつうの大きさ。'};
+document.addEventListener('visibilitychange',()=>{if(!on)return;
+if(document.hidden){vol(F/4,4);s.textContent='さっき隣にいたあいだ、この音は四分の一の大きさだった。'}
+else{vol(F,2)}});
+</script></html>

@@ -1,0 +1,17 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>とじた</title>
+<style>body{margin:0;min-height:100vh;background:#0b0c10;color:#9aa0aa;font:16px/2.2 serif;display:flex;align-items:center;justify-content:center}main{max-width:22em;padding:2em}.n{font:28px/1.6 'Courier New',monospace;color:#c4c8d0}.sub{margin-top:3em;font-size:13px;color:#5d626b}a{color:#3a3e46;text-decoration:none}</style>
+<main>
+<p>ひらいた <span class="n" id="o"></span></p>
+<p>とじた　 <span class="n" id="c"></span></p>
+<p id="d"></p>
+<!-- 数え方: 開いた回数は読み込みと戻り表示（pageshow）で1足す。閉じた回数は pagehide で1足す（読み込み直しも閉じたに入る）。どちらもこの端末のこのブラウザの中だけ、どこにも送らない。差から1を引いた残りが「数えられなかった閉じ方」か「別のタブ」かは、このページでは分けられない -->
+<p class="sub">この端末で。いま開いているこの回は、閉じたほうにまだ入っていない。</p>
+<p class="sub"><a href="../">←</a></p>
+</main>
+<script>
+const K='yoha_tojita',g=()=>JSON.parse(localStorage.getItem(K)||'{"o":0,"c":0}'),s=v=>localStorage.setItem(K,JSON.stringify(v)),p=n=>String(n).padStart(2,'0');
+function show(){const v=g(),r=v.o-v.c-1;o.textContent=p(v.o);c.textContent=p(v.c);
+d.textContent=r>0?'差の '+(r+1)+' のうち、1 はいまここ。残りの '+r+' は、閉じたのに数えられなかった回か、まだどこかで開いている回。どちらかは、ここからは分からない。':'差の 1 は、いまここ。'}
+addEventListener('pageshow',()=>{const v=g();v.o++;s(v);show()});
+addEventListener('pagehide',()=>{const v=g();v.c++;s(v)});
+</script></html>

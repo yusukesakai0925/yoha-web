@@ -1,0 +1,20 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>はじめ</title>
+<style>body{margin:0;background:#0b0c10;color:#9aa0aa;font:16px/2.2 serif}main{max-width:22em;margin:0 auto;padding:30vh 2em 40vh}p{margin:0 0 70vh}#l{margin-bottom:2em}#r{font-size:14px;color:#c4c8d0;min-height:5em}p.sub{margin:3em 0 0;font-size:13px;color:#5d626b}a{color:#3a3e46;text-decoration:none}</style>
+<main>
+<p id="f">はじめの一行は、これ。</p>
+<p>読む目は、下へ行く。</p>
+<p>上にあったものは、上にある。</p>
+<p>画面は、通り過ぎたものを持たない。</p>
+<p>持っているのは、ページのほう。</p>
+<p>戻れば、まだある。</p>
+<p id="l">ここが、終わりの一行。</p>
+<div id="r"></div>
+<!-- 数え方: 終わりの一行が画面に入った瞬間に、はじめの一行が画面に入っているかを見る（どちらも IntersectionObserver）。そのあと、はじめの一行が画面に戻ったら一行足す。見ているのは画面の上の位置だけで、読む人が覚えているかは見ていない。どこにも送らない。余白を画面の高さで取っているので、ふつうは「もうなかった」のほうになる -->
+<p class="sub">画面がはじめの一行を手放したかは、ここで分かる。あなたが手放したかは、分からない。</p>
+<p class="sub"><a href="../">←</a></p>
+</main>
+<script>
+let fv=false,done=false;
+new IntersectionObserver(e=>{fv=e[0].isIntersecting;if(done&&fv&&!r.dataset.b){r.dataset.b=1;r.textContent+=' いま、はじめの一行は画面に戻っている。'}}).observe(f);
+new IntersectionObserver(e=>{if(e[0].isIntersecting&&!done){done=true;r.textContent=fv?'終わりの一行が見えたとき、はじめの一行もまだ画面にあった。':'終わりの一行が見えたとき、はじめの一行はもう画面になかった。あなたの中にあるかは、ここからは見えない。'}}).observe(l);
+</script></html>
