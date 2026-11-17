@@ -23,11 +23,15 @@
   }
   .gauge {
     position: fixed; left: 0; right: 0; top: 14px;
-    display: flex; justify-content: center; gap: 56px;
+    display: flex; justify-content: center; gap: 32px;
     color: #3a3f4a; font-size: 11px; letter-spacing: .14em; pointer-events: none;
     font-family: -apple-system, sans-serif;
   }
   .gauge b { color: #6a7080; font-weight: normal; }
+  @media (max-width: 600px) {
+    .gauge { top: 44px; gap: 0; justify-content: space-around; }
+    .gauge .sep { display: none; }
+  }
   .back {
     position: fixed; left: 16px; top: 14px;
     color: #3a3f4a; font-size: 12px; text-decoration: none;
@@ -53,7 +57,8 @@ const note = document.getElementById('note');
 const reveal = document.getElementById('reveal');
 const gauge = document.getElementById('gauge');
 let W, H;
-function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+let SC = 1;   // 群れの大きさ。幅が狭いと左右の群れが重なるので、中心の間隔に収まるまで縮める。
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; SC = Math.min(1, W*0.17/165); }
 resize(); addEventListener('resize', resize);
 
 // ── 今朝の問いを形にした一枚 ───────────────────────────────
@@ -72,8 +77,16 @@ resize(); addEventListener('resize', resize);
 // ────────────────────────────────────────────────────────
 
 let px=-1, py=-1, hasPointer=false, touched=false;
-addEventListener('pointermove', e=>{ px=e.clientX; py=e.clientY; hasPointer=true;
-  if(!touched){ touched=true; note.style.opacity=0; } });
+// 開いた直後に、手が動いていないのに位置だけの pointermove が一度届くことがある（座標は前と同じ・または左上の角）。
+// 最初の一回は位置を覚えるだけにして、位置が変わった回か、押した回から手を動かしたことにする。
+let seen=false;
+function hand(e){ px=e.clientX; py=e.clientY; hasPointer=true;
+  if(!touched){ touched=true; note.style.opacity=0; } }
+addEventListener('pointermove', e=>{
+  if(!seen){ seen=true; px=e.clientX; py=e.clientY; return; }
+  if(!hasPointer && e.clientX===px && e.clientY===py) return;
+  hand(e); });
+addEventListener('pointerdown', hand);
 addEventListener('pointerleave', ()=>{ hasPointer=false; });
 
 const N = 84;            // 各群れの粒数
@@ -94,7 +107,7 @@ function shapeOf(seed){
 // 粒 i の、その配置での目標座標（中心相対）。
 function targetOf(s, i){
   const a0 = (i / N) * TAU;
-  const r = 96 * (1 + s.amp * Math.sin(s.m * a0 + s.phase));
+  const r = 96 * SC * (1 + s.amp * Math.sin(s.m * a0 + s.phase));
   const a = a0 + s.rot;
   return { x: Math.cos(a) * r, y: Math.sin(a) * r * 0.72 };
 }
@@ -177,9 +190,9 @@ function tick(now){
 
   // ゲージ：熱は同値、形は片方だけ増える。
   gauge.innerHTML =
-    `左　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${A.forms}</b>` +
-    `　｜　` +
-    `右　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${B.forms}</b>`;
+    `<span>左　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${A.forms}</b></span>` +
+    `<span class="sep">｜</span>` +
+    `<span>右　熱 <b>${(heat*100).toFixed(0)}</b>　形 <b>${B.forms}</b></span>`;
 
   // 差が十分ついたら——熱では見分けられなかったものが、形の数で見える。
   const gap = Math.abs(B.forms - A.forms);

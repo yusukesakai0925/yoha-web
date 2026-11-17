@@ -7,9 +7,10 @@
 <style>
   html, body { margin: 0; height: 100%; background: #06080c; overflow: hidden;
     font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
-  #stage { position: fixed; inset: 0; display: flex; align-items: center;
-    justify-content: center; cursor: pointer; user-select: none; }
-  .val { color: #cfd8e4; font-weight: 200; line-height: 1.05; text-align: center;
+  /* 割合と割り算は同じ場所に重ねる。横に並べると、見えない割り算の幅だけ割合が左へ押される。 */
+  #stage { position: fixed; inset: 0; display: grid; place-items: center;
+    cursor: pointer; user-select: none; }
+  .val { grid-area: 1 / 1; color: #cfd8e4; font-weight: 200; line-height: 1.05; text-align: center;
     letter-spacing: -0.01em; }
   /* 割合のすがた。確信ありげに白く光る。 */
   .ratio { font-size: 24vmin; transition: color 1.6s, text-shadow 1.6s, opacity .5s; }

@@ -40,8 +40,9 @@
   .mirror { margin-top: 2px; padding: 0 24px; overflow: hidden;
     max-height: 0; opacity: 0; transition: max-height 1s ease, opacity 1.4s ease; }
   .mirror.flash { max-height: 120px; opacity: 1; }
-  .mirror .ref { transform: scaleY(-1); transform-origin: top; opacity: .5;
+  .mirror .ref { transform: scaleY(-1); transform-origin: center; opacity: .5;
     border-top: 1px solid #14171f; padding-top: 18px; }
+  .mirror .seen { font-size: 11px; color: #3f4452; letter-spacing: .06em; padding: 10px 0 4px; }
   .mirror .reftext { font-size: 13px; letter-spacing: .04em; line-height: 1.7; }
   .mirror.clean .reftext { color: #41624f; }     /* 線を引いた：鏡も同じことを映す */
   .mirror.blank .reftext { color: #7a3636; }      /* 引かなかった：鏡だけが、いま、それを言う */
@@ -88,6 +89,7 @@
 
   <div class="mirror" id="mirror">
     <div class="ref"><div class="reftext" id="reftext"></div></div>
+    <div class="seen">鏡が見たのは、欄に字があったかどうかだけである。</div>
   </div>
 
   <div class="ledger" id="ledgerWrap" style="display:none">
@@ -151,7 +153,8 @@
     // 鏡を一瞬だけ灯す。提出のいまにしか映らない。
     // 式なし（2026-11-15）：この分岐が知っているのは、出所の欄に字があったかどうかだけ。
     // 下の二つの「いまのあなたは〜」の後半（「それを見て」「無いと知っていて」）は、出した人が見たか・知っていたかを確かめていない。
-    // 作るか消すかはまだ決めていない。
+    // 作らず、消さないと決めた（同じ日の夕方）。見たか・知っていたかを測る形に言い直すと、捕まえるのが読む人自身でなく画面になり、自分を捕まえる鏡という役目が抜ける。消せば鏡が何も言わなくなる。
+    // 測っていないことは、鏡の下の一行で、鏡と同じ瞬間に画面に出す（同じ要素の中なので、灯るのも消えるのも同時）。
     if (drew) {
       mirror.classList.add('flash', 'clean');
       reftext.textContent = '鏡：線を引いて出した。' +
