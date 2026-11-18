@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>はば</title>
+<style>
+body{background:#111;color:#ccc;font:15px/1.7 serif;margin:0;padding:2em 1em;max-width:40em;margin:auto}
+.sub{color:#777;font-size:13px}
+.cols{display:flex;gap:1em;margin:1em 0}
+.col{flex:1;border:1px solid #444;padding:.6em;min-height:14em;font-family:monospace;font-size:13px}
+.col.k{flex:0 0 7.5em}
+.col h2{font:13px serif;color:#888;margin:0 0 .4em}
+.hit{color:#666;white-space:nowrap}
+.mk{color:#dc9;white-space:nowrap}
+button{background:#222;color:#ccc;border:1px solid #555;padding:.3em .8em;font:inherit;cursor:pointer;margin:.2em 0}
+input[type=range]{width:16em;vertical-align:middle;accent-color:#777}
+#sum{color:#9a9}
+</style></head><body>
+<h1 style="font-weight:normal;font-size:20px">はば</h1>
+<p class="sub">左の表に載っていない数だけを、右に残す。どれくらい近ければ「載っている」とするかは、つまみで決める。</p>
+<p>はば ±<span id="wv"></span> <input type="range" id="w" min="0" max="40" value="10"></p>
+<p id="sum"></p>
+<p><button id="a">表の数を1〜4ずらして、一つまぜる</button> <button id="b">表のどの数からも15以上離して、一つまぜる</button></p>
+<p class="sub" id="note"></p>
+<!-- 左は3桁の数だけなので幅を決めておく。flex:1 のままだと右の札の長さで左右の幅が毎回変わり、390幅では左が細く押されていた。 -->
+<div class="cols">
+ <div class="col k"><h2>載っている表</h2><div id="K"></div></div>
+ <div class="col"><h2>残ったもの</h2><div id="C"></div></div>
+</div>
+<script>
+// 照合は一行の式だけ：表のどれかとの差が はば 以下なら「載っている」として右から外す。
+// まぜた二つが右に残るかどうかで、はばが狭すぎるか広すぎるかが別々に見える。まぜなければ、どの はば でも見た目は同じ形の表。
+const R = n => Math.floor(Math.random()*n);
+// 表の8個は互いに違う数にする。同じ数が2つ入ると、表に同じ行が2つ並び、8個と書いた表が実は7個になる。
+const ks = new Set(); while (ks.size < 8) ks.add(100 + R(900));
+const known = [...ks].sort((x,y)=>x-y);
+// 右の24個は、表とちがって同じ数が重なるのを許す。照合にかける側の数は揃っていないのがふつうで、同じ数が二度来れば二度とも同じ判定になる。それが見えてよい。
+const pool = Array.from({length:24}, () => ({v:100 + R(900), mix:null}));
+function near(v,w){ return known.some(k => Math.abs(k-v) <= w); }
+function draw(){
+  const w = +document.getElementById("w").value; wv.textContent = w;
+  K.innerHTML = known.join("<br>");
+  const left = pool.filter(p => !near(p.v,w));
+  C.innerHTML = pool.map(p => {
+    const out = near(p.v,w), tag = p.mix ? `<span class="mk"> ← ${p.mix}</span>` : "";
+    return out ? (p.mix ? `<span class="hit">（外した ${p.v}）</span>${tag}` : "") : `${p.v}${tag}`;
+  }).filter(Boolean).join("<br>");
+  sum.textContent = `${pool.length}個のうち、残ったもの ${left.length}・外したもの ${pool.length-left.length}`;
+  const ma = pool.find(p=>p.mix==="1〜4ずらした"), mb = pool.find(p=>p.mix==="15以上離した");
+  const s = [];
+  if (ma) s.push(near(ma.v,w) ? "1〜4ずらした数は外れた。" : "1〜4ずらした数が残った：はばが狭すぎる。");
+  if (mb) s.push(near(mb.v,w) ? "15以上離した数まで外れた：はばが広すぎる。" : "15以上離した数は残った。");
+  note.textContent = s.join(" ");
+}
+// 同じボタンを押し直したら、前にまぜた同じ種類の一つは抜いてから入れる。残すと「一つまぜる」が二つ三つになり、下の判定は新しいほうしか読まないので、古いほうの札が判定と食い違って残る。
+function mix(v, kind){ const i = pool.findIndex(p => p.mix === kind); if (i >= 0) pool.splice(i,1); pool.unshift({v, mix:kind}); draw(); }
+// 1〜4ずらした数が、表の別の数とちょうど重なることがある。重なると はば 0 でも外れて「狭すぎる」が出ないので、どの数とも重ならないまで引き直す。
+a.onclick = () => { let v, t = 0;
+  do { const k = known[R(known.length)]; v = k + (R(2)?1:-1)*(1+R(4)); } while (++t < 200 && known.includes(v));
+  mix(v, "1〜4ずらした"); };
+// 200回の上限に届くことは、表がどう並んでも事実上ない。いちばん大きい数から上へ、いちばん小さい数から下へ離した数は、ほかのどの数とも15以上離れるので、1回で条件を満たす割合は少なくとも 20/160＝8分の1。200回すべて外れる割合は (7/8)^200、約 2.5×10^-12 以下。
+b.onclick = () => { let v, t = 0;
+  do { const k = known[R(known.length)]; v = k + (R(2)?1:-1)*(15+R(10)); } while (++t < 200 && known.some(k => Math.abs(k-v) < 15));
+  mix(v, "15以上離した"); };
+w.oninput = draw; draw();
+</script>
+</body></html>
