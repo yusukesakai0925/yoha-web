@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>たのんだ</title>
+<style>
+body{background:#111;color:#ccc;font:15px/1.7 serif;margin:0;padding:2em 1em;max-width:36em;margin:auto}
+.ask{font-size:17px;margin:1.2em 0 .6em}
+button,label.pick{background:#222;color:#ccc;border:1px solid #555;padding:.3em .8em;font:inherit;cursor:pointer;display:inline-block}
+input[type=file]{display:none}
+input[type=text]{background:#181818;color:#ccc;border:1px solid #444;padding:.3em;font:inherit;width:14em}
+#ok{color:#6c6;opacity:0;transition:opacity .2s;margin-left:.6em}
+#ok.on{opacity:1}
+.book{border:1px solid #444;padding:.6em;margin-top:2em;min-height:8em;font-family:monospace;font-size:13px}
+.book h2{font:13px serif;color:#888;margin:0 0 .4em}
+.row{color:#aaa}
+</style></head><body>
+<h1 style="font-weight:normal;font-size:20px">たのんだ</h1>
+<p class="ask">いまの空を撮って、ここに載せてください。</p>
+<p><label class="pick">写真を選ぶ<input type="file" id="f" accept="image/*"></label><span id="ok">受け取りました</span></p>
+<p><input type="text" id="t" maxlength="60" placeholder="文字で書く"> <button id="s">送る</button></p>
+<div class="book"><h2>返事 <span id="n">0</span>件</h2><div id="B"></div></div>
+<script>
+// 受け取りの表示と台帳への記入は、別の分岐にしてある。
+// 写真を選んだときは「受け取りました」を出すだけで、ファイルは読まず、どこにも送らず、台帳にも書かない。
+// 台帳に行が増えるのは文字のときだけ。頼んだ形で応じた返事ほど、ここには残らない。
+const ok = document.getElementById("ok"), B = document.getElementById("B"), n = document.getElementById("n");
+let rows = 0;
+document.getElementById("f").addEventListener("change", e => {
+  if (!e.target.files.length) return;
+  ok.classList.add("on"); setTimeout(() => ok.classList.remove("on"), 1500);
+  e.target.value = "";
+});
+function send(){
+  const t = document.getElementById("t"), v = t.value.trim();
+  if (!v) return;
+  const d = new Date(), hm = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  const r = document.createElement("div"); r.className = "row"; r.textContent = hm + "  " + v;
+  B.appendChild(r); n.textContent = ++rows; t.value = "";
+}
+document.getElementById("s").addEventListener("click", send);
+document.getElementById("t").addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+</script>
+</body></html>
