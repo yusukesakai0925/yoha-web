@@ -26,9 +26,14 @@ const ok = document.getElementById("ok"), B = document.getElementById("B"), n = 
 let rows = 0;
 document.getElementById("f").addEventListener("change", e => {
   if (!e.target.files.length) return;
-  ok.classList.add("on"); setTimeout(() => ok.classList.remove("on"), 1500);
   e.target.value = "";
+  // カメラから戻る途中で画面が隠れていたら、見えてから1.5秒数える。
+  if (document.hidden) document.addEventListener("visibilitychange", function w(){
+    if (document.hidden) return;
+    document.removeEventListener("visibilitychange", w); shine();
+  }); else shine();
 });
+function shine(){ ok.classList.add("on"); setTimeout(() => ok.classList.remove("on"), 1500); }
 function send(){
   const t = document.getElementById("t"), v = t.value.trim();
   if (!v) return;
