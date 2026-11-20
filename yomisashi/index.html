@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>よみさし</title>
+<style>
+body{background:#111;color:#ccc;font:15px/1.7 serif;margin:0;padding:2em 1em;max-width:36em;margin:auto}
+pre{font:13px/1.8 monospace;margin:1.5em 0 0;white-space:pre-wrap}
+.l{display:block;color:#aaa}
+.last{color:#ddd;font-weight:bold}
+.last::after{content:"  ← 最新";color:#c96;font-weight:normal}
+#end{font:11px monospace;color:#555;margin-top:.8em;min-height:1.2em;cursor:pointer;text-decoration:underline dotted #444;text-underline-offset:3px;user-select:none;-webkit-user-select:none}
+</style></head><body>
+<h1 style="font-weight:normal;font-size:20px">よみさし</h1>
+<pre id="P"></pre>
+<div id="end"></div>
+<script>
+// 記録は最後まで全部ある。読む関数 read() が、見えない一字（\0）に当たったところで読むのをやめるだけ。
+// 「最新」の札は、記録の最後の行ではなく、read() が止まる手前の行に付く。
+// 止まったとき、読む側は「ここで終わり」とは言わない。一致したとだけ短く言う。その一言を押すと、\0 を飛ばして読み直し、続きが流れ、札が動く。
+const log = [
+  "08:02  受信  文字  1件","08:17  受信  文字  1件","09:40  受信  文字  2件","10:05  受信  文字  1件",
+  "11:31  受信  文字  1件","12:48  受信  文字  1件","13:12  受信  文字  3件","14:26  受信  文字  1件",
+  "15:03  受\0信  文字  1件",
+  "16:55  受信  文字  1件","18:20  受信  文字  2件","19:16  受信  文字  4件","20:48  受信  文字  1件",
+  "21:30  受信  文字  1件","22:07  受信  文字  1件","23:59  受信  文字  1件"
+].join("\n");
+// C の文字列と同じく、\0 を終わりの印として読む。all のときは \0 を飛ばして最後まで読む。
+function read(s, all){
+  if (all) return s.replace(/\0/g, "");
+  const i = s.indexOf("\0"); return i < 0 ? s : s.slice(0, s.lastIndexOf("\n", i) + 1);
+}
+const P = document.getElementById("P"), E = document.getElementById("end");
+function flow(lines, done){
+  let k = 0;
+  const tick = setInterval(() => {
+    if (k < lines.length) { const d = document.createElement("span"); d.className = "l"; d.textContent = lines[k++]; P.appendChild(d); return; }
+    clearInterval(tick);
+    const old = P.querySelector(".last"); old && old.classList.remove("last");
+    P.lastChild && P.lastChild.classList.add("last");
+    done();
+  }, 700);
+}
+const seen = read(log, false).split("\n").filter(Boolean);
+flow(seen, () => {
+  E.textContent = "binary file matches";
+  E.addEventListener("click", () => {
+    E.textContent = "";
+    flow(read(log, true).split("\n").filter(Boolean).slice(seen.length), () => {});
+  }, { once: true });
+});
+</script>
+</body></html>
